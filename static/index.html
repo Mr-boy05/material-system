@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>城治学生会物资管理系统</title>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; background:#f5f7fa; min-height:100vh; display:flex; }
+
+        /* 左侧导航 */
+        .sidebar { width:220px; background:linear-gradient(180deg,#1a1a2e 0%,#16213e 100%); color:white; min-height:100vh; display:flex; flex-direction:column; position:fixed; left:0; top:0; }
+        .sidebar .logo { padding:16px 16px; font-size:14px; font-weight:700; border-bottom:1px solid rgba(255,255,255,0.1); display:flex; flex-direction:column; align-items:center; gap:8px; }
+        .sidebar .logo img { width:100%; height:auto; max-height:50px; object-fit:contain; }
+        .sidebar .nav { flex:1; padding:12px 0; }
+        .sidebar .nav-item { padding:12px 20px; cursor:pointer; font-size:14px; display:flex; align-items:center; gap:10px; transition:all 0.2s; color:rgba(255,255,255,0.7); border-left:3px solid transparent; }
+        .sidebar .nav-item:hover { background:rgba(255,255,255,0.08); color:white; }
+        .sidebar .nav-item.active { background:rgba(102,126,234,0.2); color:white; border-left-color:#667eea; }
+        .sidebar .nav-item .icon { font-size:18px; width:22px; text-align:center; }
+        .sidebar .user-box { padding:16px 20px; border-top:1px solid rgba(255,255,255,0.1); }
+        .sidebar .user-box .name { font-size:14px; font-weight:600; }
+        .sidebar .user-box .role { font-size:11px; color:rgba(255,255,255,0.5); margin-top:2px; }
+        .sidebar .user-box .logout { margin-top:10px; width:100%; padding:8px; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); color:white; border-radius:6px; cursor:pointer; font-size:12px; }
+        .sidebar .user-box .logout:hover { background:rgba(255,255,255,0.2); }
+
+        /* 右侧内容 */
+        .main { flex:1; margin-left:220px; padding:24px 28px; min-width:0; }
+        .page { display:none; }
+        .page.active { display:block; }
+        .page-title { font-size:20px; font-weight:700; color:#333; margin-bottom:18px; }
+
+        /* 筛选栏 */
+        .filter-bar { background:white; border-radius:10px; padding:14px 16px; margin-bottom:14px; box-shadow:0 1px 6px rgba(0,0,0,0.04); display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+        .filter-bar input, .filter-bar select { padding:8px 12px; border:2px solid #e8e8e8; border-radius:8px; font-size:13px; }
+        .filter-bar input:focus, .filter-bar select:focus { outline:none; border-color:#667eea; }
+        .filter-bar .filter-label { font-size:13px; color:#666; }
+        .filter-bar .btn-reset { padding:8px 16px; background:#f0f0f0; border:none; border-radius:8px; cursor:pointer; font-size:13px; color:#666; }
+
+        .toolbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+        .btn { padding:9px 18px; border-radius:8px; cursor:pointer; font-size:13px; border:none; transition:all 0.2s; }
+        .btn-primary { background:#667eea; color:white; }
+        .btn-primary:hover { background:#5568d3; }
+        .btn-danger { background:#ef5350; color:white; }
+        .btn-danger:hover { background:#e53935; }
+        .btn-sm { padding:5px 12px; font-size:12px; }
+
+        table { width:100%; background:white; border-radius:12px; overflow:hidden; box-shadow:0 2px 12px rgba(0,0,0,0.06); border-collapse:collapse; }
+        th { background:#f8f9fc; color:#666; padding:12px; text-align:left; font-size:12px; font-weight:600; border-bottom:2px solid #eee; }
+        td { padding:11px 12px; border-bottom:1px solid #f0f0f0; font-size:13px; color:#333; vertical-align:middle; }
+        tr:hover { background:#fafbff; }
+        .mat-img { width:44px; height:44px; border-radius:6px; object-fit:cover; background:#eee; }
+        .mat-img-ph { width:44px; height:44px; border-radius:6px; background:#e8eaf6; display:flex; align-items:center; justify-content:center; font-size:20px; }
+        .stock-badge { display:inline-block; padding:3px 10px; border-radius:10px; font-size:11px; font-weight:600; }
+        .stock-ok { background:#e8f5e9; color:#2e7d32; }
+        .stock-low { background:#fff3e0; color:#e65100; }
+        .stock-out { background:#ffebee; color:#c62828; }
+        .status-active { background:#fff3e0; color:#e65100; padding:3px 10px; border-radius:10px; font-size:11px; }
+        .status-completed { background:#e8f5e9; color:#2e7d32; padding:3px 10px; border-radius:10px; font-size:11px; }
+        .user-with-role { font-size:13px; }
+        .user-with-role .role-tag { font-size:10px; background:#667eea; color:white; padding:1px 6px; border-radius:4px; margin-left:4px; }
+        .empty { text-align:center; padding:40px; color:#999; }
+
+        /* 表单卡片 */
+        .form-card { background:white; border-radius:12px; padding:24px; box-shadow:0 2px 12px rgba(0,0,0,0.05); max-width:620px; }
+        .form-group { margin-bottom:14px; }
+        .form-group label { display:block; color:#555; margin-bottom:6px; font-size:13px; }
+        .form-group label .req { color:#e74c3c; }
+        .form-group input, .form-group select, .form-group textarea { width:100%; padding:10px 12px; border:2px solid #e8e8e8; border-radius:8px; font-size:14px; }
+        .form-group input:focus, .form-group select:focus { outline:none; border-color:#667eea; }
+        .form-group input[readonly] { background:#f5f5f5; color:#666; }
+        .upload-area { border:2px dashed #ccc; border-radius:8px; padding:18px; text-align:center; cursor:pointer; color:#999; font-size:13px; }
+        .upload-area:hover { border-color:#667eea; color:#667eea; }
+        .upload-preview { max-width:100%; max-height:140px; border-radius:8px; margin-top:10px; }
+        .record-img { width:38px; height:38px; border-radius:5px; object-fit:cover; margin-right:4px; }
+
+        /* 弹窗 */
+        .modal-mask { display:none; position:fixed; top:0;left:0;right:0;bottom:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center; }
+        .modal { background:white; border-radius:14px; padding:24px; width:480px; max-width:90%; max-height:90vh; overflow-y:auto; }
+        .modal h3 { margin-bottom:16px; color:#333; font-size:17px; }
+        .modal-actions { display:flex; gap:10px; margin-top:18px; }
+        .btn-cancel { flex:1; padding:11px; background:#f0f0f0; border:none; border-radius:8px; cursor:pointer; font-size:13px; }
+        .btn-submit { flex:1; padding:11px; background:#667eea; color:white; border:none; border-radius:8px; cursor:pointer; font-size:13px; }
+        .qr-modal .qr-box { text-align:center; padding:14px; }
+        .qr-modal #qrcode { display:inline-block; padding:14px; background:white; }
+        .qr-modal .qr-code-text { margin-top:8px; font-size:13px; color:#666; font-family:monospace; }
+        .qr-modal .qr-name { font-size:17px; font-weight:600; margin-bottom:8px; color:#333; }
+
+        .toast { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(0,0,0,0.8); color:white; padding:12px 24px; border-radius:8px; font-size:14px; z-index:9999; display:none; }
+
+        /* 底部版权 */
+        .footer { text-align:center; padding:20px; color:#999; font-size:12px; line-height:1.8; margin-top:20px; }
+        .footer .version { color:#667eea; cursor:pointer; }
+        .footer .version:hover { text-decoration:underline; }
+
+        /* 侧边栏版本号 */
+        .sidebar-version { padding:12px 20px; border-top:1px solid rgba(255,255,255,0.1); text-align:center; cursor:pointer; }
+        .sidebar-version .ver { font-size:12px; color:rgba(255,255,255,0.5); }
+        .sidebar-version .ver:hover { color:rgba(255,255,255,0.8); }
+        .sidebar-version .changelog-tip { font-size:10px; color:rgba(255,255,255,0.3); margin-top:2px; }
+        .sidebar-version .copyright { font-size:10px; color:rgba(255,255,255,0.3); margin-top:6px; line-height:1.5; cursor:default; }
+        .sidebar-version .copyright:hover { color:rgba(255,255,255,0.3); }
+
+        /* 更新日志弹窗 */
+        .changelog-modal .changelog-list { max-height:60vh; overflow-y:auto; }
+        .changelog-item { margin-bottom:16px; padding-bottom:14px; border-bottom:1px solid #f0f0f0; }
+        .changelog-item:last-child { border-bottom:none; margin-bottom:0; }
+        .changelog-item .ver-title { font-size:15px; font-weight:700; color:#333; margin-bottom:4px; }
+        .changelog-item .ver-date { font-size:11px; color:#999; margin-bottom:8px; }
+        .changelog-item ul { padding-left:18px; margin:0; }
+        .changelog-item li { font-size:13px; color:#666; line-height:1.8; }
+    </style>
+</head>
+<body>
+    <!-- 左侧导航 -->
+    <div class="sidebar">
+        <div class="logo"><img src="/static/logo.png" alt="城治学生会物资管理系统"></div>
+        <div class="nav">
+            <div class="nav-item active" onclick="switchPage('page-materials',this)"><span class="icon">📦</span>物资管理</div>
+            <div class="nav-item" onclick="switchPage('page-borrow',this)"><span class="icon">📤</span>物资领取</div>
+            <div class="nav-item" onclick="switchPage('page-return',this)"><span class="icon">↩️</span>物资归还</div>
+            <div class="nav-item" onclick="switchPage('page-records',this)"><span class="icon">📋</span>领用记录</div>
+            <div class="nav-item" onclick="switchPage('page-users',this)"><span class="icon">👥</span>用户管理</div>
+            <div class="nav-item" onclick="location.href='/dashboard'"><span class="icon">📊</span>数据大屏</div>
+            <div class="nav-item" onclick="location.href='/m/'"><span class="icon">📱</span>手机端</div>
+        </div>
+        <div class="user-box">
+            <div class="name" id="userName">管理员</div>
+            <div class="role" id="userRole">管理员</div>
+            <button class="logout" style="margin-top:8px;background:rgba(102,126,234,0.3);border:1px solid rgba(102,126,234,0.5);" onclick="openProfile()">⚙️ 个人设置</button>
+            <button class="logout" onclick="logout()">退出登录</button>
+        </div>
+        <div class="sidebar-version" onclick="openChangelog()">
+            <div class="ver">v1.2.1</div>
+            <div class="changelog-tip">点击查看更新日志</div>
+            <div class="copyright" onclick="event.stopPropagation()">© 2026 重庆超大城市<br>数字化治理学院 版权所有</div>
+        </div>
+    </div>
+
+    <!-- 右侧内容 -->
+    <div class="main">
+        <!-- 物资管理 -->
+        <div class="page active" id="page-materials">
+            <div class="page-title">物资管理</div>
+            <div class="filter-bar">
+                <span class="filter-label">筛选：</span>
+                <select id="filterField" onchange="loadMaterials()">
+                    <option value="all">全部字段</option>
+                    <option value="name">物资名称</option>
+                    <option value="code">编号</option>
+                    <option value="location">存放位置</option>
+                    <option value="operator">操作人</option>
+                    <option value="stock">库存状态</option>
+                </select>
+                <input type="text" id="filterKeyword" placeholder="输入关键词搜索..." oninput="loadMaterials()" style="flex:1;min-width:200px;">
+                <button class="btn-reset" onclick="resetFilter()">重置</button>
+            </div>
+            <div class="toolbar">
+                <span style="color:#666;font-size:13px;" id="materialCount">共 0 条</span>
+                <button class="btn btn-primary" onclick="openAddModal()">+ 新增物资</button>
+            </div>
+            <table>
+                <thead><tr><th>图片</th><th>物资名称</th><th>编号</th><th>总库存</th><th>可领取</th><th>存放位置</th><th>操作人</th><th>操作</th></tr></thead>
+                <tbody id="materialTable"><tr><td colspan="8" class="empty">加载中...</td></tr></tbody>
+            </table>
+        </div>
+
+        <!-- 物资领取 -->
+        <div class="page" id="page-borrow">
+            <div class="page-title">物资领取登记</div>
+            <div class="form-card">
+                <div class="form-group"><label>领取物资名称 <span class="req">*</span></label><select id="borrowMaterial"><option value="">请选择物资</option></select></div>
+                <div class="form-group"><label>应用于活动名称 <span class="req">*</span></label><input type="text" id="borrowActivity" placeholder="请输入活动名称"></div>
+                <div class="form-group"><label>领取数量 <span class="req">*</span></label><input type="number" id="borrowQty" value="1" min="1"></div>
+                <div class="form-group"><label>领取人姓名 <span class="req">*</span></label><input type="text" id="borrowUser" readonly></div>
+                <div class="form-group"><label>领取人电话 <span class="req">*</span></label><input type="tel" id="borrowPhone" placeholder="请输入电话号码"></div>
+                <div class="form-group"><label>领取时物资图片</label><div class="upload-area" onclick="document.getElementById('borrowImage').click()">点击上传图片</div><input type="file" id="borrowImage" accept="image/*" style="display:none" onchange="uploadImg(this,'borrowPreview')"><img id="borrowPreview" class="upload-preview" style="display:none"></div>
+                <button class="btn btn-primary" style="width:100%;padding:12px;margin-top:10px;" onclick="submitBorrow()">确认领取</button>
+            </div>
+            <div style="margin-top:20px;">
+                <div class="page-title" style="font-size:16px;margin-bottom:12px;">📦 全部物资清单</div>
+                <table>
+                    <thead><tr><th>图片</th><th>物资名称</th><th>编号</th><th>规格</th><th>总库存</th><th>可领取</th><th>存放位置</th><th>操作</th></tr></thead>
+                    <tbody id="borrowMaterialList"><tr><td colspan="8" class="empty">加载中...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 物资归还 -->
+        <div class="page" id="page-return">
+            <div class="page-title">物资归还登记</div>
+            <div class="form-card">
+                <div class="form-group"><label>归还物资名称 <span class="req">*</span></label><select id="returnMaterial" onchange="onReturnMaterialChange()"><option value="">请选择物资</option></select></div>
+                <div class="form-group"><label>归还数量 <span class="req">*</span></label><input type="number" id="returnQty" value="1" min="1"></div>
+                <div class="form-group"><label>归还人姓名 <span class="req">*</span></label><input type="text" id="returnUser" readonly></div>
+                <div class="form-group"><label>归还时间 <span class="req">*</span></label><input type="date" id="returnTime"></div>
+                <div class="form-group"><label>归还地点 <span class="req">*</span></label><input type="text" id="returnLocation" placeholder="选择物资后自动填充，可手动修改"></div>
+                <div class="form-group"><label>归还时图片 <span class="req">*</span></label><div class="upload-area" onclick="document.getElementById('returnImage').click()">点击上传图片</div><input type="file" id="returnImage" accept="image/*" style="display:none" onchange="uploadImg(this,'returnPreview')"><img id="returnPreview" class="upload-preview" style="display:none"></div>
+                <button class="btn btn-primary" style="width:100%;padding:12px;margin-top:10px;" onclick="submitReturn()">确认归还</button>
+            </div>
+        </div>
+
+        <!-- 领用记录 -->
+        <div class="page" id="page-records">
+            <div class="page-title">所有领用记录</div>
+            <table>
+                <thead><tr><th>物资</th><th>使用人</th><th>电话</th><th>活动</th><th>数量</th><th>状态</th><th>领取时间</th><th>归还时间</th><th>归还地点</th><th>图片</th><th>操作</th></tr></thead>
+                <tbody id="recordTable"><tr><td colspan="11" class="empty">加载中...</td></tr></tbody>
+            </table>
+        </div>
+
+        <!-- 用户管理 -->
+        <div class="page" id="page-users">
+            <div class="page-title">用户管理</div>
+            <div class="toolbar">
+                <span style="color:#666;font-size:13px;" id="userCount">共 0 人</span>
+                <button class="btn btn-primary" onclick="openUserModal()">+ 新增用户</button>
+            </div>
+            <table>
+                <thead><tr><th>用户名</th><th>真实姓名</th><th>部门</th><th>电话</th><th>邮箱</th><th>角色</th><th>注册时间</th><th>操作</th></tr></thead>
+                <tbody id="userTable"><tr><td colspan="8" class="empty">加载中...</td></tr></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 新增物资弹窗 -->
+    <div class="modal-mask" id="addModal">
+        <div class="modal">
+            <h3>新增物资</h3>
+            <div class="form-group"><label>物资名称 <span class="req">*</span></label><input type="text" id="newName" placeholder="如：笔记本电脑"></div>
+            <div class="form-group"><label>库存数量 <span class="req">*</span></label><input type="number" id="newStock" value="1" min="0"></div>
+            <div class="form-group"><label>存放位置</label><input type="text" id="newLocation" placeholder="如：A柜-1层（多个位置用逗号分隔）"></div>
+            <div class="form-group"><label>物资图片</label><div class="upload-area" onclick="document.getElementById('newImage').click()">点击上传图片</div><input type="file" id="newImage" accept="image/*" style="display:none" onchange="uploadImg(this,'newPreview')"><img id="newPreview" class="upload-preview" style="display:none"></div>
+            <div class="modal-actions"><button class="btn-cancel" onclick="closeAddModal()">取消</button><button class="btn-submit" onclick="submitAdd()">确认添加</button></div>
+        </div>
+    </div>
+
+    <!-- 二维码弹窗 -->
+    <div class="modal-mask" id="qrModal">
+        <div class="modal qr-modal">
+            <div class="qr-box">
+                <div class="qr-name" id="qrName"></div>
+                <div id="qrcode"></div>
+                <div class="qr-code-text" id="qrCodeText"></div>
+            </div>
+            <div class="modal-actions"><button class="btn-cancel" onclick="closeQrModal()">关闭</button></div>
+        </div>
+    </div>
+
+    <!-- 用户编辑弹窗 -->
+    <div class="modal-mask" id="userModal">
+        <div class="modal">
+            <h3 id="userModalTitle">新增用户</h3>
+            <input type="hidden" id="editUserId">
+            <div class="form-group"><label>用户名 <span class="req">*</span></label><input type="text" id="editUsername" placeholder="可输入中文或英文"></div>
+            <div class="form-group"><label>真实姓名</label><input type="text" id="editRealName" placeholder="不填则与用户名相同"></div>
+            <div class="form-group"><label>部门</label><select id="editDepartment"><option value="">请选择部门</option><option value="办公室">办公室</option><option value="学习部">学习部</option><option value="体育部">体育部</option><option value="文娱部">文娱部</option><option value="志工部">志工部</option><option value="宣传部">宣传部</option><option value="马列部">马列部</option><option value="组织部">组织部</option><option value="权益部">权益部</option><option value="社团部">社团部</option><option value="主席团">主席团</option><option value="副书记">副书记</option></select></div>
+            <div class="form-group"><label>电话</label><input type="tel" id="editPhone" placeholder="请输入电话号码"></div>
+            <div class="form-group"><label>邮箱</label><input type="email" id="editEmail" placeholder="用于忘记密码找回"></div>
+            <div class="form-group"><label>角色</label><select id="editRole"><option value="user">普通用户</option><option value="admin">管理员</option></select></div>
+            <div class="form-group"><label>密码</label><input type="password" id="editPassword" placeholder="新增默认123456，编辑留空不修改"></div>
+            <div class="error-msg" id="userModalError" style="display:none;margin-top:0;"></div>
+            <div class="modal-actions"><button class="btn-cancel" onclick="closeUserModal()">取消</button><button class="btn-submit" onclick="submitUser()">确认保存</button></div>
+        </div>
+    </div>
+
+    <!-- 个人设置弹窗 -->
+    <div class="modal-mask" id="profileModal">
+        <div class="modal">
+            <h3>⚙️ 个人设置</h3>
+            <div class="form-group"><label>用户名</label><input type="text" id="profileUsername" placeholder="可输入中文或英文"></div>
+            <div class="form-group"><label>真实姓名</label><input type="text" id="profileRealName" placeholder="不填则与用户名相同"></div>
+            <div class="form-group"><label>部门</label><select id="profileDepartment"><option value="">请选择部门</option><option value="办公室">办公室</option><option value="学习部">学习部</option><option value="体育部">体育部</option><option value="文娱部">文娱部</option><option value="志工部">志工部</option><option value="宣传部">宣传部</option><option value="马列部">马列部</option><option value="组织部">组织部</option><option value="权益部">权益部</option><option value="社团部">社团部</option><option value="主席团">主席团</option><option value="副书记">副书记</option></select></div>
+            <div class="form-group"><label>电话</label><input type="tel" id="profilePhone" placeholder="请输入电话号码"></div>
+            <div class="form-group"><label>邮箱</label><input type="email" id="profileEmail" placeholder="用于忘记密码找回"></div>
+            <div class="form-group"><label>新密码</label><input type="password" id="profilePassword" placeholder="留空则不修改密码"></div>
+            <div class="error-msg" id="profileError" style="display:none;margin-top:0;"></div>
+            <div class="success-msg" id="profileSuccess" style="display:none;margin-top:0;"></div>
+            <div class="modal-actions"><button class="btn-cancel" onclick="closeProfile()">取消</button><button class="btn-submit" onclick="submitProfile()">保存修改</button></div>
+        </div>
+    </div>
+
+    <!-- 二维码弹窗 -->
+    <div class="modal-mask" id="qrModal">
+        <div class="modal qr-modal">
+            <div class="qr-box">
+                <div class="qr-name" id="qrName"></div>
+                <div id="qrcode"></div>
+                <div class="qr-code-text" id="qrCodeText"></div>
+                <button class="btn btn-primary" style="margin-top:15px;" onclick="closeQrModal()">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 图片放大查看弹窗 -->
+    <div class="modal-mask" id="viewImgModal" onclick="closeViewImg()">
+        <div class="modal" style="background:transparent;box-shadow:none;max-width:90vw;" onclick="event.stopPropagation()">
+            <div style="text-align:center;">
+                <div style="color:#fff;font-size:18px;margin-bottom:15px;" id="viewImgName"></div>
+                <img id="viewImgSrc" style="max-width:90vw;max-height:80vh;border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,0.5);">
+                <div style="margin-top:15px;"><button class="btn btn-primary" onclick="closeViewImg()">关闭</button></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 更新日志弹窗 -->
+    <div class="modal-mask" id="changelogModal">
+        <div class="modal changelog-modal" style="width:560px;">
+            <h3>📋 更新日志</h3>
+            <div class="changelog-list">
+                <div class="changelog-item">
+                    <div class="ver-title">v1.2.1</div>
+                    <div class="ver-date">2026-08-23</div>
+                    <ul>
+                        <li>手机端登录页「查询领取」进入时自动加载并列出全部物资</li>
+                        <li>无需输入关键词即可浏览所有可领取物资，支持点击直接领取</li>
+                    </ul>
+                </div>
+                <div class="changelog-item">
+                    <div class="ver-title">v1.2.0</div>
+                    <div class="ver-date">2026-08-23</div>
+                    <ul>
+                        <li>物资领取页面新增「全部物资清单」列表，展示所有物资的库存、位置等信息</li>
+                        <li>物资清单支持点击「选择」按钮快速选中对应物资进行领取</li>
+                        <li>管理面板版权声明移动至左下角版本号下方，布局更简洁</li>
+                        <li>库存不足的物资在清单中显示「库存不足」且不可选择</li>
+                    </ul>
+                </div>
+                <div class="changelog-item">
+                    <div class="ver-title">v1.1.0</div>
+                    <div class="ver-date">2026-08-22</div>
+                    <ul>
+                        <li>物资管理界面新增「操作人」字段显示和筛选</li>
+                        <li>系统名称更改为「城治学生会物资管理系统」</li>
+                        <li>添加学院 Logo 标识</li>
+                        <li>去除搜索框自动填充账户名功能，默认显示全部物资</li>
+                        <li>所有图片支持点击放大查看</li>
+                        <li>物资归还地点自动对应物资存放地点，确保一一对应</li>
+                        <li>新增版本号和版权信息展示</li>
+                        <li>手机端新增扫码入口，支持摄像头扫码和编号搜索</li>
+                        <li>手机端管理员账号可快速进入电脑版管理后台</li>
+                    </ul>
+                </div>
+                <div class="changelog-item">
+                    <div class="ver-title">v1.0.0</div>
+                    <div class="ver-date">2026-08-01</div>
+                    <ul>
+                        <li>系统初始版本发布</li>
+                        <li>管理员登录、物资管理、库存管理</li>
+                        <li>扫码领用、扫码归还功能</li>
+                        <li>数据可视化大屏</li>
+                        <li>用户管理和权限控制</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-actions"><button class="btn-submit" onclick="closeChangelog()">我知道了</button></div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        let token = localStorage.getItem('token');
+        if (!token) window.location.href = '/login';
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        document.getElementById('userName').textContent = user.real_name || '用户';
+        document.getElementById('userRole').textContent = user.role === 'admin' ? '管理员' : '普通用户';
+        document.getElementById('borrowUser').value = user.real_name || '';
+        document.getElementById('returnUser').value = user.real_name || '';
+        document.getElementById('borrowPhone').value = user.phone || '';
+        document.getElementById('returnTime').value = new Date().toISOString().split('T')[0];
+        let uploadedImages = { new:'', borrow:'', return:'' };
+        let allMaterials = [];
+
+        function switchPage(id, btn) {
+            document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
+            if (btn) btn.classList.add('active');
+            if (id==='page-materials') loadMaterials();
+            if (id==='page-borrow') loadMaterialSelect('borrowMaterial');
+            if (id==='page-return') loadBorrowedSelect();
+            if (id==='page-records') loadAllRecords();
+            if (id==='page-users') loadUsers();
+        }
+
+        function showToast(msg) { const t=document.getElementById('toast'); t.textContent=msg; t.style.display='block'; setTimeout(()=>t.style.display='none',2000); }
+
+        function resetFilter() {
+            document.getElementById('filterName').value='';
+            document.getElementById('filterCode').value='';
+            document.getElementById('filterLocation').value='';
+            document.getElementById('filterStock').value='';
+            loadMaterials();
+        }
+
+        function uploadImg(input, previewId) {
+            const file = input.files[0];
+            if (!file) return;
+            const formData = new FormData();
+            formData.append('file', file);
+            fetch('/api/upload', { method:'POST', headers:{'Authorization':'Bearer '+token}, body:formData })
+            .then(res=>res.json())
+            .then(data=>{
+                const key = previewId.replace('Preview','');
+                uploadedImages[key] = data.url;
+                document.getElementById(previewId).src = URL.createObjectURL(file);
+                document.getElementById(previewId).style.display = 'block';
+                showToast('图片上传成功');
+            })
+            .catch(()=>showToast('图片上传失败'));
+        }
+
+        function loadMaterials() {
+            fetch('/api/materials', { headers:{'Authorization':'Bearer '+token}})
+            .then(res=>{ if(res.status===401){window.location.href='/login';return [];} return res.json(); })
+            .then(data=>{
+                allMaterials = data;
+                // 筛选：下拉字段 + 搜索关键词
+                const field = document.getElementById('filterField').value;
+                const keyword = document.getElementById('filterKeyword').value.trim().toLowerCase();
+                let filtered = data;
+                if (keyword) {
+                    filtered = data.filter(m=>{
+                        if (field==='all') {
+                            return m.name.toLowerCase().includes(keyword)
+                                || m.qr_code.toLowerCase().includes(keyword)
+                                || (m.location||'').toLowerCase().includes(keyword)
+                                || (m.operator||'').toLowerCase().includes(keyword);
+                        }
+                        if (field==='name') return m.name.toLowerCase().includes(keyword);
+                        if (field==='code') return m.qr_code.toLowerCase().includes(keyword);
+                        if (field==='location') return (m.location||'').toLowerCase().includes(keyword);
+                        if (field==='operator') return (m.operator||'').toLowerCase().includes(keyword);
+                        if (field==='stock') {
+                            if (keyword.includes('充足')||keyword==='ok') return m.available_stock>5;
+                            if (keyword.includes('偏低')||keyword==='low') return m.available_stock>0&&m.available_stock<=5;
+                            if (keyword.includes('零')||keyword.includes('无')||keyword==='out') return m.available_stock===0;
+                            return true;
+                        }
+                        return true;
+                    });
+                }
+                const tbody = document.getElementById('materialTable');
+                document.getElementById('materialCount').textContent = '共 ' + filtered.length + ' 条';
+                if (!filtered.length) { tbody.innerHTML='<tr><td colspan="8" class="empty">暂无物资</td></tr>'; return; }
+                tbody.innerHTML = filtered.map(m=>{
+                    let sc = m.available_stock===0?'stock-out':m.available_stock<=5?'stock-low':'stock-ok';
+                    let img = m.image ? `<img src="${m.image}" class="mat-img" style="cursor:pointer;" onclick="viewImage('${m.image}','${m.name}')" title="点击放大">` : `<div class="mat-img-ph">📦</div>`;
+                    return `<tr><td>${img}</td><td><strong>${m.name}</strong></td><td><code>${m.qr_code}</code></td><td>${m.total_stock}</td><td><span class="stock-badge ${sc}">${m.available_stock}</span></td><td>${m.location||'-'}</td><td>${m.operator||'-'}</td><td><button class="btn btn-sm" style="background:#f0f0f0;color:#666;margin-right:4px;" onclick="showQR('${m.id}','${m.name}','${m.qr_code}')">二维码</button><button class="btn btn-sm btn-danger" onclick="deleteMaterial('${m.id}','${m.name}')">删除</button></td></tr>`;
+                }).join('');
+            });
+        }
+
+        function loadMaterialSelect(selectId) {
+            fetch('/api/materials', { headers:{'Authorization':'Bearer '+token} })
+            .then(res=>res.json())
+            .then(data=>{
+                document.getElementById(selectId).innerHTML = '<option value="">请选择物资</option>' + data.map(m=>`<option value="${m.id}">${m.name}（可领${m.available_stock}）</option>`).join('');
+                // 同时渲染下方物资清单
+                renderBorrowMaterialList(data);
+            });
+        }
+
+        function renderBorrowMaterialList(data) {
+            const tbody = document.getElementById('borrowMaterialList');
+            if (!data.length) { tbody.innerHTML='<tr><td colspan="8" class="empty">暂无物资</td></tr>'; return; }
+            tbody.innerHTML = data.map(m=>{
+                let sc = m.available_stock===0?'stock-out':m.available_stock<=5?'stock-low':'stock-ok';
+                let img = m.image ? `<img src="${m.image}" class="mat-img" style="cursor:pointer;" onclick="viewImage('${m.image}','${m.name}')" title="点击放大">` : `<div class="mat-img-ph">📦</div>`;
+                let selectBtn = m.available_stock > 0
+                    ? `<button class="btn btn-sm btn-primary" onclick="selectBorrowMaterial('${m.id}')">选择</button>`
+                    : `<button class="btn btn-sm" style="background:#f0f0f0;color:#999;cursor:not-allowed;" disabled>库存不足</button>`;
+                return `<tr><td>${img}</td><td><strong>${m.name}</strong></td><td><code>${m.qr_code}</code></td><td>${m.spec||'-'}</td><td>${m.total_stock}</td><td><span class="stock-badge ${sc}">${m.available_stock}</span></td><td>${m.location||'-'}</td><td>${selectBtn}</td></tr>`;
+            }).join('');
+        }
+
+        function selectBorrowMaterial(materialId) {
+            const sel = document.getElementById('borrowMaterial');
+            sel.value = materialId;
+            sel.scrollIntoView({ behavior:'smooth', block:'center' });
+            showToast('已选择该物资，请填写领取信息');
+        }
+
+        function loadBorrowedSelect() {
+            fetch('/api/my-transactions', { headers:{'Authorization':'Bearer '+token} })
+            .then(res=>res.json())
+            .then(data=>{
+                const active = data.filter(r=>r.status==='active');
+                const sel = document.getElementById('returnMaterial');
+                if (!active.length) { sel.innerHTML='<option value="">暂无未归还物资</option>'; return; }
+                sel.innerHTML = '<option value="">请选择物资</option>' + active.map(r=>`<option value="${r.material_id||r.id}" data-location="${r.material_location||''}">${r.material_name}（未还${r.quantity}）</option>`).join('');
+            });
+        }
+
+        function onReturnMaterialChange() {
+            const sel = document.getElementById('returnMaterial');
+            const opt = sel.options[sel.selectedIndex];
+            const location = opt ? opt.getAttribute('data-location') : '';
+            document.getElementById('returnLocation').value = location || '';
+        }
+
+        function loadAllRecords() {
+            fetch('/api/transactions', { headers:{'Authorization':'Bearer '+token} })
+            .then(res=>res.json())
+            .then(data=>{
+                const tbody = document.getElementById('recordTable');
+                if (!data.length) { tbody.innerHTML='<tr><td colspan="11" class="empty">暂无记录</td></tr>'; return; }
+                tbody.innerHTML = data.map(r=>{
+                    const st = r.status==='active'?'<span class="status-active">借出中</span>':'<span class="status-completed">已归还</span>';
+                    const imgs = (r.borrow_image?`<img src="${r.borrow_image}" class="record-img" style="cursor:pointer;" onclick="viewImage('${r.borrow_image}','领取图片')" title="点击放大">`:'') + (r.return_image?`<img src="${r.return_image}" class="record-img" style="cursor:pointer;" onclick="viewImage('${r.return_image}','归还图片')" title="点击放大">`:'');
+                    const userDisplay = r.user_role === 'admin'
+                        ? `<span class="user-with-role">${r.user_name}<span class="role-tag">管理员</span></span>`
+                        : r.user_name;
+                    return `<tr><td>${r.material_name}</td><td>${userDisplay}</td><td>${r.phone||'-'}</td><td>${r.activity_name||'-'}</td><td>${r.quantity}</td><td>${st}</td><td>${new Date(r.borrowed_at).toLocaleString('zh-CN')}</td><td>${r.returned_at?new Date(r.returned_at).toLocaleString('zh-CN'):'-'}</td><td>${r.return_location||'-'}</td><td>${imgs||'-'}</td><td><button class="btn btn-sm btn-danger" onclick="deleteRecord('${r.id}')">删除</button></td></tr>`;
+                }).join('');
+            })
+            .catch(()=>{ document.getElementById('recordTable').innerHTML='<tr><td colspan="11" class="empty">加载失败</td></tr>'; });
+        }
+
+        function openAddModal(){ uploadedImages.new=''; document.getElementById('newPreview').style.display='none'; document.getElementById('addModal').style.display='flex'; }
+        function closeAddModal(){ document.getElementById('addModal').style.display='none'; }
+
+        function submitAdd() {
+            const name = document.getElementById('newName').value.trim();
+            if (!name) { showToast('请输入物资名称'); return; }
+            const total_stock = Number(document.getElementById('newStock').value)||0;
+            const location = document.getElementById('newLocation').value.trim();
+            fetch('/api/materials', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({name,spec:'',unit:'个',total_stock,location,image:uploadedImages.new}) })
+            .then(res=>res.json().then(d=>({ok:res.ok,data:d})))
+            .then(({ok,data})=>{
+                if (ok) { showToast('添加成功！编号：'+data.qr_code); closeAddModal(); document.getElementById('newName').value=''; document.getElementById('newStock').value='1'; document.getElementById('newLocation').value=''; loadMaterials(); }
+                else showToast(data.detail||'添加失败');
+            });
+        }
+
+        function deleteMaterial(id, name) {
+            if (!confirm('确定删除物资「'+name+'」吗？相关记录也会被删除。')) return;
+            fetch('/api/materials/'+id, { method:'DELETE', headers:{'Authorization':'Bearer '+token} })
+            .then(res=>res.json())
+            .then(data=>{ showToast(data.message||'已删除'); loadMaterials(); })
+            .catch(()=>showToast('删除失败'));
+        }
+
+        function deleteRecord(id) {
+            if (!confirm('确定删除这条记录吗？')) return;
+            fetch('/api/transactions/'+id, { method:'DELETE', headers:{'Authorization':'Bearer '+token} })
+            .then(res=>res.json())
+            .then(data=>{ showToast(data.message||'已删除'); loadAllRecords(); })
+            .catch(()=>showToast('删除失败'));
+        }
+
+        function submitBorrow() {
+            const material_id = document.getElementById('borrowMaterial').value;
+            if (!material_id) { showToast('请选择物资'); return; }
+            const activity_name = document.getElementById('borrowActivity').value.trim();
+            if (!activity_name) { showToast('请输入活动名称'); return; }
+            const quantity = Number(document.getElementById('borrowQty').value)||1;
+            const phone = document.getElementById('borrowPhone').value.trim();
+            if (!phone) { showToast('请输入电话号码'); return; }
+            fetch('/api/borrow', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({material_id,quantity,activity_name,phone,borrow_image:uploadedImages.borrow}) })
+            .then(res=>res.json().then(d=>({ok:res.ok,data:d})))
+            .then(({ok,data})=>{
+                if (ok) { showToast('✅ '+data.message); setTimeout(()=>{ document.getElementById('borrowActivity').value=''; document.getElementById('borrowQty').value='1'; document.getElementById('borrowPreview').style.display='none'; uploadedImages.borrow=''; loadMaterialSelect('borrowMaterial'); },1000); }
+                else showToast('❌ '+(data.detail||'领取失败'));
+            });
+        }
+
+        function submitReturn() {
+            const material_id = document.getElementById('returnMaterial').value;
+            if (!material_id) { showToast('请选择物资'); return; }
+            const quantity = Number(document.getElementById('returnQty').value)||1;
+            const return_time = document.getElementById('returnTime').value;
+            if (!return_time) { showToast('请选择归还时间'); return; }
+            const return_location = document.getElementById('returnLocation').value;
+            if (!return_location) { showToast('请选择归还地点'); return; }
+            if (!uploadedImages.return) { showToast('请上传归还图片'); return; }
+            fetch('/api/return', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({material_id,quantity,return_time,return_location,return_image:uploadedImages.return}) })
+            .then(res=>res.json().then(d=>({ok:res.ok,data:d})))
+            .then(({ok,data})=>{
+                if (ok) { showToast('✅ '+data.message); setTimeout(()=>{ document.getElementById('returnQty').value='1'; document.getElementById('returnPreview').style.display='none'; uploadedImages.return=''; loadBorrowedSelect(); },1000); }
+                else showToast('❌ '+(data.detail||'归还失败'));
+            });
+        }
+
+        function showQR(id,name,qrCode){ document.getElementById('qrName').textContent=name; document.getElementById('qrCodeText').textContent='编号：'+qrCode; document.getElementById('qrcode').innerHTML=''; new QRCode(document.getElementById('qrcode'),{text:qrCode,width:180,height:180}); document.getElementById('qrModal').style.display='flex'; }
+        function closeQrModal(){ document.getElementById('qrModal').style.display='none'; }
+        function logout(){ localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href='/login'; }
+
+        function resetFilter(){ document.getElementById('filterField').value='all'; document.getElementById('filterKeyword').value=''; loadMaterials(); }
+
+        function viewImage(src, name){
+            document.getElementById('viewImgSrc').src = src;
+            document.getElementById('viewImgName').textContent = name || '物资图片';
+            document.getElementById('viewImgModal').style.display = 'flex';
+        }
+        function closeViewImg(){ document.getElementById('viewImgModal').style.display = 'none'; }
+
+        // 更新日志
+        function openChangelog(){ document.getElementById('changelogModal').style.display = 'flex'; }
+        function closeChangelog(){ document.getElementById('changelogModal').style.display = 'none'; }
+
+        // 用户管理
+        function loadUsers() {
+            fetch('/api/users', { headers:{'Authorization':'Bearer '+token} })
+            .then(res=>res.json())
+            .then(data=>{
+                const tbody = document.getElementById('userTable');
+                document.getElementById('userCount').textContent = '共 ' + data.length + ' 人';
+                if (!data.length) { tbody.innerHTML='<tr><td colspan="8" class="empty">暂无用户</td></tr>'; return; }
+                tbody.innerHTML = data.map(u=>{
+                    const roleTag = u.role==='admin' ? '<span class="status-active">管理员</span>' : '<span class="status-completed">普通用户</span>';
+                    const toggleRoleBtn = u.role==='admin'
+                        ? `<button class="btn btn-sm" style="background:#fff3e0;color:#e65100;margin-right:4px;" onclick="toggleUserRole('${u.id}','user','${u.username}')">取消管理员</button>`
+                        : `<button class="btn btn-sm" style="background:#e3f2fd;color:#1565c0;margin-right:4px;" onclick="toggleUserRole('${u.id}','admin','${u.username}')">设为管理员</button>`;
+                    return `<tr><td><strong>${u.username}</strong></td><td>${u.real_name||'-'}</td><td>${u.department||'-'}</td><td>${u.phone||'-'}</td><td>${u.email||'-'}</td><td>${roleTag}</td><td>${new Date(u.created_at).toLocaleDateString('zh-CN')}</td><td>${toggleRoleBtn}<button class="btn btn-sm" style="background:#f0f0f0;color:#666;margin-right:4px;" onclick="editUser('${u.id}')">编辑</button><button class="btn btn-sm btn-danger" onclick="deleteUser('${u.id}','${u.username}')">删除</button></td></tr>`;
+                }).join('');
+            })
+            .catch(()=>{ document.getElementById('userTable').innerHTML='<tr><td colspan="8" class="empty">加载失败</td></tr>'; });
+        }
+
+        function openUserModal() {
+            document.getElementById('userModalTitle').textContent = '新增用户';
+            document.getElementById('editUserId').value = '';
+            document.getElementById('editUsername').value = '';
+            document.getElementById('editUsername').readOnly = false;
+            document.getElementById('editRealName').value = '';
+            document.getElementById('editDepartment').value = '';
+            document.getElementById('editPhone').value = '';
+            document.getElementById('editEmail').value = '';
+            document.getElementById('editRole').value = 'user';
+            document.getElementById('editPassword').value = '';
+            document.getElementById('userModalError').style.display = 'none';
+            document.getElementById('userModal').style.display = 'flex';
+        }
+
+        function editUser(id) {
+            fetch('/api/users', { headers:{'Authorization':'Bearer '+token} })
+            .then(res=>res.json())
+            .then(data=>{
+                const u = data.find(x=>x.id===id);
+                if (!u) return;
+                document.getElementById('userModalTitle').textContent = '编辑用户';
+                document.getElementById('editUserId').value = u.id;
+                document.getElementById('editUsername').value = u.username;
+                document.getElementById('editUsername').readOnly = true;
+                document.getElementById('editRealName').value = u.real_name || '';
+                document.getElementById('editDepartment').value = u.department || '';
+                document.getElementById('editPhone').value = u.phone || '';
+                document.getElementById('editEmail').value = u.email || '';
+                document.getElementById('editRole').value = u.role;
+                document.getElementById('editPassword').value = '';
+                document.getElementById('userModalError').style.display = 'none';
+                document.getElementById('userModal').style.display = 'flex';
+            });
+        }
+
+        function closeUserModal() {
+            document.getElementById('userModal').style.display = 'none';
+        }
+
+        function submitUser() {
+            const id = document.getElementById('editUserId').value;
+            const username = document.getElementById('editUsername').value.trim();
+            const real_name = document.getElementById('editRealName').value.trim();
+            const department = document.getElementById('editDepartment').value.trim();
+            const phone = document.getElementById('editPhone').value.trim();
+            const email = document.getElementById('editEmail').value.trim();
+            const role = document.getElementById('editRole').value;
+            const password = document.getElementById('editPassword').value;
+            const errEl = document.getElementById('userModalError');
+            errEl.style.display = 'none';
+
+            if (!username) {
+                errEl.textContent = '请输入用户名';
+                errEl.style.display = 'block';
+                return;
+            }
+
+            if (id) {
+                const body = { real_name, department, phone, email, role };
+                if (password) body.password = password;
+                fetch('/api/users/'+id, { method:'PUT', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify(body) })
+                .then(res=>res.json().then(d=>({ok:res.ok,data:d})))
+                .then(({ok,data})=>{
+                    if (ok) { showToast('用户信息已更新'); closeUserModal(); loadUsers(); }
+                    else { errEl.textContent = data.detail||'保存失败'; errEl.style.display='block'; }
+                });
+            } else {
+                fetch('/api/users', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({username, password:password||'123456', real_name, department, phone, email, role}) })
+                .then(res=>res.json().then(d=>({ok:res.ok,data:d})))
+                .then(({ok,data})=>{
+                    if (ok) { showToast('用户创建成功'); closeUserModal(); loadUsers(); }
+                    else { errEl.textContent = data.detail||'创建失败'; errEl.style.display='block'; }
+                });
+            }
+        }
+
+        function deleteUser(id, username) {
+            if (!confirm('确定删除用户「'+username+'」吗？该用户的领用记录也会被删除。')) return;
+            fetch('/api/users/'+id, { method:'DELETE', headers:{'Authorization':'Bearer '+token} })
+            .then(res=>res.json())
+            .then(data=>{ showToast(data.message||'已删除'); loadUsers(); })
+            .catch(()=>showToast('删除失败'));
+        }
+
+        function toggleUserRole(id, newRole, username) {
+            const action = newRole==='admin' ? '设为管理员' : '取消管理员';
+            if (!confirm('确定将用户「'+username+'」'+action+'吗？')) return;
+            fetch('/api/users/'+id, { method:'PUT', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({role:newRole}) })
+            .then(res=>res.json().then(d=>({ok:res.ok,data:d})))
+            .then(({ok,data})=>{
+                if (ok) { showToast('操作成功'); loadUsers(); }
+                else showToast(data.detail||'操作失败');
+            })
+            .catch(()=>showToast('操作失败'));
+        }
+
+        // 个人设置
+        function openProfile() {
+            document.getElementById('profileUsername').value = user.username || '';
+            document.getElementById('profileRealName').value = user.real_name || '';
+            document.getElementById('profileDepartment').value = user.department || '';
+            document.getElementById('profilePhone').value = user.phone || '';
+            document.getElementById('profileEmail').value = user.email || '';
+            document.getElementById('profilePassword').value = '';
+            document.getElementById('profileError').style.display = 'none';
+            document.getElementById('profileSuccess').style.display = 'none';
+            document.getElementById('profileModal').style.display = 'flex';
+        }
+
+        function closeProfile() {
+            document.getElementById('profileModal').style.display = 'none';
+        }
+
+        function submitProfile() {
+            const username = document.getElementById('profileUsername').value.trim();
+            const real_name = document.getElementById('profileRealName').value.trim();
+            const department = document.getElementById('profileDepartment').value.trim();
+            const phone = document.getElementById('profilePhone').value.trim();
+            const email = document.getElementById('profileEmail').value.trim();
+            const password = document.getElementById('profilePassword').value;
+            const errEl = document.getElementById('profileError');
+            const sucEl = document.getElementById('profileSuccess');
+            errEl.style.display = 'none';
+            sucEl.style.display = 'none';
+
+            if (!username) {
+                errEl.textContent = '用户名不能为空';
+                errEl.style.display = 'block';
+                return;
+            }
+
+            const body = { username, real_name, department, phone, email };
+            if (password) body.password = password;
+
+            fetch('/api/profile', { method:'PUT', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify(body) })
+            .then(res=>res.json().then(d=>({ok:res.ok,data:d})))
+            .then(({ok,data})=>{
+                if (ok) {
+                    sucEl.textContent = data.message || '保存成功';
+                    sucEl.style.display = 'block';
+                    // 更新本地用户信息
+                    if (data.user) {
+                        localStorage.setItem('user', JSON.stringify(data.user));
+                        user.username = data.user.username;
+                        user.real_name = data.user.real_name;
+                        user.department = data.user.department;
+                        user.phone = data.user.phone;
+                        user.email = data.user.email;
+                        user.role = data.user.role;
+                        document.getElementById('userName').textContent = data.user.real_name || data.user.username;
+                        document.getElementById('userRole').textContent = data.user.role === 'admin' ? '管理员' : '普通用户';
+                    }
+                    setTimeout(()=>closeProfile(), 1200);
+                } else {
+                    errEl.textContent = data.detail || '保存失败';
+                    errEl.style.display = 'block';
+                }
+            })
+            .catch(()=>{
+                errEl.textContent = '网络错误，请重试';
+                errEl.style.display = 'block';
+            });
+        }
+
+        // 读取URL参数自动切换页面
+        const urlParams = new URLSearchParams(window.location.search);
+        const pageParam = urlParams.get('page');
+        if (pageParam) {
+            const pageMap = { 'materials':0, 'borrow':1, 'return':2, 'records':3 };
+            const idx = pageMap[pageParam];
+            if (idx !== undefined) {
+                setTimeout(() => {
+                    const navItems = document.querySelectorAll('.nav-item');
+                    if (navItems[idx]) switchPage('page-'+pageParam, navItems[idx]);
+                }, 200);
+            }
+        }
+
+        // 确保搜索框初始为空，不自动填充任何内容
+        document.getElementById('filterKeyword').value = '';
+        document.getElementById('filterField').value = 'all';
+
+        loadMaterials();
+    </script>
+</body>
+</html>

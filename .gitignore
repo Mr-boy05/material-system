@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.pyc
+.idea/
+*.db-journal
+static/uploads/*
+!static/uploads/.gitkeep
+material.db
+screenshot*.png
+zeabur_screenshot.png
+github_screenshot.png
+图片1.png
+学院带名字.png
+运行说明.md

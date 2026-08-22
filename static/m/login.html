@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>城治学生会物资管理 - 登录</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .login-box {
+            background: white;
+            padding: 28px 24px 32px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 380px;
+            max-height: 92vh;
+            overflow-y: auto;
+        }
+        .logo { text-align: center; margin-bottom: 18px; }
+        .logo h1 { font-size: 20px; color: #333; margin-top: 6px; }
+        .logo p { color: #999; font-size: 12px; margin-top: 3px; }
+
+        /* 标签页 */
+        .tabs { display: flex; background: #f0f0f0; border-radius: 12px; padding: 4px; margin-bottom: 20px; }
+        .tab { flex: 1; text-align: center; padding: 10px 6px; font-size: 13px; color: #666; border-radius: 9px; cursor: pointer; transition: all 0.3s; font-weight: 500; }
+        .tab.active { background: white; color: #667eea; box-shadow: 0 2px 8px rgba(0,0,0,0.08); font-weight: 600; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; color: #666; margin-bottom: 7px; font-size: 13px; }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 12px 14px;
+            border: 2px solid #e8e8e8;
+            border-radius: 10px;
+            font-size: 15px;
+            transition: border-color 0.3s;
+        }
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: #667eea; }
+        .btn-primary {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 6px;
+        }
+        .btn-primary:active { transform: scale(0.98); }
+        .btn-primary:disabled { background: #ccc; cursor: not-allowed; }
+        .btn-secondary {
+            width: 100%;
+            padding: 12px;
+            background: #f0f0f0;
+            color: #666;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+        .error-msg { color: #e74c3c; font-size: 13px; text-align: center; margin-top: 10px; display: none; }
+        .success-msg { color: #2e7d32; font-size: 13px; text-align: center; margin-top: 10px; display: none; }
+        .links { display: flex; justify-content: space-between; margin-top: 16px; flex-wrap: wrap; gap: 8px; }
+        .links a { color: #667eea; text-decoration: none; font-size: 12px; }
+
+        /* 搜索区域 */
+        .search-bar { display: flex; gap: 8px; margin-bottom: 14px; }
+        .search-bar input { flex: 1; padding: 11px 14px; border: 2px solid #e8e8e8; border-radius: 10px; font-size: 14px; }
+        .search-bar input:focus { outline: none; border-color: #667eea; }
+        .search-bar button { padding: 0 16px; background: #667eea; color: white; border: none; border-radius: 10px; font-size: 14px; cursor: pointer; white-space: nowrap; }
+
+        /* 物资列表 */
+        .mat-list { max-height: 45vh; overflow-y: auto; }
+        .mat-item { display: flex; align-items: center; padding: 12px; border: 1.5px solid #eee; border-radius: 12px; margin-bottom: 10px; cursor: pointer; transition: all 0.2s; }
+        .mat-item:active { background: #f5f5f5; border-color: #667eea; }
+        .mat-item .mat-img { width: 48px; height: 48px; border-radius: 8px; object-fit: cover; background: #f0f0f0; margin-right: 12px; flex-shrink: 0; }
+        .mat-item .mat-img-ph { width: 48px; height: 48px; border-radius: 8px; background: linear-gradient(135deg,#e8eaf6,#c5cae9); display: flex; align-items: center; justify-content: center; font-size: 24px; margin-right: 12px; flex-shrink: 0; }
+        .mat-item .mat-info { flex: 1; min-width: 0; }
+        .mat-item .mat-name { font-size: 14px; font-weight: 600; color: #333; margin-bottom: 3px; }
+        .mat-item .mat-meta { font-size: 12px; color: #999; }
+        .mat-item .mat-stock { font-size: 12px; font-weight: 600; margin-top: 2px; }
+        .stock-ok { color: #2e7d32; }
+        .stock-low { color: #e65100; }
+        .stock-out { color: #c62828; }
+        .empty-tip { text-align: center; padding: 30px 20px; color: #bbb; font-size: 13px; }
+        .empty-tip .icon { font-size: 36px; margin-bottom: 8px; opacity: 0.5; }
+
+        /* 弹窗 */
+        .modal-mask {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: flex-end;
+            justify-content: center;
+        }
+        .modal {
+            background: white;
+            border-radius: 20px 20px 0 0;
+            padding: 24px 20px 28px;
+            width: 100%;
+            max-width: 420px;
+            max-height: 88vh;
+            overflow-y: auto;
+            animation: slideUp 0.3s ease;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+        .modal h3 { margin-bottom: 16px; color: #333; font-size: 17px; text-align: center; }
+        .modal-mat-info { background: #f5f7ff; border-radius: 10px; padding: 12px; margin-bottom: 16px; }
+        .modal-mat-info .name { font-size: 15px; font-weight: 600; color: #333; margin-bottom: 4px; }
+        .modal-mat-info .meta { font-size: 12px; color: #888; }
+        .modal-actions { display: flex; gap: 10px; margin-top: 12px; }
+        .btn-cancel { flex: 1; padding: 13px; background: #f0f0f0; border: none; border-radius: 10px; cursor: pointer; font-size: 14px; color: #666; }
+        .btn-submit { flex: 1; padding: 13px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 14px; font-weight: 600; }
+        .section-title { font-size: 13px; color: #999; margin: 14px 0 8px; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <div class="login-box">
+        <div class="logo">
+            <img src="/static/logo-mobile.png" alt="城治学生会物资管理" style="max-width:100%;height:auto;max-height:46px;object-fit:contain;margin-bottom:6px;">
+            <h1>城治学生会物资管理</h1>
+            <p>查询领取 · 快速归还</p>
+        </div>
+
+        <!-- 标签页导航 -->
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('login')">账号登录</div>
+            <div class="tab" onclick="switchTab('borrow')">查询领取</div>
+            <div class="tab" onclick="switchTab('return')">快速归还</div>
+        </div>
+
+        <!-- 账号登录 -->
+        <div class="tab-content active" id="tab-login">
+            <div class="form-group">
+                <label>账号</label>
+                <input type="text" id="username" placeholder="请输入账号">
+            </div>
+            <div class="form-group">
+                <label>密码</label>
+                <input type="password" id="password" placeholder="请输入密码">
+            </div>
+            <button class="btn-primary" onclick="doLogin()">登 录</button>
+            <div class="error-msg" id="errorMsg"></div>
+            <div class="links">
+                <a href="javascript:void(0)" onclick="openChangePwd()">🔑 修改密码</a>
+                <a href="javascript:void(0)" onclick="openForgotPwd()">❓ 忘记密码</a>
+                <a href="javascript:void(0)" onclick="openRegister()">📝 注册</a>
+                <a href="/login">💻 管理后台 →</a>
+            </div>
+        </div>
+
+        <!-- 查询领取 -->
+        <div class="tab-content" id="tab-borrow">
+            <div class="search-bar">
+                <input type="text" id="borrowSearchKeyword" placeholder="输入物资名称/编号/位置搜索" onkeypress="if(event.key==='Enter')searchBorrowMaterials()">
+                <button onclick="searchBorrowMaterials()">搜索</button>
+            </div>
+            <div class="mat-list" id="borrowMatList">
+                <div class="empty-tip"><div class="icon">⏳</div>加载中...</div>
+            </div>
+        </div>
+
+        <!-- 快速归还 -->
+        <div class="tab-content" id="tab-return">
+            <div class="form-group">
+                <label>账号</label>
+                <input type="text" id="returnUsername" placeholder="请输入账号">
+            </div>
+            <div class="form-group">
+                <label>密码</label>
+                <input type="password" id="returnPassword" placeholder="请输入密码">
+            </div>
+            <button class="btn-primary" onclick="queryBorrowedMaterials()">查询未归还物资</button>
+            <div class="error-msg" id="returnErrorMsg"></div>
+            <div class="mat-list" id="returnMatList" style="margin-top:16px;"></div>
+        </div>
+    </div>
+
+    <!-- 领取合并表单弹窗 -->
+    <div class="modal-mask" id="borrowModal">
+        <div class="modal">
+            <h3>📤 确认领取</h3>
+            <div class="modal-mat-info" id="borrowModalMatInfo"></div>
+            <div class="section-title">🔐 登录信息</div>
+            <div class="form-group">
+                <label>账号 <span style="color:#e74c3c;">*</span></label>
+                <input type="text" id="borrowFormUsername" placeholder="请输入账号">
+            </div>
+            <div class="form-group">
+                <label>密码 <span style="color:#e74c3c;">*</span></label>
+                <input type="password" id="borrowFormPassword" placeholder="请输入密码">
+            </div>
+            <div class="section-title">📋 领取信息</div>
+            <div class="form-group">
+                <label>活动名称 <span style="color:#e74c3c;">*</span></label>
+                <input type="text" id="borrowFormActivity" placeholder="请输入活动名称">
+            </div>
+            <div class="form-group">
+                <label>领取数量</label>
+                <input type="number" id="borrowFormQty" value="1" min="1">
+            </div>
+            <div class="form-group">
+                <label>联系电话 <span style="color:#e74c3c;">*</span></label>
+                <input type="tel" id="borrowFormPhone" placeholder="请输入电话号码">
+            </div>
+            <div class="error-msg" id="borrowFormError"></div>
+            <div class="success-msg" id="borrowFormSuccess"></div>
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="closeBorrowModal()">取消</button>
+                <button class="btn-submit" id="borrowSubmitBtn" onclick="submitPublicBorrow()">确认领取</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 归还合并表单弹窗 -->
+    <div class="modal-mask" id="returnModal">
+        <div class="modal">
+            <h3>↩️ 确认归还</h3>
+            <div class="modal-mat-info" id="returnModalMatInfo"></div>
+            <div class="section-title">🔐 登录信息（已验证）</div>
+            <div class="form-group">
+                <label>账号</label>
+                <input type="text" id="returnFormUsername" readonly>
+            </div>
+            <div class="section-title">📋 归还信息</div>
+            <div class="form-group">
+                <label>归还数量</label>
+                <input type="number" id="returnFormQty" value="1" min="1">
+            </div>
+            <div class="form-group">
+                <label>归还时间</label>
+                <input type="date" id="returnFormTime">
+            </div>
+            <div class="form-group">
+                <label>归还地点 <span style="color:#e74c3c;">*</span></label>
+                <input type="text" id="returnFormLocation" placeholder="请输入归还地点">
+            </div>
+            <div class="error-msg" id="returnFormError"></div>
+            <div class="success-msg" id="returnFormSuccess"></div>
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="closeReturnModal()">取消</button>
+                <button class="btn-submit" id="returnSubmitBtn" onclick="submitPublicReturn()">确认归还</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 修改密码弹窗 -->
+    <div class="modal-mask" id="pwdModal">
+        <div class="modal">
+            <h3>🔑 修改密码</h3>
+            <div class="form-group"><label>账号</label><input type="text" id="pwdUsername" placeholder="请输入账号"></div>
+            <div class="form-group"><label>原密码</label><input type="password" id="pwdOld" placeholder="请输入原密码"></div>
+            <div class="form-group"><label>新密码（至少4位）</label><input type="password" id="pwdNew" placeholder="请输入新密码"></div>
+            <div class="form-group"><label>确认新密码</label><input type="password" id="pwdConfirm" placeholder="请再次输入新密码"></div>
+            <div class="error-msg" id="pwdError" style="display:none;margin-top:0;"></div>
+            <div class="success-msg" id="pwdSuccess" style="display:none;margin-top:0;"></div>
+            <div class="modal-actions"><button class="btn-cancel" onclick="closeChangePwd()">取消</button><button class="btn-submit" onclick="submitChangePwd()">确认修改</button></div>
+        </div>
+    </div>
+
+    <!-- 忘记密码弹窗 -->
+    <div class="modal-mask" id="forgotModal">
+        <div class="modal">
+            <h3>❓ 忘记密码</h3>
+            <p style="color:#999;font-size:13px;margin-bottom:14px;">通过绑定的邮箱接收验证码重置密码</p>
+            <div class="form-group"><label>绑定邮箱</label><input type="email" id="forgotEmail" placeholder="请输入绑定的邮箱"></div>
+            <div class="form-group"><label>验证码</label>
+                <div style="display:flex;gap:8px;">
+                    <input type="text" id="forgotCode" placeholder="6位验证码" style="flex:1;">
+                    <button id="sendCodeBtn" onclick="sendResetCode()" style="padding:0 14px;background:#667eea;color:white;border:none;border-radius:10px;cursor:pointer;font-size:13px;white-space:nowrap;">发送</button>
+                </div>
+            </div>
+            <div class="form-group"><label>新密码（至少4位）</label><input type="password" id="forgotNewPwd" placeholder="请输入新密码"></div>
+            <div class="form-group"><label>确认新密码</label><input type="password" id="forgotConfirmPwd" placeholder="请再次输入新密码"></div>
+            <div class="error-msg" id="forgotError" style="display:none;margin-top:0;"></div>
+            <div class="success-msg" id="forgotSuccess" style="display:none;margin-top:0;"></div>
+            <div class="modal-actions"><button class="btn-cancel" onclick="closeForgotPwd()">取消</button><button class="btn-submit" onclick="submitResetPwd()">重置密码</button></div>
+        </div>
+    </div>
+
+    <!-- 注册弹窗 -->
+    <div class="modal-mask" id="registerModal">
+        <div class="modal">
+            <h3>📝 用户注册</h3>
+            <div class="form-group"><label>用户名 <span style="color:#e74c3c;">*</span></label><input type="text" id="regUsername" placeholder="可输入中文或英文"></div>
+            <div class="form-group"><label>真实姓名</label><input type="text" id="regRealName" placeholder="不填则与用户名相同"></div>
+            <div class="form-group"><label>部门</label>
+                <select id="regDepartment">
+                    <option value="">请选择部门</option>
+                    <option value="办公室">办公室</option><option value="学习部">学习部</option><option value="体育部">体育部</option>
+                    <option value="文娱部">文娱部</option><option value="志工部">志工部</option><option value="宣传部">宣传部</option>
+                    <option value="马列部">马列部</option><option value="组织部">组织部</option><option value="权益部">权益部</option>
+                    <option value="社团部">社团部</option><option value="主席团">主席团</option><option value="副书记">副书记</option>
+                </select>
+            </div>
+            <div class="form-group"><label>电话</label><input type="tel" id="regPhone" placeholder="请输入电话号码"></div>
+            <div class="form-group"><label>邮箱</label><input type="email" id="regEmail" placeholder="用于忘记密码找回"></div>
+            <div class="form-group"><label>密码</label><input type="password" id="regPassword" placeholder="不填则默认 123456"></div>
+            <div class="error-msg" id="regError" style="display:none;margin-top:0;"></div>
+            <div class="success-msg" id="regSuccess" style="display:none;margin-top:0;"></div>
+            <div class="modal-actions"><button class="btn-cancel" onclick="closeRegister()">取消</button><button class="btn-submit" onclick="submitRegister()">确认注册</button></div>
+        </div>
+    </div>
+
+    <script>
+        // 标签页切换
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById('tab-' + tab).classList.add('active');
+            if (tab === 'borrow') {
+                document.getElementById('borrowSearchKeyword').focus();
+                // 进入查询领取时自动加载所有物资
+                searchBorrowMaterials();
+            }
+        }
+
+        // 账号登录
+        function doLogin() {
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const errorMsg = document.getElementById('errorMsg');
+            errorMsg.style.display = 'none';
+            if (!username || !password) { errorMsg.textContent = '请输入账号和密码'; errorMsg.style.display = 'block'; return; }
+            fetch('/api/login', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username,password}) })
+            .then(res => res.json().then(data => ({ok:res.ok, data})))
+            .then(({ok,data}) => {
+                if (ok) { localStorage.setItem('token', data.token); localStorage.setItem('user', JSON.stringify(data)); window.location.href = '/m/'; }
+                else { errorMsg.textContent = data.detail || '登录失败'; errorMsg.style.display = 'block'; }
+            })
+            .catch(() => { errorMsg.textContent = '网络错误，请重试'; errorMsg.style.display = 'block'; });
+        }
+        document.getElementById('password').addEventListener('keypress', e => { if (e.key === 'Enter') doLogin(); });
+
+        // ========== 查询领取 ==========
+        let currentBorrowMaterial = null;
+
+        function searchBorrowMaterials() {
+            const keyword = document.getElementById('borrowSearchKeyword').value.trim();
+            const list = document.getElementById('borrowMatList');
+            list.innerHTML = '<div class="empty-tip"><div class="icon">⏳</div>搜索中...</div>';
+            const url = keyword ? '/api/public/materials/search?keyword=' + encodeURIComponent(keyword) : '/api/public/materials';
+            fetch(url)
+            .then(res => res.json())
+            .then(data => {
+                if (!data.length) { list.innerHTML = '<div class="empty-tip"><div class="icon">📦</div>未找到相关物资</div>'; return; }
+                list.innerHTML = data.map(m => {
+                    const img = m.image ? `<img src="${m.image}" class="mat-img">` : `<div class="mat-img-ph">📦</div>`;
+                    const stockClass = m.available_stock === 0 ? 'stock-out' : m.available_stock <= 5 ? 'stock-low' : 'stock-ok';
+                    const stockText = m.available_stock === 0 ? '已领完' : `可领 ${m.available_stock}${m.unit}`;
+                    return `<div class="mat-item" onclick="openBorrowModal('${m.id}')">
+                        ${img}
+                        <div class="mat-info">
+                            <div class="mat-name">${m.name}</div>
+                            <div class="mat-meta">${m.qr_code} · ${m.location || '未设置位置'}</div>
+                            <div class="mat-stock ${stockClass}">${stockText}</div>
+                        </div>
+                    </div>`;
+                }).join('');
+            })
+            .catch(() => { list.innerHTML = '<div class="empty-tip"><div class="icon">❌</div>搜索失败，请重试</div>'; });
+        }
+
+        function openBorrowModal(materialId) {
+            currentBorrowMaterial = materialId;
+            // 获取物资详情
+            fetch('/api/public/materials/' + materialId)
+            .then(res => res.json())
+            .then(m => {
+                document.getElementById('borrowModalMatInfo').innerHTML = `
+                    <div class="name">${m.name}</div>
+                    <div class="meta">${m.qr_code} · 可领 ${m.available_stock}${m.unit} · ${m.location || '未设置位置'}</div>
+                `;
+                document.getElementById('borrowFormQty').max = m.available_stock;
+                document.getElementById('borrowFormQty').value = 1;
+            })
+            .catch(() => {
+                document.getElementById('borrowModalMatInfo').innerHTML = '<div class="name">物资</div>';
+            });
+            // 清空表单
+            document.getElementById('borrowFormUsername').value = document.getElementById('username').value || '';
+            document.getElementById('borrowFormPassword').value = '';
+            document.getElementById('borrowFormActivity').value = '';
+            document.getElementById('borrowFormPhone').value = '';
+            document.getElementById('borrowFormError').style.display = 'none';
+            document.getElementById('borrowFormSuccess').style.display = 'none';
+            document.getElementById('borrowSubmitBtn').disabled = false;
+            document.getElementById('borrowModal').style.display = 'flex';
+        }
+
+        function closeBorrowModal() { document.getElementById('borrowModal').style.display = 'none'; }
+
+        function submitPublicBorrow() {
+            const username = document.getElementById('borrowFormUsername').value.trim();
+            const password = document.getElementById('borrowFormPassword').value;
+            const activity_name = document.getElementById('borrowFormActivity').value.trim();
+            const quantity = parseInt(document.getElementById('borrowFormQty').value) || 1;
+            const phone = document.getElementById('borrowFormPhone').value.trim();
+            const errEl = document.getElementById('borrowFormError');
+            const sucEl = document.getElementById('borrowFormSuccess');
+            errEl.style.display = 'none'; sucEl.style.display = 'none';
+
+            if (!username || !password) { errEl.textContent = '请输入账号和密码'; errEl.style.display = 'block'; return; }
+            if (!activity_name) { errEl.textContent = '请输入活动名称'; errEl.style.display = 'block'; return; }
+            if (!phone) { errEl.textContent = '请输入联系电话'; errEl.style.display = 'block'; return; }
+
+            document.getElementById('borrowSubmitBtn').disabled = true;
+            fetch('/api/public/borrow', {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({username, password, material_id: currentBorrowMaterial, quantity, activity_name, phone})
+            })
+            .then(res => res.json().then(data => ({ok:res.ok, data})))
+            .then(({ok, data}) => {
+                document.getElementById('borrowSubmitBtn').disabled = false;
+                if (ok) {
+                    sucEl.textContent = data.message || '领取成功！';
+                    sucEl.style.display = 'block';
+                    // 自动登录并跳转
+                    if (data.token) {
+                        localStorage.setItem('token', data.token);
+                        localStorage.setItem('user', JSON.stringify(data.user));
+                    }
+                    setTimeout(() => { closeBorrowModal(); window.location.href = '/m/'; }, 1500);
+                } else {
+                    errEl.textContent = data.detail || '领取失败';
+                    errEl.style.display = 'block';
+                }
+            })
+            .catch(() => {
+                document.getElementById('borrowSubmitBtn').disabled = false;
+                errEl.textContent = '网络错误，请重试'; errEl.style.display = 'block';
+            });
+        }
+
+        // ========== 快速归还 ==========
+        let returnAccountInfo = null;
+
+        function queryBorrowedMaterials() {
+            const username = document.getElementById('returnUsername').value.trim();
+            const password = document.getElementById('returnPassword').value;
+            const errEl = document.getElementById('returnErrorMsg');
+            const list = document.getElementById('returnMatList');
+            errEl.style.display = 'none';
+
+            if (!username || !password) { errEl.textContent = '请输入账号和密码'; errEl.style.display = 'block'; return; }
+
+            list.innerHTML = '<div class="empty-tip"><div class="icon">⏳</div>查询中...</div>';
+            fetch('/api/public/my-borrowed', {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({username, password})
+            })
+            .then(res => res.json().then(data => ({ok:res.ok, data})))
+            .then(({ok, data}) => {
+                if (!ok) {
+                    list.innerHTML = '';
+                    errEl.textContent = data.detail || '查询失败';
+                    errEl.style.display = 'block';
+                    return;
+                }
+                returnAccountInfo = {username, password};
+                if (!data.length) { list.innerHTML = '<div class="empty-tip"><div class="icon">✅</div>没有未归还的物资</div>'; return; }
+                list.innerHTML = data.map(r => {
+                    return `<div class="mat-item" onclick="openReturnModal('${r.material_id}','${r.material_name}','${r.quantity}','${r.material_location||''}')">
+                        <div class="mat-img-ph">📦</div>
+                        <div class="mat-info">
+                            <div class="mat-name">${r.material_name}</div>
+                            <div class="mat-meta">未还 ${r.quantity}${r.unit||''} · ${r.material_location || '未设置位置'}</div>
+                            <div class="mat-stock stock-low">待归还</div>
+                        </div>
+                    </div>`;
+                }).join('');
+            })
+            .catch(() => {
+                list.innerHTML = '';
+                errEl.textContent = '网络错误，请重试'; errEl.style.display = 'block';
+            });
+        }
+
+        function openReturnModal(materialId, materialName, quantity, location) {
+            document.getElementById('returnModalMatInfo').innerHTML = `
+                <div class="name">${materialName}</div>
+                <div class="meta">未还 ${quantity} · ${location || '未设置位置'}</div>
+            `;
+            document.getElementById('returnFormUsername').value = returnAccountInfo.username;
+            document.getElementById('returnFormQty').value = 1;
+            document.getElementById('returnFormQty').max = quantity;
+            document.getElementById('returnFormTime').value = new Date().toISOString().split('T')[0];
+            document.getElementById('returnFormLocation').value = location || '';
+            document.getElementById('returnFormError').style.display = 'none';
+            document.getElementById('returnFormSuccess').style.display = 'none';
+            document.getElementById('returnSubmitBtn').disabled = false;
+            // 保存materialId
+            document.getElementById('returnModal').setAttribute('data-material-id', materialId);
+            document.getElementById('returnModal').style.display = 'flex';
+        }
+
+        function closeReturnModal() { document.getElementById('returnModal').style.display = 'none'; }
+
+        function submitPublicReturn() {
+            const material_id = document.getElementById('returnModal').getAttribute('data-material-id');
+            const quantity = parseInt(document.getElementById('returnFormQty').value) || 1;
+            const return_time = document.getElementById('returnFormTime').value;
+            const return_location = document.getElementById('returnFormLocation').value.trim();
+            const errEl = document.getElementById('returnFormError');
+            const sucEl = document.getElementById('returnFormSuccess');
+            errEl.style.display = 'none'; sucEl.style.display = 'none';
+
+            if (!return_time) { errEl.textContent = '请选择归还时间'; errEl.style.display = 'block'; return; }
+            if (!return_location) { errEl.textContent = '请输入归还地点'; errEl.style.display = 'block'; return; }
+
+            document.getElementById('returnSubmitBtn').disabled = true;
+            fetch('/api/public/return', {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({
+                    username: returnAccountInfo.username,
+                    password: returnAccountInfo.password,
+                    material_id, quantity, return_time, return_location
+                })
+            })
+            .then(res => res.json().then(data => ({ok:res.ok, data})))
+            .then(({ok, data}) => {
+                document.getElementById('returnSubmitBtn').disabled = false;
+                if (ok) {
+                    sucEl.textContent = data.message || '归还成功！';
+                    sucEl.style.display = 'block';
+                    if (data.token) {
+                        localStorage.setItem('token', data.token);
+                        localStorage.setItem('user', JSON.stringify(data.user));
+                    }
+                    setTimeout(() => { closeReturnModal(); queryBorrowedMaterials(); }, 1500);
+                } else {
+                    errEl.textContent = data.detail || '归还失败';
+                    errEl.style.display = 'block';
+                }
+            })
+            .catch(() => {
+                document.getElementById('returnSubmitBtn').disabled = false;
+                errEl.textContent = '网络错误，请重试'; errEl.style.display = 'block';
+            });
+        }
+
+        // ========== 修改密码 ==========
+        function openChangePwd() {
+            document.getElementById('pwdUsername').value = document.getElementById('username').value;
+            document.getElementById('pwdOld').value = ''; document.getElementById('pwdNew').value = ''; document.getElementById('pwdConfirm').value = '';
+            document.getElementById('pwdError').style.display = 'none'; document.getElementById('pwdSuccess').style.display = 'none';
+            document.getElementById('pwdModal').style.display = 'flex';
+        }
+        function closeChangePwd() { document.getElementById('pwdModal').style.display = 'none'; }
+        function submitChangePwd() {
+            const username = document.getElementById('pwdUsername').value.trim();
+            const old_password = document.getElementById('pwdOld').value;
+            const new_password = document.getElementById('pwdNew').value;
+            const confirm_password = document.getElementById('pwdConfirm').value;
+            const errEl = document.getElementById('pwdError'); const sucEl = document.getElementById('pwdSuccess');
+            errEl.style.display = 'none'; sucEl.style.display = 'none';
+            if (!username || !old_password || !new_password || !confirm_password) { errEl.textContent = '请填写所有字段'; errEl.style.display = 'block'; return; }
+            if (new_password.length < 4) { errEl.textContent = '新密码至少4位'; errEl.style.display = 'block'; return; }
+            if (new_password !== confirm_password) { errEl.textContent = '两次输入的新密码不一致'; errEl.style.display = 'block'; return; }
+            fetch('/api/change-password', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username,old_password,new_password}) })
+            .then(res => res.json().then(data => ({ok:res.ok, data})))
+            .then(({ok,data}) => {
+                if (ok) { sucEl.textContent = data.message || '密码修改成功'; sucEl.style.display = 'block'; setTimeout(() => { closeChangePwd(); document.getElementById('password').value = new_password; }, 1500); }
+                else { errEl.textContent = data.detail || '修改失败'; errEl.style.display = 'block'; }
+            })
+            .catch(() => { errEl.textContent = '网络错误，请重试'; errEl.style.display = 'block'; });
+        }
+
+        // ========== 忘记密码 ==========
+        function openForgotPwd() {
+            document.getElementById('forgotEmail').value = ''; document.getElementById('forgotCode').value = '';
+            document.getElementById('forgotNewPwd').value = ''; document.getElementById('forgotConfirmPwd').value = '';
+            document.getElementById('forgotError').style.display = 'none'; document.getElementById('forgotSuccess').style.display = 'none';
+            document.getElementById('sendCodeBtn').disabled = false; document.getElementById('sendCodeBtn').textContent = '发送';
+            document.getElementById('forgotModal').style.display = 'flex';
+        }
+        function closeForgotPwd() { document.getElementById('forgotModal').style.display = 'none'; }
+        let codeCountdown = 0;
+        function sendResetCode() {
+            const email = document.getElementById('forgotEmail').value.trim();
+            const errEl = document.getElementById('forgotError'); errEl.style.display = 'none';
+            if (!email) { errEl.textContent = '请输入邮箱'; errEl.style.display = 'block'; return; }
+            const btn = document.getElementById('sendCodeBtn'); btn.disabled = true; btn.textContent = '...';
+            fetch('/api/send-reset-code', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email}) })
+            .then(res => res.json().then(data => ({ok:res.ok, data})))
+            .then(({ok,data}) => {
+                if (ok) {
+                    btn.textContent = '60s'; codeCountdown = 60;
+                    const timer = setInterval(() => {
+                        codeCountdown--;
+                        if (codeCountdown <= 0) { clearInterval(timer); btn.disabled = false; btn.textContent = '重发'; }
+                        else { btn.textContent = codeCountdown + 's'; }
+                    }, 1000);
+                } else { btn.disabled = false; btn.textContent = '发送'; errEl.textContent = data.detail || '发送失败'; errEl.style.display = 'block'; }
+            })
+            .catch(() => { btn.disabled = false; btn.textContent = '发送'; errEl.textContent = '网络错误，请重试'; errEl.style.display = 'block'; });
+        }
+        function submitResetPwd() {
+            const email = document.getElementById('forgotEmail').value.trim();
+            const code = document.getElementById('forgotCode').value.trim();
+            const new_password = document.getElementById('forgotNewPwd').value;
+            const confirm_password = document.getElementById('forgotConfirmPwd').value;
+            const errEl = document.getElementById('forgotError'); const sucEl = document.getElementById('forgotSuccess');
+            errEl.style.display = 'none'; sucEl.style.display = 'none';
+            if (!email || !code || !new_password || !confirm_password) { errEl.textContent = '请填写所有字段'; errEl.style.display = 'block'; return; }
+            if (new_password.length < 4) { errEl.textContent = '新密码至少4位'; errEl.style.display = 'block'; return; }
+            if (new_password !== confirm_password) { errEl.textContent = '两次输入的新密码不一致'; errEl.style.display = 'block'; return; }
+            fetch('/api/reset-password', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email,code,new_password}) })
+            .then(res => res.json().then(data => ({ok:res.ok, data})))
+            .then(({ok,data}) => {
+                if (ok) { sucEl.textContent = data.message || '密码重置成功'; sucEl.style.display = 'block'; setTimeout(() => { closeForgotPwd(); document.getElementById('password').value = new_password; }, 1500); }
+                else { errEl.textContent = data.detail || '重置失败'; errEl.style.display = 'block'; }
+            })
+            .catch(() => { errEl.textContent = '网络错误，请重试'; errEl.style.display = 'block'; });
+        }
+
+        // ========== 注册 ==========
+        function openRegister() {
+            document.getElementById('regUsername').value = ''; document.getElementById('regRealName').value = '';
+            document.getElementById('regDepartment').value = ''; document.getElementById('regPhone').value = '';
+            document.getElementById('regEmail').value = ''; document.getElementById('regPassword').value = '';
+            document.getElementById('regError').style.display = 'none'; document.getElementById('regSuccess').style.display = 'none';
+            document.getElementById('registerModal').style.display = 'flex';
+        }
+        function closeRegister() { document.getElementById('registerModal').style.display = 'none'; }
+        function submitRegister() {
+            const username = document.getElementById('regUsername').value.trim();
+            const real_name = document.getElementById('regRealName').value.trim();
+            const department = document.getElementById('regDepartment').value.trim();
+            const phone = document.getElementById('regPhone').value.trim();
+            const email = document.getElementById('regEmail').value.trim();
+            const password = document.getElementById('regPassword').value;
+            const errEl = document.getElementById('regError'); const sucEl = document.getElementById('regSuccess');
+            errEl.style.display = 'none'; sucEl.style.display = 'none';
+            if (!username) { errEl.textContent = '请输入用户名'; errEl.style.display = 'block'; return; }
+            fetch('/api/register', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username,password,real_name,department,phone,email}) })
+            .then(res => res.json().then(data => ({ok:res.ok, data})))
+            .then(({ok,data}) => {
+                if (ok) { sucEl.textContent = data.message || '注册成功'; sucEl.style.display = 'block'; setTimeout(() => { closeRegister(); document.getElementById('username').value = username; document.getElementById('password').value = password || '123456'; }, 1500); }
+                else { errEl.textContent = data.detail || '注册失败'; errEl.style.display = 'block'; }
+            })
+            .catch(() => { errEl.textContent = '网络错误，请重试'; errEl.style.display = 'block'; });
+        }
+    </script>
+</body>
+</html>

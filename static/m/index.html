@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>城治学生会物资管理系统</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+        body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif; background:#f0f2f5; min-height:100vh; color:#333; }
+        .page { display:none; min-height:100vh; padding-bottom:30px; }
+        .page.active { display:block; }
+        .nav-bar { background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); color:white; padding:16px 18px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100; box-shadow:0 2px 12px rgba(102,126,234,0.3); }
+        .nav-bar .back { font-size:24px; cursor:pointer; width:32px; font-weight:300; }
+        .nav-bar .title { font-size:17px; font-weight:600; letter-spacing:0.5px; }
+        .nav-bar .right { width:32px; text-align:right; cursor:pointer; font-size:13px; }
+        .home-hero { background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); color:white; padding:35px 20px 60px; text-align:center; position:relative; overflow:hidden; }
+        .home-hero::before { content:''; position:absolute; top:-50px; right:-50px; width:150px; height:150px; background:rgba(255,255,255,0.1); border-radius:50%; }
+        .home-hero::after { content:''; position:absolute; bottom:-30px; left:-30px; width:100px; height:100px; background:rgba(255,255,255,0.08); border-radius:50%; }
+        .home-hero .avatar { font-size:48px; position:relative; z-index:1; }
+        .home-hero h2 { font-size:20px; margin-top:8px; position:relative; z-index:1; }
+        .home-hero p { opacity:0.85; font-size:13px; margin-top:4px; position:relative; z-index:1; }
+        .home-hero .role-tag { display:inline-block; background:rgba(255,255,255,0.25); padding:4px 14px; border-radius:14px; font-size:12px; margin-top:10px; position:relative; z-index:1; backdrop-filter:blur(10px); }
+        .home-stats { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; padding:0 16px; margin-top:-35px; position:relative; z-index:2; }
+        .stat-card { background:white; border-radius:14px; padding:16px 10px; text-align:center; box-shadow:0 4px 16px rgba(0,0,0,0.08); }
+        .stat-card .num { font-size:22px; font-weight:700; color:#667eea; }
+        .stat-card .label { font-size:11px; color:#999; margin-top:4px; }
+        .home-menu { padding:0 16px; margin-top:20px; }
+        .menu-section-title { font-size:14px; color:#666; margin-bottom:12px; padding-left:4px; font-weight:500; }
+        .menu-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+        .menu-item { background:white; border-radius:16px; padding:24px 14px; text-align:center; box-shadow:0 2px 12px rgba(0,0,0,0.06); cursor:pointer; transition:all 0.2s; border:1px solid rgba(0,0,0,0.03); }
+        .menu-item:active { transform:scale(0.95); box-shadow:0 1px 6px rgba(0,0,0,0.1); }
+        .menu-item .icon { font-size:36px; margin-bottom:4px; }
+        .menu-item .label { font-size:14px; margin-top:6px; color:#333; font-weight:600; }
+        .menu-item .desc { font-size:11px; color:#aaa; margin-top:3px; }
+        .home-logout { margin-top:24px; text-align:center; }
+        .home-logout button { background:white; border:1px solid #e0e0e0; padding:11px 36px; border-radius:22px; color:#666; font-size:14px; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.04); }
+        .form-card { background:white; margin:16px; border-radius:16px; padding:22px 18px; box-shadow:0 2px 16px rgba(0,0,0,0.05); }
+        .form-group { margin-bottom:16px; }
+        .form-group label { display:block; color:#555; margin-bottom:8px; font-size:14px; font-weight:500; }
+        .form-group label .req { color:#ef5350; }
+        .form-group input, .form-group select, .form-group textarea { width:100%; padding:13px 15px; border:1.5px solid #e8e8e8; border-radius:12px; font-size:15px; background:#fafafa; transition:all 0.2s; }
+        .form-group input:focus, .form-group select:focus { outline:none; border-color:#667eea; background:white; box-shadow:0 0 0 3px rgba(102,126,234,0.1); }
+        .form-group input[readonly] { background:#f5f5f5; color:#888; }
+        .upload-area { border:2px dashed #d0d0d0; border-radius:12px; padding:24px; text-align:center; cursor:pointer; color:#999; font-size:13px; background:#fafafa; transition:all 0.2s; }
+        .upload-area:active { border-color:#667eea; background:#f5f7ff; }
+        .upload-preview { width:100%; max-height:200px; object-fit:cover; border-radius:12px; margin-top:12px; }
+        .btn-primary { width:calc(100% - 32px); margin:0 16px; padding:16px; background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); color:white; border:none; border-radius:14px; font-size:16px; font-weight:600; cursor:pointer; box-shadow:0 4px 16px rgba(102,126,234,0.35); transition:all 0.2s; }
+        .btn-primary:active { transform:scale(0.98); box-shadow:0 2px 8px rgba(102,126,234,0.3); }
+        .btn-danger { background:#ef5350; color:white; border:none; padding:7px 16px; border-radius:8px; font-size:12px; cursor:pointer; }
+        .search-bar { padding:14px 16px; background:white; position:sticky; top:56px; z-index:50; box-shadow:0 1px 6px rgba(0,0,0,0.04); }
+        .search-bar input { width:100%; padding:11px 16px; border:1.5px solid #e8e8e8; border-radius:22px; font-size:14px; background:#f5f7fa; transition:all 0.2s; }
+        .search-bar input:focus { outline:none; border-color:#667eea; background:white; }
+        .mat-list { padding:0 16px; margin-top:12px; }
+        .mat-item { background:white; border-radius:14px; padding:14px; margin-bottom:10px; display:flex; gap:12px; box-shadow:0 2px 10px rgba(0,0,0,0.05); cursor:pointer; transition:all 0.15s; border:1px solid rgba(0,0,0,0.02); }
+        .mat-item:active { transform:scale(0.98); }
+        .mat-item .img { width:64px; height:64px; border-radius:12px; object-fit:cover; background:#eee; flex-shrink:0; }
+        .mat-item .img-ph { width:64px; height:64px; border-radius:12px; background:linear-gradient(135deg,#e8eaf6,#c5cae9); display:flex; align-items:center; justify-content:center; font-size:28px; flex-shrink:0; }
+        .mat-item .info { flex:1; min-width:0; }
+        .mat-item .name { font-size:15px; font-weight:600; color:#333; }
+        .mat-item .code { font-size:12px; color:#999; font-family:monospace; margin-top:3px; background:#f5f5f5; padding:2px 8px; border-radius:6px; display:inline-block; }
+        .mat-item .stock { font-size:13px; color:#666; margin-top:6px; }
+        .mat-item .stock span { color:#2e7d32; font-weight:600; }
+        .mat-item .actions { display:flex; flex-direction:column; gap:6px; justify-content:center; }
+        .detail-card { background:white; margin:16px; border-radius:16px; padding:22px; box-shadow:0 2px 16px rgba(0,0,0,0.05); }
+        .detail-card .name { font-size:20px; font-weight:700; }
+        .detail-card .img { width:100%; max-height:220px; object-fit:cover; border-radius:12px; margin:14px 0; background:#eee; }
+        .detail-row { display:flex; justify-content:space-between; padding:12px 0; border-bottom:1px solid #f0f0f0; font-size:14px; }
+        .detail-row:last-child { border-bottom:none; }
+        .detail-row .label { color:#999; }
+        .detail-row .value { color:#333; font-weight:500; }
+        .record-item { background:white; border-radius:14px; padding:16px; margin:10px 16px; box-shadow:0 2px 10px rgba(0,0,0,0.05); border:1px solid rgba(0,0,0,0.02); }
+        .record-item .top { display:flex; justify-content:space-between; align-items:center; }
+        .record-item .name { font-size:15px; font-weight:600; }
+        .record-item .user { font-size:12px; color:#888; margin-top:3px; }
+        .record-item .status { font-size:11px; padding:4px 12px; border-radius:10px; font-weight:500; }
+        .status-active { background:#fff3e0; color:#e65100; }
+        .status-completed { background:#e8f5e9; color:#2e7d32; }
+        .record-item .meta { font-size:12px; color:#999; margin-top:10px; line-height:1.7; }
+        .record-item .meta img { width:44px; height:44px; border-radius:8px; object-fit:cover; margin-top:6px; margin-right:6px; cursor:pointer; }
+        .record-item .actions { margin-top:12px; text-align:right; }
+        .toast { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(0,0,0,0.82); color:white; padding:14px 26px; border-radius:12px; font-size:14px; z-index:9999; display:none; max-width:80%; text-align:center; backdrop-filter:blur(10px); }
+        .loading { position:fixed; top:0;left:0;right:0;bottom:0; background:rgba(255,255,255,0.8); display:none; align-items:center; justify-content:center; z-index:9998; font-size:14px; color:#666; backdrop-filter:blur(4px); }
+        .empty-tip { text-align:center; padding:50px 20px; color:#bbb; font-size:14px; }
+        .empty-tip .icon { font-size:48px; margin-bottom:12px; opacity:0.5; }
+        /* 图片放大查看弹窗 */
+        .view-img-mask { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.9); z-index:9999; align-items:center; justify-content:center; flex-direction:column; }
+        .view-img-mask img { max-width:95vw; max-height:80vh; border-radius:8px; box-shadow:0 4px 30px rgba(0,0,0,0.5); }
+        .view-img-mask .view-img-name { color:#fff; font-size:15px; margin-top:16px; text-align:center; padding:0 20px; }
+        .view-img-mask .view-img-close { margin-top:20px; padding:10px 30px; background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.3); color:#fff; border-radius:20px; font-size:14px; cursor:pointer; }
+        /* 底部版权 */
+        .mobile-footer { text-align:center; padding:20px 16px 30px; color:#bbb; font-size:11px; line-height:1.8; }
+        .mobile-footer .version { color:#667eea; }
+    </style>
+</head>
+<body>
+    <!-- 首页 -->
+    <div class="page active" id="page-home">
+        <div class="home-hero">
+            <div class="avatar">👋</div>
+            <h2 id="welcomeName">你好</h2>
+            <div class="role-tag" id="roleTag">普通用户</div>
+        </div>
+        <div class="home-stats">
+            <div class="stat-card"><div class="num" id="statTotal">0</div><div class="label">物资总数</div></div>
+            <div class="stat-card"><div class="num" id="statAvail">0</div><div class="label">可领取</div></div>
+            <div class="stat-card"><div class="num" id="statMine">0</div><div class="label">我的记录</div></div>
+        </div>
+        <div class="home-menu">
+            <div class="menu-section-title">功能菜单</div>
+            <div class="menu-grid" id="menuGrid"></div>
+            <div class="home-logout"><button onclick="logout()">退出登录</button></div>
+        </div>
+    </div>
+
+    <!-- 新物品录入 -->
+    <div class="page" id="page-add">
+        <div class="nav-bar"><div class="back" onclick="showPage('page-home')">←</div><div class="title">新物品录入</div><div class="right"></div></div>
+        <div class="form-card">
+            <div class="form-group"><label>物资名称 <span class="req">*</span></label><input type="text" id="addName" placeholder="请输入物资名称"></div>
+            <div class="form-group"><label>规格型号</label><input type="text" id="addSpec" placeholder="如：ThinkPad X1"></div>
+            <div class="form-group"><label>单位</label><input type="text" id="addUnit" value="个" placeholder="如：个/台/箱"></div>
+            <div class="form-group"><label>库存数量 <span class="req">*</span></label><input type="number" id="addStock" value="1" min="0"></div>
+            <div class="form-group"><label>存放位置</label><input type="text" id="addLocation" placeholder="如：A柜-1层（多个位置用逗号分隔）"></div>
+            <div class="form-group"><label>物资图片</label><div class="upload-area" onclick="document.getElementById('addImage').click()">点击拍照或从相册选取</div><input type="file" id="addImage" accept="image/*" style="display:none" onchange="uploadImg(this,'addPreview')"><img id="addPreview" class="upload-preview" style="display:none"></div>
+        </div>
+        <button class="btn-primary" onclick="submitAdd()">确认录入</button>
+    </div>
+
+    <!-- 物资领取 -->
+    <div class="page" id="page-borrow">
+        <div class="nav-bar"><div class="back" onclick="showPage('page-home')">←</div><div class="title">物资领取</div><div class="right"></div></div>
+        <div class="form-card">
+            <div class="form-group"><label>领取物资名称 <span class="req">*</span></label><select id="borrowMaterial"><option value="">请选择物资</option></select></div>
+            <div class="form-group"><label>应用于活动名称 <span class="req">*</span></label><input type="text" id="borrowActivity" placeholder="请输入活动名称"></div>
+            <div class="form-group"><label>领取数量 <span class="req">*</span></label><input type="number" id="borrowQty" value="1" min="1"></div>
+            <div class="form-group"><label>领取人姓名 <span class="req">*</span></label><input type="text" id="borrowUser" readonly></div>
+            <div class="form-group"><label>领取人电话 <span class="req">*</span></label><input type="tel" id="borrowPhone" placeholder="请输入电话号码"></div>
+            <div class="form-group"><label>领取时物资图片</label><div class="upload-area" onclick="document.getElementById('borrowImage').click()">点击拍照或从相册选取</div><input type="file" id="borrowImage" accept="image/*" style="display:none" onchange="uploadImg(this,'borrowPreview')"><img id="borrowPreview" class="upload-preview" style="display:none"></div>
+        </div>
+        <button class="btn-primary" onclick="submitBorrow()">确认领取</button>
+    </div>
+
+    <!-- 物资归还 -->
+    <div class="page" id="page-return">
+        <div class="nav-bar"><div class="back" onclick="showPage('page-home')">←</div><div class="title">物资归还</div><div class="right"></div></div>
+        <div class="form-card">
+            <div class="form-group"><label>归还物资名称 <span class="req">*</span></label><select id="returnMaterial" onchange="onReturnMaterialChange()"><option value="">请选择物资</option></select></div>
+            <div class="form-group"><label>归还数量 <span class="req">*</span></label><input type="number" id="returnQty" value="1" min="1"></div>
+            <div class="form-group"><label>归还人姓名 <span class="req">*</span></label><input type="text" id="returnUser" readonly></div>
+            <div class="form-group"><label>归还时间 <span class="req">*</span></label><input type="date" id="returnTime"></div>
+            <div class="form-group"><label>归还地点 <span class="req">*</span></label><input type="text" id="returnLocation" placeholder="选择物资后自动填充，可手动修改"></div>
+            <div class="form-group"><label>归还时图片 <span class="req">*</span></label><div class="upload-area" onclick="document.getElementById('returnImage').click()">点击拍照或从相册选取</div><input type="file" id="returnImage" accept="image/*" style="display:none" onchange="uploadImg(this,'returnPreview')"><img id="returnPreview" class="upload-preview" style="display:none"></div>
+        </div>
+        <button class="btn-primary" onclick="submitReturn()">确认归还</button>
+    </div>
+
+    <!-- 物资查询 -->
+    <div class="page" id="page-search">
+        <div class="nav-bar"><div class="back" onclick="showPage('page-home')">←</div><div class="title">物资查询</div><div class="right"></div></div>
+        <div class="search-bar"><input type="text" id="searchKeyword" placeholder="输入名称/编码/规格搜索..." oninput="doSearch()"></div>
+        <div class="mat-list" id="searchResults"><div style="text-align:center;padding:40px;color:#999">输入关键词搜索</div></div>
+    </div>
+
+    <!-- 物资详情 -->
+    <div class="page" id="page-detail">
+        <div class="nav-bar"><div class="back" onclick="showPage('page-search')">←</div><div class="title">物资详情</div><div class="right"></div></div>
+        <div class="detail-card" id="detailContent"></div>
+    </div>
+
+    <!-- 我的记录 -->
+    <div class="page" id="page-records">
+        <div class="nav-bar"><div class="back" onclick="showPage('page-home')">←</div><div class="title" id="recordsTitle">我的记录</div><div class="right"></div></div>
+        <div id="recordList"><div style="text-align:center;padding:40px;color:#999">加载中...</div></div>
+    </div>
+
+    <!-- 底部版权 -->
+    <div class="mobile-footer">
+        <div>城治学生会物资管理系统 <span class="version">v1.1.0</span></div>
+        <div>© 2026 重庆超大城市数字化治理学院 版权所有</div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+    <div class="loading" id="loading">处理中...</div>
+
+    <!-- 图片放大查看弹窗 -->
+    <div class="view-img-mask" id="viewImgMask" onclick="closeViewImg()">
+        <img id="viewImgSrc" src="" alt="">
+        <div class="view-img-name" id="viewImgName"></div>
+        <button class="view-img-close" onclick="closeViewImg()">关闭</button>
+    </div>
+
+    <script>
+        let token = localStorage.getItem('token');
+        if (!token) window.location.href = '/m/login';
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        const isAdmin = user.role === 'admin';
+        document.getElementById('welcomeName').textContent = '你好，' + (user.real_name || '用户');
+        document.getElementById('roleTag').textContent = isAdmin ? '管理员' : '普通用户';
+        document.getElementById('borrowUser').value = user.real_name || '';
+        document.getElementById('returnUser').value = user.real_name || '';
+        document.getElementById('borrowPhone').value = user.phone || '';
+        document.getElementById('returnTime').value = new Date().toISOString().split('T')[0];
+        document.getElementById('recordsTitle').textContent = isAdmin ? '所有记录' : '我的记录';
+
+        let uploadedImages = { add:'', borrow:'', return:'' };
+
+        // 根据角色生成菜单
+        function buildMenu() {
+            const commonMenu = [
+                { icon:'📤', label:'物资领取', desc:'扫码/选择领取', page:'page-borrow' },
+                { icon:'↩️', label:'物资归还', desc:'归还借出物资', page:'page-return' },
+                { icon:'🔍', label:'物资查询', desc:'查看库存详情', page:'page-search' },
+                { icon:'📋', label: isAdmin?'所有记录':'我的记录', desc:'领取归还历史', page:'page-records' },
+            ];
+            const adminMenu = [
+                { icon:'📥', label:'新物品录入', desc:'添加新物资', page:'page-add' },
+                { icon:'📊', label:'数据大屏', desc:'可视化统计', page:'dashboard' },
+                { icon:'💻', label:'管理后台', desc:'电脑版完整管理', page:'admin' },
+            ];
+            const menu = isAdmin ? [...adminMenu, ...commonMenu] : commonMenu;
+            document.getElementById('menuGrid').innerHTML = menu.map(m=>{
+                if (m.page === 'dashboard') return `<div class="menu-item" onclick="location.href='/dashboard'"><div class="icon">${m.icon}</div><div class="label">${m.label}</div><div class="desc">${m.desc}</div></div>`;
+                if (m.page === 'admin') return `<div class="menu-item" onclick="location.href='/'"><div class="icon">${m.icon}</div><div class="label">${m.label}</div><div class="desc">${m.desc}</div></div>`;
+                return `<div class="menu-item" onclick="showPage('${m.page}')"><div class="icon">${m.icon}</div><div class="label">${m.label}</div><div class="desc">${m.desc}</div></div>`;
+            }).join('');
+        }
+        buildMenu();
+
+        // 加载首页统计数据
+        function loadStats() {
+            fetch('/api/materials', { headers:{'Authorization':'Bearer '+token} })
+            .then(res=>res.json())
+            .then(data=>{
+                const total = data.length;
+                const avail = data.filter(m=>m.available_stock>0).length;
+                document.getElementById('statTotal').textContent = total;
+                document.getElementById('statAvail').textContent = avail;
+            })
+            .catch(()=>{});
+            fetch('/api/my-transactions', { headers:{'Authorization':'Bearer '+token} })
+            .then(res=>res.json())
+            .then(data=>{
+                document.getElementById('statMine').textContent = data.length;
+            })
+            .catch(()=>{});
+        }
+        loadStats();
+
+        // 处理从扫码页面跳转过来的物资领取
+        const pendingFromScan = localStorage.getItem('pendingBorrowMaterial');
+        if (pendingFromScan) {
+            pendingBorrowMaterial = pendingFromScan;
+            localStorage.removeItem('pendingBorrowMaterial');
+            setTimeout(() => showPage('page-borrow'), 300);
+        }
+
+        function showPage(id) {
+            document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            window.scrollTo(0,0);
+            if (id==='page-borrow') loadMaterialSelect('borrowMaterial');
+            if (id==='page-return') loadBorrowedSelect();
+            if (id==='page-records') loadRecords();
+            if (id==='page-search') { document.getElementById('searchKeyword').value=''; doSearch(); }
+        }
+
+        function uploadImg(input, previewId) {
+            const file = input.files[0];
+            if (!file) return;
+            showLoading(true);
+            const formData = new FormData();
+            formData.append('file', file);
+            fetch('/api/upload', { method:'POST', headers:{'Authorization':'Bearer '+token}, body:formData })
+            .then(res=>res.json())
+            .then(data=>{
+                showLoading(false);
+                const key = previewId.replace('Preview','');
+                uploadedImages[key] = data.url;
+                document.getElementById(previewId).src = URL.createObjectURL(file);
+                document.getElementById(previewId).style.display = 'block';
+                showToast('图片上传成功');
+            })
+            .catch(()=>{ showLoading(false); showToast('图片上传失败'); });
+        }
+
+        function loadMaterialSelect(selectId) {
+            fetch('/api/materials', { headers:{'Authorization':'Bearer '+token} })
+            .then(res=>res.json())
+            .then(data=>{
+                document.getElementById(selectId).innerHTML = '<option value="">请选择物资</option>' + data.map(m=>`<option value="${m.id}">${m.name}（可领${m.available_stock}${m.unit}）</option>`).join('');
+                if (pendingBorrowMaterial) {
+                    document.getElementById(selectId).value = pendingBorrowMaterial;
+                    pendingBorrowMaterial = null;
+                }
+            });
+        }
+
+        function loadBorrowedSelect() {
+            fetch('/api/my-transactions', { headers:{'Authorization':'Bearer '+token} })
+            .then(res=>res.json())
+            .then(data=>{
+                const active = data.filter(r=>r.status==='active');
+                const sel = document.getElementById('returnMaterial');
+                if (!active.length) { sel.innerHTML='<option value="">暂无未归还物资</option>'; return; }
+                sel.innerHTML = '<option value="">请选择物资</option>' + active.map(r=>`<option value="${r.material_id||r.id}" data-location="${r.material_location||''}">${r.material_name}（未还${r.quantity}${r.unit}）</option>`).join('');
+            });
+        }
+
+        function onReturnMaterialChange() {
+            const sel = document.getElementById('returnMaterial');
+            const opt = sel.options[sel.selectedIndex];
+            const location = opt ? opt.getAttribute('data-location') : '';
+            document.getElementById('returnLocation').value = location || '';
+        }
+
+        function submitAdd() {
+            const name = document.getElementById('addName').value.trim();
+            if (!name) { showToast('请输入物资名称'); return; }
+            const spec = document.getElementById('addSpec').value.trim();
+            const unit = document.getElementById('addUnit').value.trim()||'个';
+            const total_stock = Number(document.getElementById('addStock').value)||0;
+            const location = document.getElementById('addLocation').value.trim();
+            showLoading(true);
+            fetch('/api/materials', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({name,spec,unit,total_stock,location,image:uploadedImages.add}) })
+            .then(res=>res.json().then(d=>({ok:res.ok,data:d})))
+            .then(({ok,data})=>{
+                showLoading(false);
+                if (ok) { showToast('录入成功！编码：'+data.qr_code); setTimeout(()=>{ document.getElementById('addName').value=''; document.getElementById('addSpec').value=''; document.getElementById('addUnit').value='个'; document.getElementById('addStock').value='1'; document.getElementById('addLocation').value=''; document.getElementById('addPreview').style.display='none'; uploadedImages.add=''; showPage('page-home'); },1500); }
+                else showToast(data.detail||'录入失败');
+            })
+            .catch(()=>{ showLoading(false); showToast('网络错误'); });
+        }
+
+        function submitBorrow() {
+            const material_id = document.getElementById('borrowMaterial').value;
+            if (!material_id) { showToast('请选择物资'); return; }
+            const activity_name = document.getElementById('borrowActivity').value.trim();
+            if (!activity_name) { showToast('请输入活动名称'); return; }
+            const quantity = Number(document.getElementById('borrowQty').value)||1;
+            const phone = document.getElementById('borrowPhone').value.trim();
+            if (!phone) { showToast('请输入电话号码'); return; }
+            showLoading(true);
+            fetch('/api/borrow', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({material_id,quantity,activity_name,phone,borrow_image:uploadedImages.borrow}) })
+            .then(res=>res.json().then(d=>({ok:res.ok,data:d})))
+            .then(({ok,data})=>{
+                showLoading(false);
+                if (ok) { showToast('✅ '+data.message); setTimeout(()=>{ document.getElementById('borrowActivity').value=''; document.getElementById('borrowQty').value='1'; document.getElementById('borrowPreview').style.display='none'; uploadedImages.borrow=''; showPage('page-home'); },1500); }
+                else showToast('❌ '+(data.detail||'领取失败'));
+            })
+            .catch(()=>{ showLoading(false); showToast('网络错误'); });
+        }
+
+        function submitReturn() {
+            const material_id = document.getElementById('returnMaterial').value;
+            if (!material_id) { showToast('请选择物资'); return; }
+            const quantity = Number(document.getElementById('returnQty').value)||1;
+            const return_time = document.getElementById('returnTime').value;
+            if (!return_time) { showToast('请选择归还时间'); return; }
+            const return_location = document.getElementById('returnLocation').value;
+            if (!return_location) { showToast('请选择归还地点'); return; }
+            if (!uploadedImages.return) { showToast('请上传归还图片'); return; }
+            showLoading(true);
+            fetch('/api/return', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({material_id,quantity,return_time,return_location,return_image:uploadedImages.return}) })
+            .then(res=>res.json().then(d=>({ok:res.ok,data:d})))
+            .then(({ok,data})=>{
+                showLoading(false);
+                if (ok) { showToast('✅ '+data.message); setTimeout(()=>{ document.getElementById('returnQty').value='1'; document.getElementById('returnPreview').style.display='none'; uploadedImages.return=''; showPage('page-home'); },1500); }
+                else showToast('❌ '+(data.detail||'归还失败'));
+            })
+            .catch(()=>{ showLoading(false); showToast('网络错误'); });
+        }
+
+        let searchTimer;
+        let pendingBorrowMaterial = null;
+        function doSearch() {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(()=>{
+                const keyword = document.getElementById('searchKeyword').value.trim();
+                const url = keyword ? '/api/materials/search?keyword='+encodeURIComponent(keyword) : '/api/materials';
+                fetch(url, { headers:{'Authorization':'Bearer '+token} })
+                .then(res=>res.json())
+                .then(data=>{
+                    const box = document.getElementById('searchResults');
+                    if (!data.length) { box.innerHTML='<div style="text-align:center;padding:40px;color:#999">未找到相关物资</div>'; return; }
+                    box.innerHTML = data.map(m=>{
+                        const img = m.image ? `<img src="${m.image}" class="img" style="cursor:pointer;" onclick="event.stopPropagation();viewImage('${m.image}','${m.name}')" title="点击放大">` : `<div class="img-ph">📦</div>`;
+                        const delBtn = isAdmin ? `<div class="actions"><button class="btn-danger" onclick="event.stopPropagation();deleteMaterial('${m.id}','${m.name}')">删除</button></div>` : '';
+                        return `<div class="mat-item" onclick="goToBorrow('${m.id}')">${img}<div class="info"><div class="name">${m.name}</div><div class="code">${m.qr_code}</div><div class="stock">可领：<span>${m.available_stock}${m.unit}</span> · 共${m.total_stock}${m.unit}</div></div>${delBtn}</div>`;
+                    }).join('');
+                });
+            }, 300);
+        }
+
+        function goToBorrow(materialId) {
+            pendingBorrowMaterial = materialId;
+            showPage('page-borrow');
+        }
+
+        function showDetail(id) {
+            fetch('/api/materials/'+id, { headers:{'Authorization':'Bearer '+token} })
+            .then(res=>res.json())
+            .then(m=>{
+                const img = m.image ? `<img src="${m.image}" class="img" style="cursor:pointer;" onclick="viewImage('${m.image}','${m.name}')" title="点击放大">` : '';
+                document.getElementById('detailContent').innerHTML = `
+                    <div class="name">${m.name}</div>
+                    ${img}
+                    <div class="detail-row"><span class="label">二维码编号</span><span class="value">${m.qr_code}</span></div>
+                    <div class="detail-row"><span class="label">规格型号</span><span class="value">${m.spec||'-'}</span></div>
+                    <div class="detail-row"><span class="label">单位</span><span class="value">${m.unit}</span></div>
+                    <div class="detail-row"><span class="label">总库存</span><span class="value">${m.total_stock} ${m.unit}</span></div>
+                    <div class="detail-row"><span class="label">可领取</span><span class="value" style="color:#2e7d32;font-weight:700">${m.available_stock} ${m.unit}</span></div>
+                    <div class="detail-row"><span class="label">存放位置</span><span class="value">${m.location||'-'}</span></div>
+                `;
+                showPage('page-detail');
+            });
+        }
+
+        function deleteMaterial(id, name) {
+            if (!confirm('确定删除物资「'+name+'」吗？')) return;
+            fetch('/api/materials/'+id, { method:'DELETE', headers:{'Authorization':'Bearer '+token} })
+            .then(res=>res.json())
+            .then(data=>{ showToast(data.message||'已删除'); doSearch(); })
+            .catch(()=>showToast('删除失败'));
+        }
+
+        function loadRecords() {
+            const url = isAdmin ? '/api/transactions' : '/api/my-transactions';
+            fetch(url, { headers:{'Authorization':'Bearer '+token} })
+            .then(res=>res.json())
+            .then(data=>{
+                const box = document.getElementById('recordList');
+                if (!data.length) { box.innerHTML='<div style="text-align:center;padding:40px;color:#999">暂无记录</div>'; return; }
+                box.innerHTML = data.map(r=>{
+                    const statusText = r.status==='active'?'借出中':'已归还';
+                    const statusClass = r.status==='active'?'status-active':'status-completed';
+                    const userName = r.user_name ? `<div class="user">使用人：${r.user_name}</div>` : '';
+                    const borrowImg = r.borrow_image ? `<img src="${r.borrow_image}" style="cursor:pointer;" onclick="viewImage('${r.borrow_image}','领取图片')" title="点击放大">` : '';
+                    const returnImg = r.return_image ? `<img src="${r.return_image}" style="cursor:pointer;" onclick="viewImage('${r.return_image}','归还图片')" title="点击放大">` : '';
+                    const delBtn = isAdmin ? `<div class="actions"><button class="btn-danger" onclick="deleteRecord('${r.id}')">删除记录</button></div>` : '';
+                    return `<div class="record-item"><div class="top"><div><div class="name">${r.material_name}</div>${userName}</div><span class="status ${statusClass}">${statusText}</span></div><div class="meta">数量：${r.quantity} ${r.unit||''}${r.activity_name?'<br>活动：'+r.activity_name:''}<br>领取：${new Date(r.borrowed_at).toLocaleString('zh-CN')}${r.returned_at?'<br>归还：'+new Date(r.returned_at).toLocaleString('zh-CN'):''}${r.return_location?'<br>归还地点：'+r.return_location:''}<br>${borrowImg}${returnImg}</div>${delBtn}</div>`;
+                }).join('');
+            });
+        }
+
+        function deleteRecord(id) {
+            if (!confirm('确定删除这条记录吗？')) return;
+            fetch('/api/transactions/'+id, { method:'DELETE', headers:{'Authorization':'Bearer '+token} })
+            .then(res=>res.json())
+            .then(data=>{ showToast(data.message||'已删除'); loadRecords(); })
+            .catch(()=>showToast('删除失败'));
+        }
+
+        function showToast(msg) { const t=document.getElementById('toast'); t.textContent=msg; t.style.display='block'; setTimeout(()=>t.style.display='none',2000); }
+        function showLoading(show) { document.getElementById('loading').style.display=show?'flex':'none'; }
+
+        // 图片放大查看
+        function viewImage(src, name) {
+            document.getElementById('viewImgSrc').src = src;
+            document.getElementById('viewImgName').textContent = name || '图片查看';
+            document.getElementById('viewImgMask').style.display = 'flex';
+        }
+        function closeViewImg() {
+            document.getElementById('viewImgMask').style.display = 'none';
+        }
+        function logout() { if(confirm('确定退出登录？')){ localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href='/m/login'; } }
+    </script>
+</body>
+</html>

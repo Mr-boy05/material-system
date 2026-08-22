@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>城治学生会物资管理系统 - 登录</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-box {
+            background: white;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            width: 360px;
+        }
+        .login-box h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 24px;
+        }
+        .login-box .subtitle {
+            text-align: center;
+            color: #999;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .form-group {
+            margin-bottom: 18px;
+        }
+        .form-group label {
+            display: block;
+            color: #555;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 15px;
+            transition: border-color 0.3s;
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .btn-login {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+        .btn-login:active { transform: translateY(0); }
+        .error-msg {
+            color: #e74c3c;
+            font-size: 14px;
+            text-align: center;
+            margin-top: 12px;
+            display: none;
+        }
+        .success-msg {
+            color: #2e7d32;
+            font-size: 14px;
+            text-align: center;
+            margin-top: 12px;
+            display: none;
+        }
+        .tip {
+            text-align: center;
+            margin-top: 20px;
+            color: #aaa;
+            font-size: 12px;
+        }
+        .links {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 16px;
+        }
+        .links a {
+            color: #667eea;
+            text-decoration: none;
+            font-size: 13px;
+        }
+        .links a:hover { text-decoration: underline; }
+
+        /* 修改密码弹窗 */
+        .modal-mask {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal {
+            background: white;
+            border-radius: 14px;
+            padding: 28px;
+            width: 380px;
+            max-width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .modal h3 {
+            margin-bottom: 20px;
+            color: #333;
+            font-size: 18px;
+            text-align: center;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .btn-cancel {
+            flex: 1;
+            padding: 12px;
+            background: #f0f0f0;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #666;
+        }
+        .btn-submit {
+            flex: 1;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-box">
+        <div style="text-align:center;margin-bottom:20px;">
+            <img src="/static/logo.png" alt="城治学生会物资管理系统" style="max-width:100%;height:auto;max-height:60px;object-fit:contain;">
+        </div>
+        <h1 style="font-size:20px;margin-bottom:6px;">管理后台登录</h1>
+        <p class="subtitle">城治学生会物资管理系统</p>
+        <div class="form-group">
+            <label>账号</label>
+            <input type="text" id="username" placeholder="请输入账号">
+        </div>
+        <div class="form-group">
+            <label>密码</label>
+            <input type="password" id="password" placeholder="请输入密码">
+        </div>
+        <button class="btn-login" onclick="doLogin()">登 录</button>
+        <div class="error-msg" id="errorMsg"></div>
+        <div class="links">
+            <a href="javascript:void(0)" onclick="openChangePwd()">🔑 修改密码</a>
+            <a href="javascript:void(0)" onclick="openForgotPwd()">❓ 忘记密码</a>
+            <a href="javascript:void(0)" onclick="openRegister()">📝 注册</a>
+            <a href="/m/login">📱 手机端 →</a>
+        </div>
+        <div class="tip">默认管理员：admin / admin123</div>
+    </div>
+
+    <!-- 修改密码弹窗 -->
+    <div class="modal-mask" id="pwdModal">
+        <div class="modal">
+            <h3>🔑 修改密码</h3>
+            <div class="form-group">
+                <label>账号</label>
+                <input type="text" id="pwdUsername" placeholder="请输入账号">
+            </div>
+            <div class="form-group">
+                <label>原密码</label>
+                <input type="password" id="pwdOld" placeholder="请输入原密码">
+            </div>
+            <div class="form-group">
+                <label>新密码（至少4位）</label>
+                <input type="password" id="pwdNew" placeholder="请输入新密码">
+            </div>
+            <div class="form-group">
+                <label>确认新密码</label>
+                <input type="password" id="pwdConfirm" placeholder="请再次输入新密码">
+            </div>
+            <div class="error-msg" id="pwdError" style="display:none;margin-top:0;"></div>
+            <div class="success-msg" id="pwdSuccess" style="display:none;margin-top:0;"></div>
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="closeChangePwd()">取消</button>
+                <button class="btn-submit" onclick="submitChangePwd()">确认修改</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 忘记密码弹窗 -->
+    <div class="modal-mask" id="forgotModal">
+        <div class="modal">
+            <h3>❓ 忘记密码</h3>
+            <p style="color:#999;font-size:13px;margin-bottom:16px;">通过绑定的邮箱接收验证码重置密码</p>
+            <div class="form-group">
+                <label>绑定邮箱</label>
+                <input type="email" id="forgotEmail" placeholder="请输入绑定的邮箱">
+            </div>
+            <div class="form-group">
+                <label>验证码</label>
+                <div style="display:flex;gap:8px;">
+                    <input type="text" id="forgotCode" placeholder="请输入6位验证码" style="flex:1;">
+                    <button id="sendCodeBtn" onclick="sendResetCode()" style="padding:0 16px;background:#667eea;color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px;white-space:nowrap;">发送验证码</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>新密码（至少4位）</label>
+                <input type="password" id="forgotNewPwd" placeholder="请输入新密码">
+            </div>
+            <div class="form-group">
+                <label>确认新密码</label>
+                <input type="password" id="forgotConfirmPwd" placeholder="请再次输入新密码">
+            </div>
+            <div class="error-msg" id="forgotError" style="display:none;margin-top:0;"></div>
+            <div class="success-msg" id="forgotSuccess" style="display:none;margin-top:0;"></div>
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="closeForgotPwd()">取消</button>
+                <button class="btn-submit" onclick="submitResetPwd()">重置密码</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 注册弹窗 -->
+    <div class="modal-mask" id="registerModal">
+        <div class="modal">
+            <h3>📝 用户注册</h3>
+            <div class="form-group">
+                <label>用户名 <span style="color:#e74c3c;">*</span></label>
+                <input type="text" id="regUsername" placeholder="可输入中文或英文">
+            </div>
+            <div class="form-group">
+                <label>真实姓名</label>
+                <input type="text" id="regRealName" placeholder="不填则与用户名相同">
+            </div>
+            <div class="form-group">
+                <label>部门</label>
+                <select id="regDepartment">
+                    <option value="">请选择部门</option>
+                    <option value="办公室">办公室</option>
+                    <option value="学习部">学习部</option>
+                    <option value="体育部">体育部</option>
+                    <option value="文娱部">文娱部</option>
+                    <option value="志工部">志工部</option>
+                    <option value="宣传部">宣传部</option>
+                    <option value="马列部">马列部</option>
+                    <option value="组织部">组织部</option>
+                    <option value="权益部">权益部</option>
+                    <option value="社团部">社团部</option>
+                    <option value="主席团">主席团</option>
+                    <option value="副书记">副书记</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>电话</label>
+                <input type="tel" id="regPhone" placeholder="请输入电话号码">
+            </div>
+            <div class="form-group">
+                <label>邮箱</label>
+                <input type="email" id="regEmail" placeholder="用于忘记密码找回">
+            </div>
+            <div class="form-group">
+                <label>密码</label>
+                <input type="password" id="regPassword" placeholder="不填则默认 123456">
+            </div>
+            <div class="error-msg" id="regError" style="display:none;margin-top:0;"></div>
+            <div class="success-msg" id="regSuccess" style="display:none;margin-top:0;"></div>
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="closeRegister()">取消</button>
+                <button class="btn-submit" onclick="submitRegister()">确认注册</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function doLogin() {
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const errorMsg = document.getElementById('errorMsg');
+            errorMsg.style.display = 'none';
+
+            if (!username || !password) {
+                errorMsg.textContent = '请输入账号和密码';
+                errorMsg.style.display = 'block';
+                return;
+            }
+
+            fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            })
+            .then(res => res.json().then(data => ({ ok: res.ok, data })))
+            .then(({ ok, data }) => {
+                if (ok) {
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data));
+                    window.location.href = '/';
+                } else {
+                    errorMsg.textContent = data.detail || '登录失败';
+                    errorMsg.style.display = 'block';
+                }
+            })
+            .catch(err => {
+                errorMsg.textContent = '网络错误，请重试';
+                errorMsg.style.display = 'block';
+            });
+        }
+
+        document.getElementById('password').addEventListener('keypress', e => {
+            if (e.key === 'Enter') doLogin();
+        });
+
+        // 修改密码
+        function openChangePwd() {
+            document.getElementById('pwdUsername').value = document.getElementById('username').value;
+            document.getElementById('pwdOld').value = '';
+            document.getElementById('pwdNew').value = '';
+            document.getElementById('pwdConfirm').value = '';
+            document.getElementById('pwdError').style.display = 'none';
+            document.getElementById('pwdSuccess').style.display = 'none';
+            document.getElementById('pwdModal').style.display = 'flex';
+        }
+
+        function closeChangePwd() {
+            document.getElementById('pwdModal').style.display = 'none';
+        }
+
+        function submitChangePwd() {
+            const username = document.getElementById('pwdUsername').value.trim();
+            const old_password = document.getElementById('pwdOld').value;
+            const new_password = document.getElementById('pwdNew').value;
+            const confirm_password = document.getElementById('pwdConfirm').value;
+            const errEl = document.getElementById('pwdError');
+            const sucEl = document.getElementById('pwdSuccess');
+            errEl.style.display = 'none';
+            sucEl.style.display = 'none';
+
+            if (!username || !old_password || !new_password || !confirm_password) {
+                errEl.textContent = '请填写所有字段';
+                errEl.style.display = 'block';
+                return;
+            }
+            if (new_password.length < 4) {
+                errEl.textContent = '新密码至少4位';
+                errEl.style.display = 'block';
+                return;
+            }
+            if (new_password !== confirm_password) {
+                errEl.textContent = '两次输入的新密码不一致';
+                errEl.style.display = 'block';
+                return;
+            }
+
+            fetch('/api/change-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, old_password, new_password })
+            })
+            .then(res => res.json().then(data => ({ ok: res.ok, data })))
+            .then(({ ok, data }) => {
+                if (ok) {
+                    sucEl.textContent = data.message || '密码修改成功';
+                    sucEl.style.display = 'block';
+                    setTimeout(() => {
+                        closeChangePwd();
+                        document.getElementById('password').value = new_password;
+                    }, 1500);
+                } else {
+                    errEl.textContent = data.detail || '修改失败';
+                    errEl.style.display = 'block';
+                }
+            })
+            .catch(() => {
+                errEl.textContent = '网络错误，请重试';
+                errEl.style.display = 'block';
+            });
+        }
+
+        // 忘记密码
+        function openForgotPwd() {
+            document.getElementById('forgotEmail').value = '';
+            document.getElementById('forgotCode').value = '';
+            document.getElementById('forgotNewPwd').value = '';
+            document.getElementById('forgotConfirmPwd').value = '';
+            document.getElementById('forgotError').style.display = 'none';
+            document.getElementById('forgotSuccess').style.display = 'none';
+            document.getElementById('sendCodeBtn').disabled = false;
+            document.getElementById('sendCodeBtn').textContent = '发送验证码';
+            document.getElementById('forgotModal').style.display = 'flex';
+        }
+
+        function closeForgotPwd() {
+            document.getElementById('forgotModal').style.display = 'none';
+        }
+
+        let codeCountdown = 0;
+        function sendResetCode() {
+            const email = document.getElementById('forgotEmail').value.trim();
+            const errEl = document.getElementById('forgotError');
+            errEl.style.display = 'none';
+            if (!email) {
+                errEl.textContent = '请输入邮箱';
+                errEl.style.display = 'block';
+                return;
+            }
+            const btn = document.getElementById('sendCodeBtn');
+            btn.disabled = true;
+            btn.textContent = '发送中...';
+            fetch('/api/send-reset-code', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+            })
+            .then(res => res.json().then(data => ({ ok: res.ok, data })))
+            .then(({ ok, data }) => {
+                if (ok) {
+                    btn.textContent = '已发送(60s)';
+                    codeCountdown = 60;
+                    const timer = setInterval(() => {
+                        codeCountdown--;
+                        if (codeCountdown <= 0) {
+                            clearInterval(timer);
+                            btn.disabled = false;
+                            btn.textContent = '重新发送';
+                        } else {
+                            btn.textContent = `已发送(${codeCountdown}s)`;
+                        }
+                    }, 1000);
+                } else {
+                    btn.disabled = false;
+                    btn.textContent = '发送验证码';
+                    errEl.textContent = data.detail || '发送失败';
+                    errEl.style.display = 'block';
+                }
+            })
+            .catch(() => {
+                btn.disabled = false;
+                btn.textContent = '发送验证码';
+                errEl.textContent = '网络错误，请重试';
+                errEl.style.display = 'block';
+            });
+        }
+
+        function submitResetPwd() {
+            const email = document.getElementById('forgotEmail').value.trim();
+            const code = document.getElementById('forgotCode').value.trim();
+            const new_password = document.getElementById('forgotNewPwd').value;
+            const confirm_password = document.getElementById('forgotConfirmPwd').value;
+            const errEl = document.getElementById('forgotError');
+            const sucEl = document.getElementById('forgotSuccess');
+            errEl.style.display = 'none';
+            sucEl.style.display = 'none';
+
+            if (!email || !code || !new_password || !confirm_password) {
+                errEl.textContent = '请填写所有字段';
+                errEl.style.display = 'block';
+                return;
+            }
+            if (new_password.length < 4) {
+                errEl.textContent = '新密码至少4位';
+                errEl.style.display = 'block';
+                return;
+            }
+            if (new_password !== confirm_password) {
+                errEl.textContent = '两次输入的新密码不一致';
+                errEl.style.display = 'block';
+                return;
+            }
+
+            fetch('/api/reset-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, code, new_password })
+            })
+            .then(res => res.json().then(data => ({ ok: res.ok, data })))
+            .then(({ ok, data }) => {
+                if (ok) {
+                    sucEl.textContent = data.message || '密码重置成功';
+                    sucEl.style.display = 'block';
+                    setTimeout(() => {
+                        closeForgotPwd();
+                        document.getElementById('password').value = new_password;
+                    }, 1500);
+                } else {
+                    errEl.textContent = data.detail || '重置失败';
+                    errEl.style.display = 'block';
+                }
+            })
+            .catch(() => {
+                errEl.textContent = '网络错误，请重试';
+                errEl.style.display = 'block';
+            });
+        }
+
+        // 注册
+        function openRegister() {
+            document.getElementById('regUsername').value = '';
+            document.getElementById('regRealName').value = '';
+            document.getElementById('regDepartment').value = '';
+            document.getElementById('regPhone').value = '';
+            document.getElementById('regEmail').value = '';
+            document.getElementById('regPassword').value = '';
+            document.getElementById('regError').style.display = 'none';
+            document.getElementById('regSuccess').style.display = 'none';
+            document.getElementById('registerModal').style.display = 'flex';
+        }
+
+        function closeRegister() {
+            document.getElementById('registerModal').style.display = 'none';
+        }
+
+        function submitRegister() {
+            const username = document.getElementById('regUsername').value.trim();
+            const real_name = document.getElementById('regRealName').value.trim();
+            const department = document.getElementById('regDepartment').value.trim();
+            const phone = document.getElementById('regPhone').value.trim();
+            const email = document.getElementById('regEmail').value.trim();
+            const password = document.getElementById('regPassword').value;
+            const errEl = document.getElementById('regError');
+            const sucEl = document.getElementById('regSuccess');
+            errEl.style.display = 'none';
+            sucEl.style.display = 'none';
+
+            if (!username) {
+                errEl.textContent = '请输入用户名';
+                errEl.style.display = 'block';
+                return;
+            }
+
+            fetch('/api/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password, real_name, department, phone, email })
+            })
+            .then(res => res.json().then(data => ({ ok: res.ok, data })))
+            .then(({ ok, data }) => {
+                if (ok) {
+                    sucEl.textContent = data.message || '注册成功';
+                    sucEl.style.display = 'block';
+                    setTimeout(() => {
+                        closeRegister();
+                        document.getElementById('username').value = username;
+                        document.getElementById('password').value = password || '123456';
+                    }, 1500);
+                } else {
+                    errEl.textContent = data.detail || '注册失败';
+                    errEl.style.display = 'block';
+                }
+            })
+            .catch(() => {
+                errEl.textContent = '网络错误，请重试';
+                errEl.style.display = 'block';
+            });
+        }
+    </script>
+</body>
+</html>

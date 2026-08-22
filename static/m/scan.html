@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>扫码领取 - 城治学生会物资管理系统</title>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+        body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif; background:#f0f2f5; min-height:100vh; color:#333; }
+
+        .nav-bar { background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); color:white; padding:16px 18px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100; box-shadow:0 2px 12px rgba(102,126,234,0.3); }
+        .nav-bar .back { font-size:24px; cursor:pointer; width:32px; font-weight:300; }
+        .nav-bar .title { font-size:17px; font-weight:600; letter-spacing:0.5px; }
+        .nav-bar .right { width:32px; text-align:right; cursor:pointer; font-size:13px; }
+
+        .container { padding:16px; }
+
+        /* 扫码区域 */
+        .scan-box { background:white; border-radius:16px; padding:20px; box-shadow:0 2px 12px rgba(0,0,0,0.06); text-align:center; margin-bottom:16px; }
+        .scan-box .scan-title { font-size:16px; font-weight:600; color:#333; margin-bottom:12px; }
+        .scan-box .scan-tip { font-size:12px; color:#999; margin-bottom:14px; }
+        .video-container { position:relative; width:100%; max-width:300px; margin:0 auto; border-radius:12px; overflow:hidden; background:#000; aspect-ratio:1; }
+        .video-container video, .video-container canvas { width:100%; height:100%; object-fit:cover; display:block; }
+        .scan-frame { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:70%; height:70%; border:2px solid #667eea; border-radius:8px; pointer-events:none; }
+        .scan-frame::before, .scan-frame::after { content:''; position:absolute; width:20px; height:20px; border-color:#667eea; border-style:solid; }
+        .scan-frame::before { top:-2px; left:-2px; border-width:3px 0 0 3px; }
+        .scan-frame::after { bottom:-2px; right:-2px; border-width:0 3px 3px 0; }
+        .scan-line { position:absolute; top:0; left:10%; right:10%; height:2px; background:linear-gradient(90deg,transparent,#667eea,transparent); animation:scanMove 2s linear infinite; }
+        @keyframes scanMove { 0%{top:15%;} 50%{top:85%;} 100%{top:15%;} }
+
+        .btn-switch-camera { margin-top:14px; padding:10px 24px; background:#f0f0f0; border:none; border-radius:20px; font-size:13px; color:#666; cursor:pointer; }
+        .btn-switch-camera:active { background:#e0e0e0; }
+
+        /* 手动搜索 */
+        .search-box { background:white; border-radius:16px; padding:16px; box-shadow:0 2px 12px rgba(0,0,0,0.06); margin-bottom:16px; }
+        .search-box .search-title { font-size:14px; font-weight:600; color:#333; margin-bottom:10px; }
+        .search-input-row { display:flex; gap:8px; }
+        .search-input-row input { flex:1; padding:12px 14px; border:1.5px solid #e8e8e8; border-radius:10px; font-size:14px; background:#fafafa; }
+        .search-input-row input:focus { outline:none; border-color:#667eea; background:white; }
+        .search-input-row button { padding:0 18px; background:#667eea; color:white; border:none; border-radius:10px; font-size:14px; cursor:pointer; white-space:nowrap; }
+        .search-input-row button:active { background:#5568d3; }
+
+        /* 物资信息卡片 */
+        .material-card { background:white; border-radius:16px; padding:20px; box-shadow:0 2px 12px rgba(0,0,0,0.06); display:none; }
+        .material-card.show { display:block; }
+        .material-card .mat-img { width:100%; max-height:200px; object-fit:cover; border-radius:12px; margin-bottom:14px; background:#eee; }
+        .material-card .mat-img-ph { width:100%; height:160px; border-radius:12px; background:linear-gradient(135deg,#e8eaf6,#c5cae9); display:flex; align-items:center; justify-content:center; font-size:48px; margin-bottom:14px; }
+        .material-card .mat-name { font-size:20px; font-weight:700; color:#333; margin-bottom:6px; }
+        .material-card .mat-code { font-size:13px; color:#999; font-family:monospace; background:#f5f5f5; padding:4px 10px; border-radius:6px; display:inline-block; margin-bottom:14px; }
+        .detail-row { display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid #f0f0f0; font-size:14px; }
+        .detail-row:last-child { border-bottom:none; }
+        .detail-row .label { color:#999; }
+        .detail-row .value { color:#333; font-weight:500; }
+        .stock-ok { color:#2e7d32; font-weight:700; }
+        .stock-low { color:#e65100; font-weight:700; }
+        .stock-out { color:#c62828; font-weight:700; }
+
+        .btn-borrow { width:100%; margin-top:16px; padding:14px; background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); color:white; border:none; border-radius:12px; font-size:16px; font-weight:600; cursor:pointer; box-shadow:0 4px 16px rgba(102,126,234,0.35); }
+        .btn-borrow:active { transform:scale(0.98); }
+        .btn-borrow:disabled { background:#ccc; box-shadow:none; cursor:not-allowed; }
+
+        .login-tip { text-align:center; padding:30px 20px; color:#999; font-size:14px; }
+        .login-tip button { margin-top:12px; padding:10px 28px; background:#667eea; color:white; border:none; border-radius:20px; font-size:14px; cursor:pointer; }
+
+        .empty-tip { text-align:center; padding:40px 20px; color:#bbb; font-size:14px; }
+        .empty-tip .icon { font-size:48px; margin-bottom:12px; opacity:0.5; }
+
+        .toast { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(0,0,0,0.82); color:white; padding:14px 26px; border-radius:12px; font-size:14px; z-index:9999; display:none; max-width:80%; text-align:center; backdrop-filter:blur(10px); }
+
+        /* 底部版权 */
+        .mobile-footer { text-align:center; padding:20px 16px 30px; color:#bbb; font-size:11px; line-height:1.8; }
+        .mobile-footer .version { color:#667eea; }
+    </style>
+</head>
+<body>
+    <div class="nav-bar">
+        <div class="back" onclick="goBack()">←</div>
+        <div class="title">扫码领取</div>
+        <div class="right"></div>
+    </div>
+
+    <div class="container">
+        <!-- 扫码区域 -->
+        <div class="scan-box">
+            <div class="scan-title">📷 扫描物资二维码</div>
+            <div class="scan-tip">将二维码放入框内，自动识别</div>
+            <div class="video-container">
+                <video id="video" playsinline></video>
+                <canvas id="canvas" style="display:none;"></canvas>
+                <div class="scan-frame">
+                    <div class="scan-line"></div>
+                </div>
+            </div>
+            <button class="btn-switch-camera" onclick="switchCamera()">切换摄像头</button>
+        </div>
+
+        <!-- 手动搜索 -->
+        <div class="search-box">
+            <div class="search-title">🔍 或手动输入编号搜索</div>
+            <div class="search-input-row">
+                <input type="text" id="searchCode" placeholder="请输入物资编号，如 MAT-0001">
+                <button onclick="searchByCode()">搜索</button>
+            </div>
+        </div>
+
+        <!-- 物资信息卡片 -->
+        <div class="material-card" id="materialCard">
+            <div id="materialImgArea"></div>
+            <div class="mat-name" id="matName"></div>
+            <div class="mat-code" id="matCode"></div>
+            <div class="detail-row"><span class="label">规格型号</span><span class="value" id="matSpec"></span></div>
+            <div class="detail-row"><span class="label">单位</span><span class="value" id="matUnit"></span></div>
+            <div class="detail-row"><span class="label">总库存</span><span class="value" id="matTotal"></span></div>
+            <div class="detail-row"><span class="label">可领取</span><span class="value" id="matAvailable"></span></div>
+            <div class="detail-row"><span class="label">存放位置</span><span class="value" id="matLocation"></span></div>
+            <button class="btn-borrow" id="btnBorrow" onclick="goBorrow()">立即领取</button>
+        </div>
+
+        <div class="empty-tip" id="emptyTip">
+            <div class="icon">📦</div>
+            <div>扫码或输入编号查询物资</div>
+        </div>
+    </div>
+
+    <!-- 底部版权 -->
+    <div class="mobile-footer">
+        <div>城治学生会物资管理系统 <span class="version">v1.1.0</span></div>
+        <div>© 2026 重庆超大城市数字化治理学院 版权所有</div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        let token = localStorage.getItem('token');
+        let currentMaterial = null;
+        let videoStream = null;
+        let facingMode = 'environment';
+        let scanActive = true;
+
+        function showToast(msg) { const t=document.getElementById('toast'); t.textContent=msg; t.style.display='block'; setTimeout(()=>t.style.display='none',2000); }
+
+        function goBack() {
+            stopCamera();
+            if (document.referrer) history.back();
+            else location.href = '/m/login';
+        }
+
+        // 启动摄像头
+        async function startCamera() {
+            try {
+                if (videoStream) {
+                    videoStream.getTracks().forEach(t => t.stop());
+                }
+                const constraints = {
+                    video: { facingMode: facingMode, width: { ideal: 1280 }, height: { ideal: 720 } },
+                    audio: false
+                };
+                videoStream = await navigator.mediaDevices.getUserMedia(constraints);
+                const video = document.getElementById('video');
+                video.srcObject = videoStream;
+                video.setAttribute('playsinline', true);
+                video.play();
+                requestAnimationFrame(tick);
+            } catch (err) {
+                console.error('摄像头启动失败:', err);
+                showToast('无法启动摄像头，请使用手动搜索或在HTTPS环境下使用');
+            }
+        }
+
+        function stopCamera() {
+            scanActive = false;
+            if (videoStream) {
+                videoStream.getTracks().forEach(t => t.stop());
+                videoStream = null;
+            }
+        }
+
+        function switchCamera() {
+            facingMode = facingMode === 'environment' ? 'user' : 'environment';
+            startCamera();
+        }
+
+        // 扫码识别循环
+        function tick() {
+            if (!scanActive) return;
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('canvas');
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
+                if (code && code.data) {
+                    handleScanResult(code.data);
+                    return;
+                }
+            }
+            requestAnimationFrame(tick);
+        }
+
+        // 处理扫码结果
+        function handleScanResult(data) {
+            // 扫码结果可能是编号或URL，提取编号
+            let qrCode = data.trim();
+            // 如果是URL，提取最后的编号部分
+            if (qrCode.startsWith('http')) {
+                const parts = qrCode.split('/');
+                qrCode = parts[parts.length - 1];
+            }
+            if (qrCode) {
+                showToast('识别成功：' + qrCode);
+                searchMaterialByCode(qrCode);
+            }
+        }
+
+        // 手动搜索
+        function searchByCode() {
+            const code = document.getElementById('searchCode').value.trim();
+            if (!code) { showToast('请输入物资编号'); return; }
+            searchMaterialByCode(code);
+        }
+
+        document.getElementById('searchCode').addEventListener('keypress', e => {
+            if (e.key === 'Enter') searchByCode();
+        });
+
+        // 通过编号查询物资
+        function searchMaterialByCode(qrCode) {
+            if (!token) {
+                showToast('请先登录后查看物资详情');
+                showLoginTip();
+                return;
+            }
+            fetch('/api/materials/by-qr/' + encodeURIComponent(qrCode), {
+                headers: { 'Authorization': 'Bearer ' + token }
+            })
+            .then(res => {
+                if (res.status === 401) {
+                    showLoginTip();
+                    return null;
+                }
+                return res.json();
+            })
+            .then(data => {
+                if (data) {
+                    showMaterial(data);
+                } else if (data === null) {
+                    // 未登录
+                } else {
+                    showToast('未找到该物资');
+                }
+            })
+            .catch(() => showToast('查询失败，请检查网络'));
+        }
+
+        // 显示物资信息
+        function showMaterial(m) {
+            currentMaterial = m;
+            document.getElementById('emptyTip').style.display = 'none';
+            document.getElementById('materialCard').classList.add('show');
+
+            // 图片
+            const imgArea = document.getElementById('materialImgArea');
+            if (m.image) {
+                imgArea.innerHTML = `<img src="${m.image}" class="mat-img" style="cursor:pointer;" onclick="viewImage('${m.image}','${m.name}')">`;
+            } else {
+                imgArea.innerHTML = `<div class="mat-img-ph">📦</div>`;
+            }
+
+            document.getElementById('matName').textContent = m.name;
+            document.getElementById('matCode').textContent = '编号：' + m.qr_code;
+            document.getElementById('matSpec').textContent = m.spec || '-';
+            document.getElementById('matUnit').textContent = m.unit || '个';
+            document.getElementById('matTotal').textContent = m.total_stock + ' ' + (m.unit || '个');
+
+            const availEl = document.getElementById('matAvailable');
+            availEl.textContent = m.available_stock + ' ' + (m.unit || '个');
+            availEl.className = 'value ' + (m.available_stock === 0 ? 'stock-out' : m.available_stock <= 5 ? 'stock-low' : 'stock-ok');
+
+            document.getElementById('matLocation').textContent = m.location || '-';
+
+            const btn = document.getElementById('btnBorrow');
+            if (m.available_stock <= 0) {
+                btn.disabled = true;
+                btn.textContent = '库存不足，无法领取';
+            } else {
+                btn.disabled = false;
+                btn.textContent = '立即领取';
+            }
+        }
+
+        // 跳转到领取页面
+        function goBorrow() {
+            if (!currentMaterial) return;
+            if (!token) {
+                showToast('请先登录');
+                showLoginTip();
+                return;
+            }
+            // 跳转到手机端主页，并自动选中该物资进入领取
+            localStorage.setItem('pendingBorrowMaterial', currentMaterial.id);
+            location.href = '/m/';
+        }
+
+        // 显示登录提示
+        function showLoginTip() {
+            document.getElementById('emptyTip').style.display = 'none';
+            document.getElementById('materialCard').classList.remove('show');
+            const tip = document.createElement('div');
+            tip.className = 'login-tip';
+            tip.id = 'loginTip';
+            tip.innerHTML = `
+                <div>🔒 请先登录后领取物资</div>
+                <button onclick="location.href='/m/login'">去登录</button>
+            `;
+            const existing = document.getElementById('loginTip');
+            if (existing) existing.remove();
+            document.querySelector('.container').appendChild(tip);
+        }
+
+        // 图片放大查看
+        function viewImage(src, name) {
+            // 简单的图片放大，使用新窗口或alert
+            const mask = document.createElement('div');
+            mask.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.9);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;';
+            mask.onclick = () => mask.remove();
+            mask.innerHTML = `
+                <img src="${src}" style="max-width:95vw;max-height:80vh;border-radius:8px;">
+                <div style="color:#fff;font-size:15px;margin-top:16px;">${name || ''}</div>
+                <div style="margin-top:20px;padding:10px 30px;background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3);color:#fff;border-radius:20px;font-size:14px;">点击关闭</div>
+            `;
+            document.body.appendChild(mask);
+        }
+
+        // 页面加载时启动摄像头
+        window.addEventListener('load', () => {
+            if (token) {
+                startCamera();
+            } else {
+                showLoginTip();
+            }
+        });
+
+        // 页面隐藏时停止摄像头
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                stopCamera();
+            } else if (token) {
+                scanActive = true;
+                startCamera();
+            }
+        });
+    </script>
+</body>
+</html>
