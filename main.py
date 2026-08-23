@@ -16,11 +16,13 @@ from typing import Optional, List
 
 from fastapi import FastAPI, Depends, HTTPException, status, Header, UploadFile, File, Form
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from jose import JWTError, jwt
 import bcrypt
+import openpyxl
+from io import BytesIO
 
 # ==================== 配置 ====================
 DATABASE_FILE = "data/material.db"
@@ -978,6 +980,148 @@ def delete_material(material_id: str, conn=Depends(get_db), user=Depends(get_cur
     cur.execute("DELETE FROM transactions WHERE material_id=?", (material_id,))
     conn.commit()
     return {"success": True, "message": "物资已删除"}
+
+# ---------- 导出物资为 Excel ----------
+@app.get("/api/materials/export")
+def export_materials(conn=Depends(get_db), user=Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="只有管理员可以导出物资")
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT name, qr_code, spec, unit, total_stock, available_stock, location, operator, created_at
+        FROM materials ORDER BY created_at DESC
+    """)
+    materials = cur.fetchall()
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "物资清单"
+
+    # 表头
+    headers = ["物资名称", "编号", "规格", "单位", "总库存", "可领取", "存放位置", "操作人", "创建时间"]
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.font = openpyxl.styles.Font(bold=True)
+        cell.fill = openpyxl.styles.PatternFill(start_color="E8EAF6", end_color="E8EAF6", fill_type="solid")
+
+    # 数据
+    for row, m in enumerate(materials, 2):
+        ws.cell(row=row, column=1, value=m["name"])
+        ws.cell(row=row, column=2, value=m["qr_code"])
+        ws.cell(row=row, column=3, value=m["spec"] or "")
+        ws.cell(row=row, column=4, value=m["unit"] or "个")
+        ws.cell(row=row, column=5, value=m["total_stock"])
+        ws.cell(row=row, column=6, value=m["available_stock"])
+        ws.cell(row=row, column=7, value=m["location"] or "")
+        ws.cell(row=row, column=8, value=m["operator"] or "")
+        ws.cell(row=row, column=9, value=m["created_at"] or "")
+
+    # 调整列宽
+    column_widths = [20, 15, 20, 8, 10, 10, 20, 12, 20]
+    for col, width in enumerate(column_widths, 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = width
+
+    # 保存到内存
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    filename = f"物资清单_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+# ---------- 从 Excel 导入物资 ----------
+@app.post("/api/materials/import")
+async def import_materials(file: UploadFile = File(...), conn=Depends(get_db), user=Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="只有管理员可以导入物资")
+
+    if not file.filename.endswith(('.xlsx', '.xls')):
+        raise HTTPException(status_code=400, detail="请上传 Excel 文件（.xlsx 格式）")
+
+    try:
+        contents = await file.read()
+        wb = openpyxl.load_workbook(BytesIO(contents))
+        ws = wb.active
+
+        # 读取表头，确认列顺序
+        headers = [cell.value for cell in ws[1]]
+        # 找到各列的索引（支持中文表头）
+        col_map = {}
+        for idx, h in enumerate(headers):
+            if h and ("名称" in str(h) or "物资" in str(h)):
+                col_map["name"] = idx
+            elif h and "规格" in str(h):
+                col_map["spec"] = idx
+            elif h and "单位" in str(h):
+                col_map["unit"] = idx
+            elif h and ("库存" in str(h) or "数量" in str(h)):
+                col_map["stock"] = idx
+            elif h and ("位置" in str(h) or "存放" in str(h)):
+                col_map["location"] = idx
+
+        if "name" not in col_map:
+            raise HTTPException(status_code=400, detail="Excel 表头必须包含「物资名称」列")
+
+        cur = conn.cursor()
+        operator = user.get("real_name", "") or user.get("username", "")
+        added_count = 0
+        updated_count = 0
+        error_rows = []
+
+        for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), 2):
+            try:
+                name = row[col_map["name"]]
+                if not name or str(name).strip() == "":
+                    continue
+                name = str(name).strip()
+                spec = str(row[col_map.get("spec", -1)]).strip() if col_map.get("spec") is not None and row[col_map["spec"]] else ""
+                unit = str(row[col_map.get("unit", -1)]).strip() if col_map.get("unit") is not None and row[col_map["unit"]] else "个"
+                stock = int(row[col_map.get("stock", -1)]) if col_map.get("stock") is not None and row[col_map["stock"]] else 0
+                location = str(row[col_map.get("location", -1)]).strip() if col_map.get("location") is not None and row[col_map["location"]] else ""
+
+                # 检查物资是否已存在
+                cur.execute("SELECT id, total_stock, available_stock FROM materials WHERE name = ?", (name,))
+                existing = cur.fetchone()
+
+                if existing:
+                    # 更新已有物资：累加库存
+                    new_total = existing["total_stock"] + stock
+                    new_available = existing["available_stock"] + stock
+                    cur.execute("""
+                        UPDATE materials SET spec=?, unit=?, total_stock=?, available_stock=?, location=?, operator=?
+                        WHERE id=?
+                    """, (spec, unit, new_total, new_available, location, operator, existing["id"]))
+                    updated_count += 1
+                else:
+                    # 新增物资
+                    material_id = str(uuid.uuid4())
+                    cur.execute("SELECT COUNT(*) FROM materials")
+                    count = cur.fetchone()[0]
+                    qr_code = f"MAT-{count + 1:06d}"
+                    cur.execute("""
+                        INSERT INTO materials (id, name, qr_code, spec, unit, total_stock, available_stock, location, image, operator)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (material_id, name, qr_code, spec, unit, stock, stock, location, "", operator))
+                    added_count += 1
+            except Exception as e:
+                error_rows.append({"row": row_idx, "error": str(e)})
+
+        conn.commit()
+        return {
+            "success": True,
+            "message": f"导入完成：新增 {added_count} 条，更新 {updated_count} 条",
+            "added": added_count,
+            "updated": updated_count,
+            "errors": error_rows
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"导入失败：{str(e)}")
 
 # ---------- 删除记录 ----------
 @app.delete("/api/transactions/{tx_id}")

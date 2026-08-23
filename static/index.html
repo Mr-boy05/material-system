@@ -131,7 +131,7 @@
             <button class="logout" onclick="logout()">退出登录</button>
         </div>
         <div class="sidebar-version" onclick="openChangelog()">
-            <div class="ver">v1.2.1</div>
+            <div class="ver">v1.3.0</div>
             <div class="changelog-tip">点击查看更新日志</div>
             <div class="copyright" onclick="event.stopPropagation()">© 2026 重庆超大城市<br>数字化治理学院 版权所有</div>
         </div>
@@ -157,7 +157,12 @@
             </div>
             <div class="toolbar">
                 <span style="color:#666;font-size:13px;" id="materialCount">共 0 条</span>
-                <button class="btn btn-primary" onclick="openAddModal()">+ 新增物资</button>
+                <div style="display:flex;gap:8px;">
+                    <button class="btn" style="background:#43a047;color:white;" onclick="exportMaterials()">📥 导出Excel</button>
+                    <button class="btn" style="background:#fb8c00;color:white;" onclick="document.getElementById('importFileInput').click()">📤 导入Excel</button>
+                    <input type="file" id="importFileInput" accept=".xlsx,.xls" style="display:none" onchange="importMaterials(this)">
+                    <button class="btn btn-primary" onclick="openAddModal()">+ 新增物资</button>
+                </div>
             </div>
             <table>
                 <thead><tr><th>图片</th><th>物资名称</th><th>编号</th><th>总库存</th><th>可领取</th><th>存放位置</th><th>操作人</th><th>操作</th></tr></thead>
@@ -308,6 +313,16 @@
         <div class="modal changelog-modal" style="width:560px;">
             <h3>📋 更新日志</h3>
             <div class="changelog-list">
+                <div class="changelog-item">
+                    <div class="ver-title">v1.3.0</div>
+                    <div class="ver-date">2026-08-23</div>
+                    <ul>
+                        <li>物资管理新增「导出Excel」功能，一键导出全部物资清单</li>
+                        <li>物资管理新增「导入Excel」功能，支持批量导入物资，同名物资自动累加库存</li>
+                        <li>Excel导入支持智能识别表头（物资名称、规格、单位、库存数量、存放位置）</li>
+                        <li>导入结果显示新增和更新数量，部分失败行显示具体错误信息</li>
+                    </ul>
+                </div>
                 <div class="changelog-item">
                     <div class="ver-title">v1.2.1</div>
                     <div class="ver-date">2026-08-23</div>
@@ -532,6 +547,53 @@
                 if (ok) { showToast('添加成功！编号：'+data.qr_code); closeAddModal(); document.getElementById('newName').value=''; document.getElementById('newStock').value='1'; document.getElementById('newLocation').value=''; loadMaterials(); }
                 else showToast(data.detail||'添加失败');
             });
+        }
+
+        // 导出物资为 Excel
+        function exportMaterials() {
+            fetch('/api/materials/export', { headers:{'Authorization':'Bearer '+token} })
+            .then(res => {
+                if (!res.ok) throw new Error('导出失败');
+                return res.blob();
+            })
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = '物资清单_' + new Date().toISOString().slice(0,10) + '.xlsx';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+                showToast('导出成功');
+            })
+            .catch(() => showToast('导出失败，请重试'));
+        }
+
+        // 从 Excel 导入物资
+        function importMaterials(input) {
+            const file = input.files[0];
+            if (!file) return;
+            if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+                showToast('请上传 .xlsx 格式的 Excel 文件');
+                input.value = '';
+                return;
+            }
+            const formData = new FormData();
+            formData.append('file', file);
+            showToast('正在导入，请稍候...');
+            fetch('/api/materials/import', { method:'POST', headers:{'Authorization':'Bearer '+token}, body:formData })
+            .then(res => res.json().then(d => ({ok:res.ok, data:d})))
+            .then(({ok, data}) => {
+                if (ok) {
+                    alert(data.message + (data.errors && data.errors.length ? '\n\n部分行导入失败：' + data.errors.map(e => '第'+e.row+'行: '+e.error).join('\n') : ''));
+                    loadMaterials();
+                } else {
+                    showToast(data.detail || '导入失败');
+                }
+            })
+            .catch(() => showToast('导入失败，请重试'))
+            .finally(() => { input.value = ''; });
         }
 
         function deleteMaterial(id, name) {
