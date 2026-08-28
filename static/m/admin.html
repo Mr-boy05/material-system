@@ -190,8 +190,8 @@
 <div class="toast" id="toast"></div>
 
 <script>
-let token = localStorage.getItem('admin_token');
-let currentUser = JSON.parse(localStorage.getItem('admin_user') || '{}');
+let token = localStorage.getItem('token') || localStorage.getItem('admin_token');
+let currentUser = JSON.parse(localStorage.getItem('user') || localStorage.getItem('admin_user') || '{}');
 
 // 检查登录
 if (!token || currentUser.role !== 'admin') {

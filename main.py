@@ -1114,6 +1114,46 @@ def delete_material(material_id: str, conn=Depends(get_db), user=Depends(get_cur
     conn.commit()
     return {"success": True, "message": "物资已删除"}
 
+# ---------- 批量删除物资 ----------
+@app.post("/api/materials/batch-delete")
+def batch_delete_materials(req: dict, conn=Depends(get_db), user=Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="只有管理员可以删除物资")
+    ids = req.get("ids", [])
+    if not ids:
+        raise HTTPException(status_code=400, detail="请选择要删除的物资")
+    cur = conn.cursor()
+    deleted = 0
+    skipped = []
+    for mid in ids:
+        cur.execute("SELECT COALESCE(SUM(quantity),0) FROM transactions WHERE material_id=? AND status='active'", (mid,))
+        if cur.fetchone()[0] > 0:
+            skipped.append(mid)
+            continue
+        cur.execute("DELETE FROM materials WHERE id=?", (mid,))
+        cur.execute("DELETE FROM transactions WHERE material_id=?", (mid,))
+        deleted += 1
+    conn.commit()
+    msg = f"成功删除 {deleted} 条"
+    if skipped:
+        msg += f"，{len(skipped)} 条因有未归还记录跳过"
+    return {"success": True, "message": msg, "deleted": deleted, "skipped": len(skipped)}
+
+# ---------- 更新物资图片 ----------
+@app.post("/api/materials/{material_id}/image")
+def update_material_image(material_id: str, file: UploadFile = File(...), conn=Depends(get_db), user=Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="只有管理员可以修改物资图片")
+    ext = os.path.splitext(file.filename)[1] or ".jpg"
+    filename = f"{uuid.uuid4().hex}{ext}"
+    filepath = os.path.join(UPLOAD_DIR, filename)
+    with open(filepath, "wb") as f:
+        f.write(file.file.read())
+    cur = conn.cursor()
+    cur.execute("UPDATE materials SET image=? WHERE id=?", (f"/static/uploads/{filename}", material_id))
+    conn.commit()
+    return {"success": True, "message": "图片更新成功", "image": f"/static/uploads/{filename}"}
+
 # ---------- 从 Excel 导入物资 ----------
 @app.post("/api/materials/import")
 def import_materials(file: UploadFile = File(...), conn=Depends(get_db), user=Depends(get_current_user)):

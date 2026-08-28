@@ -214,13 +214,15 @@
             ];
             const adminMenu = [
                 { icon:'📥', label:'新物品录入', desc:'添加新物资', page:'page-add' },
+                { icon:'📱', label:'手机管理后台', desc:'手机端完整管理', page:'m-admin' },
                 { icon:'📊', label:'数据大屏', desc:'可视化统计', page:'dashboard' },
-                { icon:'💻', label:'管理后台', desc:'电脑版完整管理', page:'admin' },
+                { icon:'💻', label:'电脑管理后台', desc:'电脑版完整管理', page:'admin' },
             ];
             const menu = isAdmin ? [...adminMenu, ...commonMenu] : commonMenu;
             document.getElementById('menuGrid').innerHTML = menu.map(m=>{
                 if (m.page === 'dashboard') return `<div class="menu-item" onclick="location.href='/dashboard'"><div class="icon">${m.icon}</div><div class="label">${m.label}</div><div class="desc">${m.desc}</div></div>`;
                 if (m.page === 'admin') return `<div class="menu-item" onclick="location.href='/'"><div class="icon">${m.icon}</div><div class="label">${m.label}</div><div class="desc">${m.desc}</div></div>`;
+                if (m.page === 'm-admin') return `<div class="menu-item" onclick="location.href='/m/admin'"><div class="icon">${m.icon}</div><div class="label">${m.label}</div><div class="desc">${m.desc}</div></div>`;
                 return `<div class="menu-item" onclick="showPage('${m.page}')"><div class="icon">${m.icon}</div><div class="label">${m.label}</div><div class="desc">${m.desc}</div></div>`;
             }).join('');
         }

@@ -158,6 +158,7 @@
             <div class="toolbar">
                 <span style="color:#666;font-size:13px;" id="materialCount">共 0 条</span>
                 <div style="display:flex;gap:8px;">
+                    <button class="btn" style="background:#c62828;color:white;" onclick="batchDeleteMaterials()">🗑️ 批量删除</button>
                     <button class="btn" style="background:#43a047;color:white;" onclick="exportMaterials()">📥 导出Excel</button>
                     <button class="btn" style="background:#1976d2;color:white;" onclick="downloadTemplate()">📋 下载模板</button>
                     <button class="btn" style="background:#fb8c00;color:white;" onclick="document.getElementById('importFileInput').click()">📤 导入Excel</button>
@@ -166,8 +167,8 @@
                 </div>
             </div>
             <table>
-                <thead><tr><th>图片</th><th>物资名称</th><th>编号</th><th>总库存</th><th>可领取</th><th>存放位置</th><th>操作人</th><th>操作</th></tr></thead>
-                <tbody id="materialTable"><tr><td colspan="8" class="empty">加载中...</td></tr></tbody>
+                <thead><tr><th style="width:40px;"><input type="checkbox" id="selectAllMat" onchange="toggleSelectAllMat(this)"></th><th>图片</th><th>物资名称</th><th>编号</th><th>总库存</th><th>可领取</th><th>存放位置</th><th>操作人</th><th>操作</th></tr></thead>
+                <tbody id="materialTable"><tr><td colspan="9" class="empty">加载中...</td></tr></tbody>
             </table>
         </div>
 
@@ -459,11 +460,14 @@
                 }
                 const tbody = document.getElementById('materialTable');
                 document.getElementById('materialCount').textContent = '共 ' + filtered.length + ' 条';
-                if (!filtered.length) { tbody.innerHTML='<tr><td colspan="8" class="empty">暂无物资</td></tr>'; return; }
+                if (!filtered.length) { tbody.innerHTML='<tr><td colspan="9" class="empty">暂无物资</td></tr>'; return; }
                 tbody.innerHTML = filtered.map(m=>{
                     let sc = m.available_stock===0?'stock-out':m.available_stock<=5?'stock-low':'stock-ok';
-                    let img = m.image ? `<img src="${m.image}" class="mat-img" style="cursor:pointer;" onclick="viewImage('${m.image}','${m.name}')" title="点击放大">` : `<div class="mat-img-ph">📦</div>`;
-                    return `<tr><td>${img}</td><td><strong>${m.name}</strong></td><td><code>${m.qr_code}</code></td><td>${m.total_stock}</td><td><span class="stock-badge ${sc}">${m.available_stock}</span></td><td>${m.location||'-'}</td><td>${m.operator||'-'}</td><td><button class="btn btn-sm" style="background:#f0f0f0;color:#666;margin-right:4px;" onclick="showQR('${m.id}','${m.name}','${m.qr_code}')">二维码</button><button class="btn btn-sm btn-danger" onclick="deleteMaterial('${m.id}','${m.name}')">删除</button></td></tr>`;
+                    let img = m.image ? `<img src="${m.image}" class="mat-img" style="cursor:pointer;" onclick="viewImage('${m.image}','${m.name}')" title="点击放大">` : `<div class="mat-img-ph" style="cursor:pointer;" onclick="uploadMatImage('${m.id}')" title="点击上传图片">📷</div>`;
+                    let nameHtml = m.image 
+                        ? `<strong>${m.name}</strong>`
+                        : `<strong style="cursor:pointer;color:#667eea;text-decoration:underline;" onclick="uploadMatImage('${m.id}')" title="点击上传图片">${m.name}</strong>`;
+                    return `<tr><td><input type="checkbox" class="mat-checkbox" value="${m.id}"></td><td>${img}</td><td>${nameHtml}</td><td><code>${m.qr_code}</code></td><td>${m.total_stock}</td><td><span class="stock-badge ${sc}">${m.available_stock}</span></td><td>${m.location||'-'}</td><td>${m.operator||'-'}</td><td><button class="btn btn-sm" style="background:#f0f0f0;color:#666;margin-right:4px;" onclick="showQR('${m.id}','${m.name}','${m.qr_code}')">二维码</button><button class="btn btn-sm btn-danger" onclick="deleteMaterial('${m.id}','${m.name}')">删除</button></td></tr>`;
                 }).join('');
             });
         }
@@ -624,6 +628,50 @@
             .then(res=>res.json())
             .then(data=>{ showToast(data.message||'已删除'); loadMaterials(); })
             .catch(()=>showToast('删除失败'));
+        }
+
+        function toggleSelectAllMat(checkbox) {
+            document.querySelectorAll('.mat-checkbox').forEach(cb => cb.checked = checkbox.checked);
+        }
+
+        function batchDeleteMaterials() {
+            const checked = document.querySelectorAll('.mat-checkbox:checked');
+            if (!checked.length) { showToast('请先选择要删除的物资'); return; }
+            if (!confirm('确定删除选中的 '+checked.length+' 条物资吗？相关记录也会被删除。')) return;
+            const ids = Array.from(checked).map(cb => cb.value);
+            fetch('/api/materials/batch-delete', {
+                method:'POST',
+                headers:{'Authorization':'Bearer '+token, 'Content-Type':'application/json'},
+                body: JSON.stringify({ids})
+            })
+            .then(res=>res.json())
+            .then(data=>{ showToast(data.message||'删除完成'); document.getElementById('selectAllMat').checked = false; loadMaterials(); })
+            .catch(()=>showToast('删除失败'));
+        }
+
+        function uploadMatImage(materialId) {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.onchange = function() {
+                const file = this.files[0];
+                if (!file) return;
+                const formData = new FormData();
+                formData.append('file', file);
+                showToast('正在上传...');
+                fetch('/api/materials/'+materialId+'/image', {
+                    method:'POST',
+                    headers:{'Authorization':'Bearer '+token},
+                    body: formData
+                })
+                .then(res=>res.json())
+                .then(data=>{
+                    if (data.success) { showToast('图片上传成功'); loadMaterials(); }
+                    else { showToast(data.detail || '上传失败'); }
+                })
+                .catch(()=>showToast('上传失败'));
+            };
+            input.click();
         }
 
         function deleteRecord(id) {
