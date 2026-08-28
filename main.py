@@ -9,6 +9,7 @@ import uuid
 import random
 import string
 import smtplib
+from urllib.parse import quote
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
@@ -669,6 +670,117 @@ def get_material_by_qr(qr_code: str, conn=Depends(get_db), user=Depends(get_curr
         raise HTTPException(status_code=404, detail="未找到该物资")
     return dict(material)
 
+# ---------- 下载导入模板（必须在 /api/materials/{material_id} 前面，否则会被当成ID） ----------
+@app.get("/api/materials/template")
+def download_material_template(user=Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="只有管理员可以下载模板")
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "物资导入模板"
+
+    # 表头
+    headers = ["物资名称", "规格", "单位", "库存数量", "存放位置"]
+    header_fill = openpyxl.styles.PatternFill(start_color="43A047", end_color="43A047", fill_type="solid")
+    header_font = openpyxl.styles.Font(bold=True, color="FFFFFF", size=11)
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = openpyxl.styles.Alignment(horizontal="center", vertical="center")
+
+    # 示例数据（第2行）
+    sample_data = ["笔记本电脑", "ThinkPad X1", "台", 5, "办公室A柜"]
+    for col, value in enumerate(sample_data, 1):
+        cell = ws.cell(row=2, column=col, value=value)
+        cell.font = openpyxl.styles.Font(color="999999", italic=True)
+
+    # 说明（第4行开始）
+    notes = [
+        "【填写说明】",
+        "1. 第1行为表头，请勿修改或删除",
+        "2. 第2行为示例数据，导入前请删除或替换",
+        "3. 从第2行开始填写您的物资数据",
+        "4. 物资名称为必填项，其他列可选填",
+        "5. 单位默认值为「个」，库存数量默认值为0",
+        "6. 同名物资导入时会自动累加库存",
+    ]
+    note_font = openpyxl.styles.Font(color="E53935", size=10)
+    for i, note in enumerate(notes):
+        cell = ws.cell(row=4 + i, column=1, value=note)
+        cell.font = note_font
+
+    # 调整列宽
+    column_widths = [20, 25, 10, 12, 20]
+    for col, width in enumerate(column_widths, 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = width
+
+    # 冻结首行
+    ws.freeze_panes = "A2"
+
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=material_template.xlsx; filename*=UTF-8''{quote('物资导入模板.xlsx')}"}
+    )
+
+# ---------- 导出物资为 Excel（必须在动态路由前面） ----------
+@app.get("/api/materials/export")
+def export_materials(conn=Depends(get_db), user=Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="只有管理员可以导出物资")
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT name, qr_code, spec, unit, total_stock, available_stock, location, operator, created_at
+        FROM materials ORDER BY created_at DESC
+    """)
+    materials = cur.fetchall()
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "物资清单"
+
+    # 表头
+    headers = ["物资名称", "编号", "规格", "单位", "总库存", "可领取", "存放位置", "操作人", "创建时间"]
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.font = openpyxl.styles.Font(bold=True)
+        cell.fill = openpyxl.styles.PatternFill(start_color="E8EAF6", end_color="E8EAF6", fill_type="solid")
+
+    # 数据
+    for row, m in enumerate(materials, 2):
+        ws.cell(row=row, column=1, value=m["name"])
+        ws.cell(row=row, column=2, value=m["qr_code"])
+        ws.cell(row=row, column=3, value=m["spec"] or "")
+        ws.cell(row=row, column=4, value=m["unit"] or "个")
+        ws.cell(row=row, column=5, value=m["total_stock"])
+        ws.cell(row=row, column=6, value=m["available_stock"])
+        ws.cell(row=row, column=7, value=m["location"] or "")
+        ws.cell(row=row, column=8, value=m["operator"] or "")
+        ws.cell(row=row, column=9, value=m["created_at"] or "")
+
+    # 调整列宽
+    column_widths = [20, 15, 20, 8, 10, 10, 20, 12, 20]
+    for col, width in enumerate(column_widths, 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = width
+
+    # 保存到内存
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    filename = f"物资清单_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=materials.xlsx; filename*=UTF-8''{quote(filename)}"}
+    )
+
 @app.get("/api/materials/{material_id}")
 def get_material_detail(material_id: str, conn=Depends(get_db), user=Depends(get_current_user)):
     cur = conn.cursor()
@@ -1002,120 +1114,9 @@ def delete_material(material_id: str, conn=Depends(get_db), user=Depends(get_cur
     conn.commit()
     return {"success": True, "message": "物资已删除"}
 
-# ---------- 导出物资为 Excel ----------
-@app.get("/api/materials/export")
-def export_materials(conn=Depends(get_db), user=Depends(get_current_user)):
-    if user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="只有管理员可以导出物资")
-    cur = conn.cursor()
-    cur.execute("""
-        SELECT name, qr_code, spec, unit, total_stock, available_stock, location, operator, created_at
-        FROM materials ORDER BY created_at DESC
-    """)
-    materials = cur.fetchall()
-
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "物资清单"
-
-    # 表头
-    headers = ["物资名称", "编号", "规格", "单位", "总库存", "可领取", "存放位置", "操作人", "创建时间"]
-    for col, header in enumerate(headers, 1):
-        cell = ws.cell(row=1, column=col, value=header)
-        cell.font = openpyxl.styles.Font(bold=True)
-        cell.fill = openpyxl.styles.PatternFill(start_color="E8EAF6", end_color="E8EAF6", fill_type="solid")
-
-    # 数据
-    for row, m in enumerate(materials, 2):
-        ws.cell(row=row, column=1, value=m["name"])
-        ws.cell(row=row, column=2, value=m["qr_code"])
-        ws.cell(row=row, column=3, value=m["spec"] or "")
-        ws.cell(row=row, column=4, value=m["unit"] or "个")
-        ws.cell(row=row, column=5, value=m["total_stock"])
-        ws.cell(row=row, column=6, value=m["available_stock"])
-        ws.cell(row=row, column=7, value=m["location"] or "")
-        ws.cell(row=row, column=8, value=m["operator"] or "")
-        ws.cell(row=row, column=9, value=m["created_at"] or "")
-
-    # 调整列宽
-    column_widths = [20, 15, 20, 8, 10, 10, 20, 12, 20]
-    for col, width in enumerate(column_widths, 1):
-        ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = width
-
-    # 保存到内存
-    output = BytesIO()
-    wb.save(output)
-    output.seek(0)
-
-    filename = f"物资清单_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-    return StreamingResponse(
-        output,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
-    )
-
-# ---------- 下载导入模板 ----------
-@app.get("/api/materials/template")
-def download_material_template(user=Depends(get_current_user)):
-    if user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="只有管理员可以下载模板")
-
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "物资导入模板"
-
-    # 表头
-    headers = ["物资名称", "规格", "单位", "库存数量", "存放位置"]
-    header_fill = openpyxl.styles.PatternFill(start_color="43A047", end_color="43A047", fill_type="solid")
-    header_font = openpyxl.styles.Font(bold=True, color="FFFFFF", size=11)
-    for col, header in enumerate(headers, 1):
-        cell = ws.cell(row=1, column=col, value=header)
-        cell.fill = header_fill
-        cell.font = header_font
-        cell.alignment = openpyxl.styles.Alignment(horizontal="center", vertical="center")
-
-    # 示例数据（第2行）
-    sample_data = ["笔记本电脑", "ThinkPad X1", "台", 5, "办公室A柜"]
-    for col, value in enumerate(sample_data, 1):
-        cell = ws.cell(row=2, column=col, value=value)
-        cell.font = openpyxl.styles.Font(color="999999", italic=True)
-
-    # 说明（第4行开始）
-    notes = [
-        "【填写说明】",
-        "1. 第1行为表头，请勿修改或删除",
-        "2. 第2行为示例数据，导入前请删除或替换",
-        "3. 从第2行开始填写您的物资数据",
-        "4. 物资名称为必填项，其他列可选填",
-        "5. 单位默认值为「个」，库存数量默认值为0",
-        "6. 同名物资导入时会自动累加库存",
-    ]
-    note_font = openpyxl.styles.Font(color="E53935", size=10)
-    for i, note in enumerate(notes):
-        cell = ws.cell(row=4 + i, column=1, value=note)
-        cell.font = note_font
-
-    # 调整列宽
-    column_widths = [20, 25, 10, 12, 20]
-    for col, width in enumerate(column_widths, 1):
-        ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = width
-
-    # 冻结首行
-    ws.freeze_panes = "A2"
-
-    output = BytesIO()
-    wb.save(output)
-    output.seek(0)
-
-    return StreamingResponse(
-        output,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=物资导入模板.xlsx"}
-    )
-
 # ---------- 从 Excel 导入物资 ----------
 @app.post("/api/materials/import")
-async def import_materials(file: UploadFile = File(...), conn=Depends(get_db), user=Depends(get_current_user)):
+def import_materials(file: UploadFile = File(...), conn=Depends(get_db), user=Depends(get_current_user)):
     if user["role"] != "admin":
         raise HTTPException(status_code=403, detail="只有管理员可以导入物资")
 
@@ -1123,7 +1124,7 @@ async def import_materials(file: UploadFile = File(...), conn=Depends(get_db), u
         raise HTTPException(status_code=400, detail="请上传 Excel 文件（.xlsx 格式）")
 
     try:
-        contents = await file.read()
+        contents = file.file.read()
         wb = openpyxl.load_workbook(BytesIO(contents))
         ws = wb.active
 
@@ -1295,6 +1296,10 @@ def dashboard():
 @app.get("/m/")
 def mobile_index():
     return FileResponse("static/m/index.html")
+
+@app.get("/m/admin")
+def mobile_admin():
+    return FileResponse("static/m/admin.html")
 
 @app.get("/m/login")
 def mobile_login():

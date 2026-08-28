@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>管理后台 - 物资管理系统</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+        body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif; background:#f0f2f5; min-height:100vh; color:#333; padding-bottom:70px; }
+        .page { display:none; min-height:calc(100vh - 70px); }
+        .page.active { display:block; }
+
+        /* 顶部导航 */
+        .nav-bar { background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); color:white; padding:16px 18px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100; box-shadow:0 2px 12px rgba(102,126,234,0.3); }
+        .nav-bar .title { font-size:17px; font-weight:600; }
+        .nav-bar .action { font-size:13px; cursor:pointer; opacity:0.9; }
+
+        /* 统计卡片 */
+        .stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:16px; }
+        .stat-card { background:white; border-radius:14px; padding:18px 14px; box-shadow:0 2px 12px rgba(0,0,0,0.06); }
+        .stat-card .num { font-size:26px; font-weight:700; color:#667eea; }
+        .stat-card .label { font-size:12px; color:#999; margin-top:4px; }
+        .stat-card.warn .num { color:#fb8c00; }
+        .stat-card.danger .num { color:#ef5350; }
+        .stat-card.success .num { color:#43a047; }
+
+        /* 搜索栏 */
+        .search-bar { padding:12px 16px; background:white; position:sticky; top:56px; z-index:50; box-shadow:0 1px 6px rgba(0,0,0,0.04); }
+        .search-bar input { width:100%; padding:11px 16px; border:1.5px solid #e8e8e8; border-radius:22px; font-size:14px; background:#f5f7fa; }
+        .search-bar input:focus { outline:none; border-color:#667eea; background:white; }
+
+        /* 物资列表 */
+        .mat-list { padding:12px 16px; }
+        .mat-item { background:white; border-radius:14px; padding:14px; margin-bottom:10px; box-shadow:0 2px 10px rgba(0,0,0,0.05); border:1px solid rgba(0,0,0,0.02); }
+        .mat-item .top { display:flex; justify-content:space-between; align-items:flex-start; }
+        .mat-item .name { font-size:15px; font-weight:600; color:#333; }
+        .mat-item .code { font-size:11px; color:#999; font-family:monospace; margin-top:4px; background:#f5f5f5; padding:2px 8px; border-radius:6px; display:inline-block; }
+        .mat-item .stock-badge { font-size:12px; padding:4px 10px; border-radius:10px; font-weight:600; }
+        .stock-ok { background:#e8f5e9; color:#2e7d32; }
+        .stock-low { background:#fff3e0; color:#e65100; }
+        .stock-out { background:#ffebee; color:#c62828; }
+        .mat-item .meta { display:flex; gap:12px; margin-top:10px; font-size:12px; color:#888; flex-wrap:wrap; }
+        .mat-item .meta span { display:flex; align-items:center; gap:3px; }
+        .mat-item .actions { display:flex; gap:8px; margin-top:12px; padding-top:12px; border-top:1px solid #f5f5f5; }
+        .btn-sm { padding:7px 14px; border-radius:8px; font-size:12px; border:none; cursor:pointer; font-weight:500; }
+        .btn-sm.primary { background:#667eea; color:white; }
+        .btn-sm.danger { background:#ef5350; color:white; }
+        .btn-sm.ghost { background:#f5f5f5; color:#666; }
+
+        /* 浮动按钮 */
+        .fab { position:fixed; bottom:85px; right:18px; width:56px; height:56px; border-radius:50%; background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); color:white; border:none; font-size:28px; cursor:pointer; box-shadow:0 6px 20px rgba(102,126,234,0.4); z-index:90; display:flex; align-items:center; justify-content:center; }
+        .fab:active { transform:scale(0.92); }
+
+        /* 底部导航 */
+        .tab-bar { position:fixed; bottom:0; left:0; right:0; background:white; display:flex; box-shadow:0 -2px 12px rgba(0,0,0,0.06); z-index:100; padding-bottom:env(safe-area-inset-bottom); }
+        .tab-item { flex:1; text-align:center; padding:10px 0 8px; cursor:pointer; color:#999; transition:all 0.2s; }
+        .tab-item.active { color:#667eea; }
+        .tab-item .icon { font-size:22px; }
+        .tab-item .label { font-size:11px; margin-top:2px; font-weight:500; }
+
+        /* 表单弹窗 */
+        .modal-mask { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:200; align-items:flex-end; justify-content:center; }
+        .modal-mask.show { display:flex; }
+        .modal { background:white; width:100%; max-height:85vh; border-radius:20px 20px 0 0; padding:24px 20px 30px; overflow-y:auto; animation:slideUp 0.3s ease; }
+        @keyframes slideUp { from { transform:translateY(100%); } to { transform:translateY(0); } }
+        .modal-title { font-size:18px; font-weight:700; margin-bottom:20px; text-align:center; }
+        .form-group { margin-bottom:16px; }
+        .form-group label { display:block; color:#555; margin-bottom:8px; font-size:14px; font-weight:500; }
+        .form-group label .req { color:#ef5350; }
+        .form-group input, .form-group select { width:100%; padding:13px 15px; border:1.5px solid #e8e8e8; border-radius:12px; font-size:15px; background:#fafafa; }
+        .form-group input:focus, .form-group select:focus { outline:none; border-color:#667eea; background:white; }
+        .btn-full { width:100%; padding:15px; background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); color:white; border:none; border-radius:14px; font-size:16px; font-weight:600; cursor:pointer; margin-top:10px; }
+        .btn-full.ghost { background:#f5f5f5; color:#666; margin-top:8px; }
+
+        /* 记录列表 */
+        .record-item { background:white; border-radius:14px; padding:14px; margin:10px 16px; box-shadow:0 2px 10px rgba(0,0,0,0.05); }
+        .record-item .top { display:flex; justify-content:space-between; align-items:center; }
+        .record-item .name { font-size:15px; font-weight:600; }
+        .record-item .user { font-size:12px; color:#888; margin-top:3px; }
+        .record-item .status { font-size:11px; padding:4px 12px; border-radius:10px; font-weight:500; }
+        .status-active { background:#fff3e0; color:#e65100; }
+        .status-completed { background:#e8f5e9; color:#2e7d32; }
+        .record-item .meta { font-size:12px; color:#999; margin-top:10px; line-height:1.8; }
+
+        /* 用户列表 */
+        .user-item { background:white; border-radius:14px; padding:14px 16px; margin:10px 16px; display:flex; justify-content:space-between; align-items:center; box-shadow:0 2px 10px rgba(0,0,0,0.05); }
+        .user-item .info .name { font-size:15px; font-weight:600; }
+        .user-item .info .detail { font-size:12px; color:#999; margin-top:3px; }
+        .role-tag { font-size:11px; padding:3px 10px; border-radius:8px; font-weight:500; }
+        .role-admin { background:#ede7f6; color:#5e35b1; }
+        .role-user { background:#e3f2fd; color:#1565c0; }
+
+        /* 工具按钮组 */
+        .tool-bar { display:flex; gap:10px; padding:12px 16px; }
+        .tool-btn { flex:1; padding:12px; border-radius:12px; border:none; font-size:13px; cursor:pointer; font-weight:500; display:flex; align-items:center; justify-content:center; gap:5px; }
+        .tool-btn.export { background:#e8f5e9; color:#2e7d32; }
+        .tool-btn.template { background:#e3f2fd; color:#1565c0; }
+        .tool-btn.import { background:#fff3e0; color:#e65100; }
+
+        .toast { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(0,0,0,0.82); color:white; padding:14px 26px; border-radius:12px; font-size:14px; z-index:9999; display:none; max-width:80%; text-align:center; }
+        .empty-tip { text-align:center; padding:50px 20px; color:#bbb; font-size:14px; }
+        .empty-tip .icon { font-size:48px; margin-bottom:12px; opacity:0.5; }
+        .section-title { font-size:14px; color:#666; margin:16px 16px 8px; font-weight:500; }
+    </style>
+</head>
+<body>
+
+<!-- 仪表盘页面 -->
+<div class="page active" id="page-dashboard">
+    <div class="nav-bar">
+        <div class="title">管理后台</div>
+        <div class="action" onclick="logout()">退出</div>
+    </div>
+    <div class="stats-grid">
+        <div class="stat-card"><div class="num" id="statMatCount">0</div><div class="label">物资种类</div></div>
+        <div class="stat-card success"><div class="num" id="statTotalStock">0</div><div class="label">库存总量</div></div>
+        <div class="stat-card warn"><div class="num" id="statBorrowed">0</div><div class="label">已借出</div></div>
+        <div class="stat-card danger"><div class="num" id="statOut">0</div><div class="label">库存为零</div></div>
+    </div>
+    <div class="section-title">快捷操作</div>
+    <div class="tool-bar">
+        <button class="tool-btn export" onclick="exportExcel()">📥 导出</button>
+        <button class="tool-btn template" onclick="downloadTemplate()">📋 模板</button>
+        <button class="tool-btn import" onclick="document.getElementById('importFile').click()">📤 导入</button>
+        <input type="file" id="importFile" accept=".xlsx,.xls" style="display:none" onchange="importExcel(this)">
+    </div>
+    <div class="section-title">库存预警</div>
+    <div id="warningList"></div>
+</div>
+
+<!-- 物资管理页面 -->
+<div class="page" id="page-materials">
+    <div class="nav-bar"><div class="title">物资管理</div></div>
+    <div class="search-bar"><input type="text" id="searchInput" placeholder="搜索物资名称、编号..." oninput="loadMaterials()"></div>
+    <div class="mat-list" id="matList"></div>
+</div>
+
+<!-- 记录页面 -->
+<div class="page" id="page-records">
+    <div class="nav-bar"><div class="title">领用记录</div></div>
+    <div id="recordList"></div>
+</div>
+
+<!-- 用户页面 -->
+<div class="page" id="page-users">
+    <div class="nav-bar">
+        <div class="title">用户管理</div>
+        <div class="action" onclick="showAddUser()">+ 添加</div>
+    </div>
+    <div id="userList"></div>
+</div>
+
+<!-- 底部导航 -->
+<div class="tab-bar">
+    <div class="tab-item active" onclick="switchTab('dashboard')"><div class="icon">📊</div><div class="label">仪表盘</div></div>
+    <div class="tab-item" onclick="switchTab('materials')"><div class="icon">📦</div><div class="label">物资</div></div>
+    <div class="tab-item" onclick="switchTab('records')"><div class="icon">📋</div><div class="label">记录</div></div>
+    <div class="tab-item" onclick="switchTab('users')"><div class="icon">👥</div><div class="label">用户</div></div>
+</div>
+
+<!-- 新增物资弹窗 -->
+<div class="modal-mask" id="addMatModal">
+    <div class="modal">
+        <div class="modal-title">新增物资</div>
+        <div class="form-group"><label>物资名称 <span class="req">*</span></label><input type="text" id="newMatName" placeholder="请输入物资名称"></div>
+        <div class="form-group"><label>规格型号</label><input type="text" id="newMatSpec" placeholder="如：ThinkPad X1"></div>
+        <div class="form-group"><label>单位</label><input type="text" id="newMatUnit" value="个" placeholder="个/台/支"></div>
+        <div class="form-group"><label>库存数量 <span class="req">*</span></label><input type="number" id="newMatStock" value="0" min="0"></div>
+        <div class="form-group"><label>存放位置</label><input type="text" id="newMatLocation" placeholder="如：办公室A柜"></div>
+        <button class="btn-full" onclick="addMaterial()">确认添加</button>
+        <button class="btn-full ghost" onclick="closeModal('addMatModal')">取消</button>
+    </div>
+</div>
+
+<!-- 新增用户弹窗 -->
+<div class="modal-mask" id="addUserModal">
+    <div class="modal">
+        <div class="modal-title">添加用户</div>
+        <div class="form-group"><label>用户名 <span class="req">*</span></label><input type="text" id="newUserName" placeholder="登录用的用户名"></div>
+        <div class="form-group"><label>真实姓名</label><input type="text" id="newUserReal" placeholder="显示的名字"></div>
+        <div class="form-group"><label>密码</label><input type="text" id="newUserPwd" value="123456"></div>
+        <div class="form-group"><label>电话</label><input type="text" id="newUserPhone" placeholder="选填"></div>
+        <div class="form-group"><label>角色</label><select id="newUserRole"><option value="user">普通用户</option><option value="admin">管理员</option></select></div>
+        <button class="btn-full" onclick="addUser()">确认添加</button>
+        <button class="btn-full ghost" onclick="closeModal('addUserModal')">取消</button>
+    </div>
+</div>
+
+<div class="fab" onclick="showAddMaterial()">+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+let token = localStorage.getItem('admin_token');
+let currentUser = JSON.parse(localStorage.getItem('admin_user') || '{}');
+
+// 检查登录
+if (!token || currentUser.role !== 'admin') {
+    window.location.href = '/m/login';
+}
+
+function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.display = 'block';
+    setTimeout(() => t.style.display = 'none', 2000);
+}
+
+function switchTab(tab) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+    document.getElementById('page-' + tab).classList.add('active');
+    event.currentTarget.classList.add('active');
+    if (tab === 'dashboard') loadDashboard();
+    if (tab === 'materials') loadMaterials();
+    if (tab === 'records') loadRecords();
+    if (tab === 'users') loadUsers();
+}
+
+function api(url, options = {}) {
+    options.headers = options.headers || {};
+    options.headers['Authorization'] = 'Bearer ' + token;
+    return fetch(url, options);
+}
+
+// 仪表盘
+async function loadDashboard() {
+    try {
+        const res = await api('/api/stats/overview');
+        const data = await res.json();
+        document.getElementById('statMatCount').textContent = data.material_count;
+        document.getElementById('statTotalStock').textContent = data.total_stock;
+        document.getElementById('statBorrowed').textContent = data.borrowed_stock;
+        document.getElementById('statOut').textContent = data.stock_status.out;
+
+        // 库存预警
+        const res2 = await api('/api/materials');
+        const mats = await res2.json();
+        const warnings = mats.filter(m => m.available_stock <= 5);
+        const list = document.getElementById('warningList');
+        if (warnings.length === 0) {
+            list.innerHTML = '<div class="empty-tip"><div class="icon">✅</div>库存充足，暂无预警</div>';
+        } else {
+            list.innerHTML = warnings.map(m => `
+                <div class="mat-item">
+                    <div class="top">
+                        <div>
+                            <div class="name">${m.name}</div>
+                            <div class="code">${m.qr_code}</div>
+                        </div>
+                        <span class="stock-badge ${m.available_stock === 0 ? 'stock-out' : 'stock-low'}">
+                            剩余 ${m.available_stock}
+                        </span>
+                    </div>
+                </div>
+            `).join('');
+        }
+    } catch(e) { showToast('加载失败'); }
+}
+
+// 物资列表
+async function loadMaterials() {
+    try {
+        const keyword = document.getElementById('searchInput').value;
+        const url = keyword ? `/api/materials/search?keyword=${encodeURIComponent(keyword)}` : '/api/materials';
+        const res = await api(url);
+        const mats = await res.json();
+        const list = document.getElementById('matList');
+        if (mats.length === 0) {
+            list.innerHTML = '<div class="empty-tip"><div class="icon">📦</div>暂无物资</div>';
+            return;
+        }
+        list.innerHTML = mats.map(m => {
+            const stockClass = m.available_stock === 0 ? 'stock-out' : (m.available_stock <= 5 ? 'stock-low' : 'stock-ok');
+            return `
+            <div class="mat-item">
+                <div class="top">
+                    <div>
+                        <div class="name">${m.name}</div>
+                        <div class="code">${m.qr_code}</div>
+                    </div>
+                    <span class="stock-badge ${stockClass}">可领 ${m.available_stock}/${m.total_stock}</span>
+                </div>
+                <div class="meta">
+                    <span>📐 ${m.spec || '无'}</span>
+                    <span>📍 ${m.location || '未设置'}</span>
+                    <span>👤 ${m.operator || '未知'}</span>
+                </div>
+                <div class="actions">
+                    <button class="btn-sm primary" onclick="viewQr('${m.qr_code}')">查看二维码</button>
+                    <button class="btn-sm danger" onclick="deleteMaterial('${m.id}','${m.name}')">删除</button>
+                </div>
+            </div>`;
+        }).join('');
+    } catch(e) { showToast('加载失败'); }
+}
+
+function viewQr(code) {
+    window.open('https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' + encodeURIComponent(code), '_blank');
+}
+
+function showAddMaterial() {
+    document.getElementById('addMatModal').classList.add('show');
+}
+
+async function addMaterial() {
+    const name = document.getElementById('newMatName').value.trim();
+    if (!name) { showToast('请输入物资名称'); return; }
+    const data = {
+        name,
+        spec: document.getElementById('newMatSpec').value.trim(),
+        unit: document.getElementById('newMatUnit').value.trim() || '个',
+        total_stock: parseInt(document.getElementById('newMatStock').value) || 0,
+        location: document.getElementById('newMatLocation').value.trim()
+    };
+    try {
+        const res = await api('/api/materials', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        });
+        const result = await res.json();
+        if (res.ok) {
+            showToast('添加成功，编号：' + result.qr_code);
+            closeModal('addMatModal');
+            document.getElementById('newMatName').value = '';
+            loadMaterials();
+        } else {
+            showToast(result.detail || '添加失败');
+        }
+    } catch(e) { showToast('添加失败'); }
+}
+
+async function deleteMaterial(id, name) {
+    if (!confirm('确定删除「' + name + '」吗？')) return;
+    try {
+        const res = await api('/api/materials/' + id, {method: 'DELETE'});
+        const result = await res.json();
+        showToast(result.message || '已删除');
+        loadMaterials();
+    } catch(e) { showToast('删除失败'); }
+}
+
+// 记录
+async function loadRecords() {
+    try {
+        const res = await api('/api/transactions');
+        const records = await res.json();
+        const list = document.getElementById('recordList');
+        if (records.length === 0) {
+            list.innerHTML = '<div class="empty-tip"><div class="icon">📋</div>暂无记录</div>';
+            return;
+        }
+        list.innerHTML = records.map(r => `
+            <div class="record-item">
+                <div class="top">
+                    <div>
+                        <div class="name">${r.material_name}</div>
+                        <div class="user">${r.user_name} · ${r.quantity}${r.unit || ''}</div>
+                    </div>
+                    <span class="status ${r.status === 'active' ? 'status-active' : 'status-completed'}">
+                        ${r.status === 'active' ? '未归还' : '已归还'}
+                    </span>
+                </div>
+                <div class="meta">
+                    活动：${r.activity_name || '无'}<br>
+                    领取：${r.borrowed_at ? r.borrowed_at.replace('T',' ').substring(0,16) : '-'}<br>
+                    ${r.returned_at ? '归还：' + r.returned_at.replace('T',' ').substring(0,16) : ''}
+                </div>
+            </div>
+        `).join('');
+    } catch(e) { showToast('加载失败'); }
+}
+
+// 用户
+async function loadUsers() {
+    try {
+        const res = await api('/api/users');
+        const users = await res.json();
+        const list = document.getElementById('userList');
+        list.innerHTML = users.map(u => `
+            <div class="user-item">
+                <div class="info">
+                    <div class="name">${u.real_name || u.username}</div>
+                    <div class="detail">@${u.username} · ${u.phone || '无电话'}</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <span class="role-tag ${u.role === 'admin' ? 'role-admin' : 'role-user'}">${u.role === 'admin' ? '管理员' : '用户'}</span>
+                    ${u.username !== 'admin' ? `<button class="btn-sm danger" onclick="deleteUser('${u.id}','${u.username}')">删除</button>` : ''}
+                </div>
+            </div>
+        `).join('');
+    } catch(e) { showToast('加载失败'); }
+}
+
+function showAddUser() {
+    document.getElementById('addUserModal').classList.add('show');
+}
+
+async function addUser() {
+    const username = document.getElementById('newUserName').value.trim();
+    if (!username) { showToast('请输入用户名'); return; }
+    const data = {
+        username,
+        real_name: document.getElementById('newUserReal').value.trim() || username,
+        password: document.getElementById('newUserPwd').value || '123456',
+        phone: document.getElementById('newUserPhone').value.trim(),
+        role: document.getElementById('newUserRole').value
+    };
+    try {
+        const res = await api('/api/users', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        });
+        const result = await res.json();
+        if (res.ok) {
+            showToast('用户添加成功');
+            closeModal('addUserModal');
+            loadUsers();
+        } else {
+            showToast(result.detail || '添加失败');
+        }
+    } catch(e) { showToast('添加失败'); }
+}
+
+async function deleteUser(id, username) {
+    if (!confirm('确定删除用户「' + username + '」吗？')) return;
+    try {
+        const res = await api('/api/users/' + id, {method: 'DELETE'});
+        const result = await res.json();
+        showToast(result.message || '已删除');
+        loadUsers();
+    } catch(e) { showToast('删除失败'); }
+}
+
+// 导出导入
+function exportExcel() {
+    api('/api/materials/export').then(res => res.blob()).then(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = '物资清单.xlsx';
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('导出成功');
+    }).catch(() => showToast('导出失败'));
+}
+
+function downloadTemplate() {
+    api('/api/materials/template').then(res => res.blob()).then(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = '物资导入模板.xlsx';
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('模板下载成功');
+    }).catch(() => showToast('下载失败'));
+}
+
+function importExcel(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('file', file);
+    showToast('正在导入...');
+    api('/api/materials/import', {method: 'POST', body: formData}).then(res => res.json()).then(data => {
+        alert(data.message + (data.errors && data.errors.length ? '\n部分行失败：' + data.errors.map(e => '第'+e.row+'行').join(',') : ''));
+        loadMaterials();
+        loadDashboard();
+    }).catch(() => showToast('导入失败'));
+    input.value = '';
+}
+
+function closeModal(id) {
+    document.getElementById(id).classList.remove('show');
+}
+
+function logout() {
+    if (confirm('确定退出登录吗？')) {
+        localStorage.removeItem('admin_token');
+        localStorage.removeItem('admin_user');
+        window.location.href = '/m/login';
+    }
+}
+
+// 初始化
+loadDashboard();
+</script>
+</body>
+</html>
