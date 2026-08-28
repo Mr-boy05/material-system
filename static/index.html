@@ -248,10 +248,35 @@
         <div class="modal">
             <h3>新增物资</h3>
             <div class="form-group"><label>物资名称 <span class="req">*</span></label><input type="text" id="newName" placeholder="如：笔记本电脑"></div>
+            <div class="form-group"><label>规格</label><input type="text" id="newSpec" placeholder="如：15.6寸 / 500ml"></div>
+            <div class="form-group"><label>单位</label><input type="text" id="newUnit" placeholder="如：个 / 件 / 本" value="个"></div>
             <div class="form-group"><label>库存数量 <span class="req">*</span></label><input type="number" id="newStock" value="1" min="0"></div>
             <div class="form-group"><label>存放位置</label><input type="text" id="newLocation" placeholder="如：A柜-1层（多个位置用逗号分隔）"></div>
             <div class="form-group"><label>物资图片</label><div class="upload-area" onclick="document.getElementById('newImage').click()">点击上传图片</div><input type="file" id="newImage" accept="image/*" style="display:none" onchange="uploadImg(this,'newPreview')"><img id="newPreview" class="upload-preview" style="display:none"></div>
             <div class="modal-actions"><button class="btn-cancel" onclick="closeAddModal()">取消</button><button class="btn-submit" onclick="submitAdd()">确认添加</button></div>
+        </div>
+    </div>
+
+    <!-- 编辑物资弹窗 -->
+    <div class="modal-mask" id="editMatModal">
+        <div class="modal">
+            <h3>编辑物资</h3>
+            <input type="hidden" id="editMatId">
+            <div class="form-group"><label>物资名称 <span class="req">*</span></label><input type="text" id="editMatName"></div>
+            <div class="form-group"><label>规格</label><input type="text" id="editMatSpec"></div>
+            <div class="form-group"><label>单位</label><input type="text" id="editMatUnit"></div>
+            <div class="form-group"><label>总库存数量</label><input type="number" id="editMatStock" min="0"><div style="font-size:12px;color:#999;margin-top:4px;">修改总库存会同步调整可用库存，当前可用库存会显示在下方</div></div>
+            <div class="form-group"><label>当前可用库存</label><input type="text" id="editMatAvailable" disabled style="background:#f5f5f5;"></div>
+            <div class="form-group"><label>存放位置</label><input type="text" id="editMatLocation"></div>
+            <div class="form-group"><label>物资图片</label>
+                <div id="editMatImgArea">
+                    <img id="editMatPreview" class="upload-preview" style="display:none;max-width:200px;margin-bottom:10px;">
+                    <div class="upload-area" onclick="document.getElementById('editMatImage').click()">点击上传/更换图片</div>
+                    <input type="file" id="editMatImage" accept="image/*" style="display:none" onchange="uploadEditMatImg(this)">
+                </div>
+            </div>
+            <div class="error-msg" id="editMatError" style="display:none;margin-top:0;"></div>
+            <div class="modal-actions"><button class="btn-cancel" onclick="closeEditMat()">取消</button><button class="btn-submit" onclick="submitEditMat()">保存修改</button></div>
         </div>
     </div>
 
@@ -441,7 +466,7 @@
                     let nameHtml = m.image 
                         ? `<strong>${m.name}</strong>`
                         : `<strong style="cursor:pointer;color:#667eea;text-decoration:underline;" onclick="uploadMatImage('${m.id}')" title="点击上传图片">${m.name}</strong>`;
-                    return `<tr><td><input type="checkbox" class="mat-checkbox" value="${m.id}"></td><td>${img}</td><td>${nameHtml}</td><td><code>${m.qr_code}</code></td><td>${m.total_stock}</td><td><span class="stock-badge ${sc}">${m.available_stock}</span></td><td>${m.location||'-'}</td><td>${m.operator||'-'}</td><td><button class="btn btn-sm" style="background:#f0f0f0;color:#666;margin-right:4px;" onclick="showQR('${m.id}','${m.name}','${m.qr_code}')">二维码</button><button class="btn btn-sm btn-danger" onclick="deleteMaterial('${m.id}','${m.name}')">删除</button></td></tr>`;
+                    return `<tr><td><input type="checkbox" class="mat-checkbox" value="${m.id}"></td><td>${img}</td><td>${nameHtml}</td><td><code>${m.qr_code}</code></td><td>${m.total_stock}</td><td><span class="stock-badge ${sc}">${m.available_stock}</span></td><td>${m.location||'-'}</td><td>${m.operator||'-'}</td><td><button class="btn btn-sm" style="background:#e3f2fd;color:#1976d2;margin-right:4px;" onclick="openEditMaterial('${m.id}')">编辑</button><button class="btn btn-sm" style="background:#f0f0f0;color:#666;margin-right:4px;" onclick="showQR('${m.id}','${m.name}','${m.qr_code}')">二维码</button><button class="btn btn-sm btn-danger" onclick="deleteMaterial('${m.id}','${m.name}')">删除</button></td></tr>`;
                 }).join('');
             });
         }
@@ -518,13 +543,74 @@
         function submitAdd() {
             const name = document.getElementById('newName').value.trim();
             if (!name) { showToast('请输入物资名称'); return; }
+            const spec = document.getElementById('newSpec').value.trim();
+            const unit = document.getElementById('newUnit').value.trim() || '个';
             const total_stock = Number(document.getElementById('newStock').value)||0;
             const location = document.getElementById('newLocation').value.trim();
-            fetch('/api/materials', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({name,spec:'',unit:'个',total_stock,location,image:uploadedImages.new}) })
+            fetch('/api/materials', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({name,spec,unit,total_stock,location,image:uploadedImages.new}) })
             .then(res=>res.json().then(d=>({ok:res.ok,data:d})))
             .then(({ok,data})=>{
-                if (ok) { showToast('添加成功！编号：'+data.qr_code); closeAddModal(); document.getElementById('newName').value=''; document.getElementById('newStock').value='1'; document.getElementById('newLocation').value=''; loadMaterials(); }
+                if (ok) { showToast('添加成功！编号：'+data.qr_code); closeAddModal(); document.getElementById('newName').value=''; document.getElementById('newSpec').value=''; document.getElementById('newUnit').value='个'; document.getElementById('newStock').value='1'; document.getElementById('newLocation').value=''; document.getElementById('newPreview').style.display='none'; uploadedImages.new=''; loadMaterials(); }
                 else showToast(data.detail||'添加失败');
+            });
+        }
+
+        // 编辑物资
+        let editMatImage = '';
+        function openEditMaterial(id) {
+            const m = allMaterials.find(x=>x.id===id);
+            if (!m) return;
+            document.getElementById('editMatId').value = m.id;
+            document.getElementById('editMatName').value = m.name;
+            document.getElementById('editMatSpec').value = m.spec || '';
+            document.getElementById('editMatUnit').value = m.unit || '个';
+            document.getElementById('editMatStock').value = m.total_stock;
+            document.getElementById('editMatAvailable').value = m.available_stock;
+            document.getElementById('editMatLocation').value = m.location || '';
+            editMatImage = m.image || '';
+            const preview = document.getElementById('editMatPreview');
+            if (m.image) { preview.src = m.image; preview.style.display='block'; }
+            else { preview.style.display='none'; }
+            document.getElementById('editMatError').style.display='none';
+            document.getElementById('editMatModal').style.display='flex';
+        }
+        function closeEditMat(){ document.getElementById('editMatModal').style.display='none'; }
+
+        function uploadEditMatImg(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const formData = new FormData();
+            formData.append('file', file);
+            showToast('正在上传图片...');
+            fetch('/api/upload', { method:'POST', headers:{'Authorization':'Bearer '+token}, body:formData })
+            .then(res=>res.json())
+            .then(data=>{
+                if (data.url) {
+                    editMatImage = data.url;
+                    const preview = document.getElementById('editMatPreview');
+                    preview.src = data.url;
+                    preview.style.display='block';
+                    showToast('图片上传成功');
+                } else showToast(data.detail||'上传失败');
+            })
+            .catch(()=>showToast('上传失败'));
+            input.value='';
+        }
+
+        function submitEditMat() {
+            const id = document.getElementById('editMatId').value;
+            const name = document.getElementById('editMatName').value.trim();
+            if (!name) { showToast('物资名称不能为空'); return; }
+            const spec = document.getElementById('editMatSpec').value.trim();
+            const unit = document.getElementById('editMatUnit').value.trim() || '个';
+            const total_stock = Number(document.getElementById('editMatStock').value);
+            const location = document.getElementById('editMatLocation').value.trim();
+            const body = {name, spec, unit, total_stock, location, image: editMatImage};
+            fetch('/api/materials/'+id, { method:'PUT', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify(body) })
+            .then(res=>res.json().then(d=>({ok:res.ok,data:d})))
+            .then(({ok,data})=>{
+                if (ok) { showToast('修改成功'); closeEditMat(); loadMaterials(); }
+                else showToast(data.detail||'修改失败');
             });
         }
 

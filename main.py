@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "1.5.0"
+VERSION = "1.6.0"
 VERSION_DATE = "2026-08-29"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
@@ -282,6 +282,14 @@ class MaterialCreate(BaseModel):
     total_stock: int = 0
     location: Optional[str] = ""
     image: Optional[str] = ""
+
+class MaterialUpdate(BaseModel):
+    name: Optional[str] = None
+    spec: Optional[str] = None
+    unit: Optional[str] = None
+    total_stock: Optional[int] = None
+    location: Optional[str] = None
+    image: Optional[str] = None
 
 class BorrowRequest(BaseModel):
     material_id: str
@@ -1128,6 +1136,63 @@ def all_transactions(conn=Depends(get_db), user=Depends(get_current_user)):
         ORDER BY t.borrowed_at DESC LIMIT 500
     """)
     return [dict(r) for r in cur.fetchall()]
+
+# ---------- 编辑物资 ----------
+@app.put("/api/materials/{material_id}")
+def update_material(material_id: str, req: MaterialUpdate, conn=Depends(get_db), user=Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="只有管理员可以编辑物资")
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM materials WHERE id=?", (material_id,))
+    material = cur.fetchone()
+    if not material:
+        raise HTTPException(status_code=404, detail="物资不存在")
+    
+    updates = []
+    params = []
+    
+    if req.name is not None:
+        if not req.name.strip():
+            raise HTTPException(status_code=400, detail="物资名称不能为空")
+        updates.append("name=?")
+        params.append(req.name.strip())
+    
+    if req.spec is not None:
+        updates.append("spec=?")
+        params.append(req.spec)
+    
+    if req.unit is not None:
+        updates.append("unit=?")
+        params.append(req.unit)
+    
+    if req.location is not None:
+        updates.append("location=?")
+        params.append(req.location)
+    
+    if req.image is not None:
+        updates.append("image=?")
+        params.append(req.image)
+    
+    if req.total_stock is not None:
+        if req.total_stock < 0:
+            raise HTTPException(status_code=400, detail="库存数量不能为负数")
+        old_total = material["total_stock"]
+        old_available = material["available_stock"]
+        diff = req.total_stock - old_total
+        new_available = old_available + diff
+        if new_available < 0:
+            raise HTTPException(status_code=400, detail=f"库存调整后可用库存将为负数（当前可用{old_available}，最多可减少到{old_available}）")
+        updates.append("total_stock=?")
+        params.append(req.total_stock)
+        updates.append("available_stock=?")
+        params.append(new_available)
+    
+    if updates:
+        params.append(material_id)
+        cur.execute(f"UPDATE materials SET {', '.join(updates)} WHERE id=?", params)
+        conn.commit()
+    
+    return {"success": True, "message": "物资更新成功"}
 
 # ---------- 删除物资 ----------
 @app.delete("/api/materials/{material_id}")
