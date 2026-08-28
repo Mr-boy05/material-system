@@ -4,6 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>城治学生会物资管理系统 - 数据大屏</title>
+    <script>
+        // 设备检测：手机访问自动跳转到手机端
+        (function() {
+            var ua = navigator.userAgent.toLowerCase();
+            var isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile/i.test(ua)
+                || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+                || window.innerWidth < 768;
+            if (isMobile) {
+                window.location.href = '/m/login';
+            }
+        })();
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -92,9 +104,31 @@
             .row-4 { grid-template-columns: repeat(2, 1fr); }
             .row-3 { grid-template-columns: 1fr; }
         }
-        @media (max-width: 600px) {
+        @media (max-width: 768px) {
+            body { padding-bottom: 20px; }
+            .header { padding: 15px 12px; }
+            .header h1 { font-size: 16px; letter-spacing: 1px; }
+            .header .time { position: static; transform: none; margin-top: 8px; font-size: 11px; text-align: center; }
+            .header .back { position: static; transform: none; margin-bottom: 8px; text-align: center; }
+            .header .back a { font-size: 12px; }
+            .container { padding: 12px; }
+            .row { gap: 12px; margin-bottom: 12px; }
             .row-4, .row-2 { grid-template-columns: 1fr; }
-            .header h1 { font-size: 20px; }
+            .card { padding: 15px; }
+            .card-title { font-size: 13px; margin-bottom: 8px; }
+            .stat-number { font-size: 32px; }
+            .stat-label { font-size: 12px; }
+            .stat-sub { font-size: 11px; margin-top: 6px; }
+            .chart-container { height: 220px; }
+            .chart-container-sm { height: 180px; }
+            .location-list { margin-top: 10px; }
+            .location-item { padding: 8px 0; font-size: 12px; }
+        }
+        @media (max-width: 480px) {
+            .header h1 { font-size: 14px; }
+            .stat-number { font-size: 28px; }
+            .chart-container { height: 200px; }
+            .chart-container-sm { height: 160px; }
         }
     </style>
 </head>
