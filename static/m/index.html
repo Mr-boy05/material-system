@@ -396,7 +396,9 @@
                     const box = document.getElementById('searchResults');
                     if (!data.length) { box.innerHTML='<div style="text-align:center;padding:40px;color:#999">未找到相关物资</div>'; return; }
                     box.innerHTML = data.map(m=>{
-                        const img = m.image ? `<img src="${m.image}" class="img" style="cursor:pointer;" onclick="event.stopPropagation();viewImage('${m.image}','${m.name}')" title="点击放大">` : `<div class="img-ph">📦</div>`;
+                        const img = m.image 
+                            ? `<img src="${m.image}" class="img" style="cursor:pointer;" onclick="event.stopPropagation();viewImage('${m.image}','${m.name}')" title="点击放大">` 
+                            : `<div class="img-ph" style="cursor:pointer;" onclick="event.stopPropagation();uploadMatImage('${m.id}')" title="点击上传图片">📷</div>`;
                         const delBtn = isAdmin ? `<div class="actions"><button class="btn-danger" onclick="event.stopPropagation();deleteMaterial('${m.id}','${m.name}')">删除</button></div>` : '';
                         return `<div class="mat-item" onclick="goToBorrow('${m.id}')">${img}<div class="info"><div class="name">${m.name}</div><div class="code">${m.qr_code}</div><div class="stock">可领：<span>${m.available_stock}${m.unit}</span> · 共${m.total_stock}${m.unit}</div></div>${delBtn}</div>`;
                     }).join('');
@@ -413,7 +415,8 @@
             fetch('/api/materials/'+id, { headers:{'Authorization':'Bearer '+token} })
             .then(res=>res.json())
             .then(m=>{
-                const img = m.image ? `<img src="${m.image}" class="img" style="cursor:pointer;" onclick="viewImage('${m.image}','${m.name}')" title="点击放大">` : '';
+                const img = m.image ? `<img src="${m.image}" class="img" style="cursor:pointer;" onclick="viewImage('${m.image}','${m.name}')" title="点击放大">` : `<div class="img-ph" style="cursor:pointer;" onclick="uploadMatImage('${m.id}')" title="点击上传图片">📷</div>`;
+                const editImgBtn = isAdmin ? `<button class="btn-primary" style="width:100%;padding:12px;margin-top:16px;background:${m.image?'#fb8c00':'#667eea'};" onclick="uploadMatImage('${m.id}')">${m.image?'🖼️ 修改图片':'📷 上传图片'}</button>` : '';
                 document.getElementById('detailContent').innerHTML = `
                     <div class="name">${m.name}</div>
                     ${img}
@@ -423,6 +426,7 @@
                     <div class="detail-row"><span class="label">总库存</span><span class="value">${m.total_stock} ${m.unit}</span></div>
                     <div class="detail-row"><span class="label">可领取</span><span class="value" style="color:#2e7d32;font-weight:700">${m.available_stock} ${m.unit}</span></div>
                     <div class="detail-row"><span class="label">存放位置</span><span class="value">${m.location||'-'}</span></div>
+                    ${editImgBtn}
                 `;
                 showPage('page-detail');
             });
@@ -434,6 +438,39 @@
             .then(res=>res.json())
             .then(data=>{ showToast(data.message||'已删除'); doSearch(); })
             .catch(()=>showToast('删除失败'));
+        }
+
+        function uploadMatImage(materialId) {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.onchange = function() {
+                const file = this.files[0];
+                if (!file) return;
+                if (file.size > 5 * 1024 * 1024) { showToast('图片不能超过5MB'); return; }
+                const formData = new FormData();
+                formData.append('file', file);
+                showToast('正在上传...');
+                fetch('/api/materials/' + materialId + '/image', {
+                    method: 'POST',
+                    headers: {'Authorization': 'Bearer ' + token},
+                    body: formData
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        showToast('图片上传成功');
+                        doSearch();
+                        if (document.getElementById('page-detail').classList.contains('active')) {
+                            showDetail(materialId);
+                        }
+                    } else {
+                        showToast(data.detail || '上传失败');
+                    }
+                })
+                .catch(() => showToast('上传失败'));
+            };
+            input.click();
         }
 
         function loadRecords() {

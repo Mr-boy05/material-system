@@ -16,7 +16,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "1.4.1"
+VERSION = "1.4.2"
 VERSION_DATE = "2026-08-29"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
