@@ -14,6 +14,24 @@ from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
 from typing import Optional, List
 
+# 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
+def load_env():
+    env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+    if not os.path.exists(env_path):
+        return
+    with open(env_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            if key and key not in os.environ:
+                os.environ[key] = value
+
+load_env()
+
 from fastapi import FastAPI, Depends, HTTPException, status, Header, UploadFile, File, Form
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, StreamingResponse
@@ -25,22 +43,25 @@ import openpyxl
 from io import BytesIO
 
 # ==================== 配置 ====================
-DATABASE_FILE = "data/material.db"
-UPLOAD_DIR = "static/uploads"
-SECRET_KEY = "material-system-secret-key-2026-upgrade"
+DATABASE_FILE = os.environ.get("DATABASE_FILE", "data/material.db")
+UPLOAD_DIR = os.environ.get("UPLOAD_DIR", "static/uploads")
+SECRET_KEY = os.environ.get("SECRET_KEY", "material-system-secret-key-change-me-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 24 * 7
 
+# CORS 允许的来源，多个用逗号分隔，默认全部允许（开发用）
+CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "*")
+
 # ====== 邮箱SMTP配置（忘记密码功能需要配置）======
-# 配置说明：
+# 配置说明：通过环境变量设置，不要把密码写在代码里
 # 1. QQ邮箱：SMTP_SERVER="smtp.qq.com", SMTP_PORT=465, SMTP_USER="你的QQ邮箱@qq.com", SMTP_PASSWORD="QQ邮箱授权码"
 #    授权码获取：QQ邮箱→设置→账户→POP3/SMTP服务→开启→生成授权码
 # 2. 163邮箱：SMTP_SERVER="smtp.163.com", SMTP_PORT=465, SMTP_USER="你的邮箱@163.com", SMTP_PASSWORD="授权码"
 # 3. 不配置则忘记密码功能不可用，不影响其他功能
-SMTP_SERVER = "smtp.qq.com"
-SMTP_PORT = 465
-SMTP_USER = "3541269828@qq.com"
-SMTP_PASSWORD = "ogceredogtfcdbci"
+SMTP_SERVER = os.environ.get("SMTP_SERVER", "")
+SMTP_PORT = int(os.environ.get("SMTP_PORT", "465"))
+SMTP_USER = os.environ.get("SMTP_USER", "")
+SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
 SMTP_ENABLED = bool(SMTP_SERVER and SMTP_USER and SMTP_PASSWORD)
 
 # 验证码存储（内存）：{email: {"code": "123456", "expire": datetime}}
@@ -54,7 +75,7 @@ app = FastAPI(title="城治学生会物资管理系统")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ORIGINS.split(",") if CORS_ORIGINS != "*" else ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
