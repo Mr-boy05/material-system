@@ -5,14 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>城治学生会物资管理系统</title>
     <script>
-        // 设备检测：手机访问自动跳转到手机端登录
+        // 设备检测：手机访问自动跳转到手机端
         (function() {
+            var token = localStorage.getItem('token');
             var ua = navigator.userAgent.toLowerCase();
             var isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile/i.test(ua)
                 || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
                 || window.innerWidth < 768;
             if (isMobile) {
-                window.location.href = '/m/login';
+                window.location.href = token ? '/m/' : '/m/login';
             }
         })();
     </script>

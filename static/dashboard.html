@@ -5,8 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>城治学生会物资管理系统 - 数据大屏</title>
     <script>
-        // 设备检测：手机访问自动跳转到手机端
+        // 设备检测：未登录的手机访问跳转到手机端登录，已登录的手机用户可正常查看（已做手机适配）
         (function() {
+            var token = localStorage.getItem('token') || localStorage.getItem('admin_token');
+            if (token) return; // 已登录不跳转
             var ua = navigator.userAgent.toLowerCase();
             var isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile/i.test(ua)
                 || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
@@ -134,7 +136,7 @@
 </head>
 <body>
     <div class="header">
-        <div class="back"><a href="/">← 返回管理后台</a></div>
+        <div class="back"><a href="javascript:void(0)" onclick="goBack()">← 返回</a></div>
         <h1>📊 城治学生会物资管理数据可视化大屏</h1>
         <div class="time" id="currentTime"></div>
     </div>
@@ -142,24 +144,24 @@
     <div class="container">
         <!-- 核心指标 -->
         <div class="row row-4">
-            <div class="card" onclick="window.location.href='/?page=materials'">
+            <div class="card" onclick="goTo('materials')">
                 <div class="card-title">物资种类</div>
                 <div class="stat-number" id="materialCount">0</div>
                 <div class="stat-label">种物资</div>
             </div>
-            <div class="card" onclick="window.location.href='/?page=materials'">
+            <div class="card" onclick="goTo('materials')">
                 <div class="card-title">库存总量</div>
                 <div class="stat-number" id="totalStock">0</div>
                 <div class="stat-label">件/个</div>
                 <div class="stat-sub">可领取 <span id="availableStock">0</span> · 已借出 <span id="borrowedStock">0</span></div>
             </div>
-            <div class="card" onclick="window.location.href='/?page=records'">
+            <div class="card" onclick="goTo('records')">
                 <div class="card-title">累计领取</div>
                 <div class="stat-number" id="borrowTotal">0</div>
                 <div class="stat-label">件/次</div>
                 <div class="stat-sub">共 <span id="borrowCount">0</span> 次领取记录</div>
             </div>
-            <div class="card" onclick="window.location.href='/?page=records'">
+            <div class="card" onclick="goTo('records')">
                 <div class="card-title">累计归还</div>
                 <div class="stat-number" id="returnTotal">0</div>
                 <div class="stat-label">件/次</div>
@@ -169,11 +171,11 @@
 
         <!-- 图表行1 -->
         <div class="row row-2">
-            <div class="card" onclick="window.location.href='/?page=records'">
+            <div class="card" onclick="goTo('records')">
                 <div class="card-title">近7天领取趋势</div>
                 <div class="chart-container"><canvas id="trendChart"></canvas></div>
             </div>
-            <div class="card" onclick="window.location.href='/?page=materials'">
+            <div class="card" onclick="goTo('materials')">
                 <div class="card-title">库存状态分布</div>
                 <div class="chart-container"><canvas id="stockChart"></canvas></div>
             </div>
@@ -181,12 +183,12 @@
 
         <!-- 图表行2 -->
         <div class="row row-2">
-            <div class="card" onclick="window.location.href='/?page=materials'">
+            <div class="card" onclick="goTo('materials')">
                 <div class="card-title">存放位置分布</div>
                 <div class="chart-container-sm"><canvas id="locationChart"></canvas></div>
                 <div class="location-list" id="locationList"></div>
             </div>
-            <div class="card" onclick="window.location.href='/?page=records'">
+            <div class="card" onclick="goTo('records')">
                 <div class="card-title">领取 vs 归还 对比</div>
                 <div class="chart-container"><canvas id="compareChart"></canvas></div>
             </div>
@@ -196,6 +198,34 @@
     <script>
         let token = localStorage.getItem('token');
         if (!token) window.location.href = '/login';
+
+        // 设备判断
+        var ua = navigator.userAgent.toLowerCase();
+        var isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile/i.test(ua)
+            || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+            || window.innerWidth < 768;
+
+        function goBack() {
+            if (isMobile) {
+                window.location.href = '/m/';
+            } else {
+                window.location.href = '/';
+            }
+        }
+
+        function goTo(page) {
+            if (isMobile) {
+                if (page === 'materials') {
+                    window.location.href = '/m/admin';
+                } else if (page === 'records') {
+                    window.location.href = '/m/admin';
+                } else {
+                    window.location.href = '/m/';
+                }
+            } else {
+                window.location.href = '/?page=' + page;
+            }
+        }
 
         // 时间
         function updateTime() {
