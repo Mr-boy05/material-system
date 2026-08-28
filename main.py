@@ -98,6 +98,10 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 # ==================== 数据库初始化 ====================
 def init_db():
+    # 确保数据库目录存在
+    db_dir = os.path.dirname(DATABASE_FILE)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
     conn = sqlite3.connect(DATABASE_FILE)
     c = conn.cursor()
 
