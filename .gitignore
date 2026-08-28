@@ -12,3 +12,12 @@ github_screenshot.png
 图片1.png
 学院带名字.png
 运行说明.md
+
+# 客户端安装包
+static/downloads/*.zip
+dist/
+build/
+*.spec
+*.log
+desktop.log
+server_*.log

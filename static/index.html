@@ -136,6 +136,7 @@
             <div class="nav-item" onclick="switchPage('page-users',this)"><span class="icon">👥</span>用户管理</div>
             <div class="nav-item" onclick="location.href='/dashboard'"><span class="icon">📊</span>数据大屏</div>
             <div class="nav-item" onclick="location.href='/m/'"><span class="icon">📱</span>手机端</div>
+            <div class="nav-item" onclick="downloadClient()"><span class="icon">💻</span>下载客户端</div>
         </div>
         <div class="user-box">
             <div class="name" id="userName">管理员</div>
@@ -698,6 +699,17 @@
             .catch(()=>{});
         }
         loadVersionInfo();
+
+        // 下载客户端
+        function downloadClient() {
+            const a = document.createElement('a');
+            a.href = '/static/downloads/物资管理系统_桌面版_v1.4.3.zip';
+            a.download = '物资管理系统_桌面版_v1.4.3.zip';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            showToast('开始下载客户端...');
+        }
 
         function openChangelog(){
             document.getElementById('changelogModal').style.display = 'flex';
