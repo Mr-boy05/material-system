@@ -16,7 +16,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "1.4.2"
+VERSION = "1.4.3"
 VERSION_DATE = "2026-08-29"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
@@ -352,10 +352,10 @@ def get_version():
         changelog_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "CHANGELOG.md")
         with open(changelog_path, "r", encoding="utf-8") as f:
             content = f.read()
-        # 简单解析，取最近3个版本
+        # 简单解析，返回所有版本
         import re
         versions = re.findall(r'## \[([^\]]+)\] - ([^\n]+)\n(.*?)(?=\n## \[|\Z)', content, re.DOTALL)
-        for v, date, body in versions[:3]:
+        for v, date, body in versions:
             changelog.append({"version": v, "date": date.strip(), "content": body.strip()})
     except Exception:
         pass
