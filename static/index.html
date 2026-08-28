@@ -143,7 +143,7 @@
             <button class="logout" onclick="logout()">退出登录</button>
         </div>
         <div class="sidebar-version" onclick="openChangelog()">
-            <div class="ver">v1.3.0</div>
+            <div class="ver" id="sidebarVersion">v1.4.0</div>
             <div class="changelog-tip">点击查看更新日志</div>
             <div class="copyright" onclick="event.stopPropagation()">© 2026 重庆超大城市<br>数字化治理学院 版权所有</div>
         </div>
@@ -326,63 +326,10 @@
     <div class="modal-mask" id="changelogModal">
         <div class="modal changelog-modal" style="width:560px;">
             <h3>📋 更新日志</h3>
-            <div class="changelog-list">
-                <div class="changelog-item">
-                    <div class="ver-title">v1.3.0</div>
-                    <div class="ver-date">2026-08-23</div>
-                    <ul>
-                        <li>物资管理新增「导出Excel」功能，一键导出全部物资清单</li>
-                        <li>物资管理新增「导入Excel」功能，支持批量导入物资，同名物资自动累加库存</li>
-                        <li>Excel导入支持智能识别表头（物资名称、规格、单位、库存数量、存放位置）</li>
-                        <li>导入结果显示新增和更新数量，部分失败行显示具体错误信息</li>
-                    </ul>
-                </div>
-                <div class="changelog-item">
-                    <div class="ver-title">v1.2.1</div>
-                    <div class="ver-date">2026-08-23</div>
-                    <ul>
-                        <li>手机端登录页「查询领取」进入时自动加载并列出全部物资</li>
-                        <li>无需输入关键词即可浏览所有可领取物资，支持点击直接领取</li>
-                    </ul>
-                </div>
-                <div class="changelog-item">
-                    <div class="ver-title">v1.2.0</div>
-                    <div class="ver-date">2026-08-23</div>
-                    <ul>
-                        <li>物资领取页面新增「全部物资清单」列表，展示所有物资的库存、位置等信息</li>
-                        <li>物资清单支持点击「选择」按钮快速选中对应物资进行领取</li>
-                        <li>管理面板版权声明移动至左下角版本号下方，布局更简洁</li>
-                        <li>库存不足的物资在清单中显示「库存不足」且不可选择</li>
-                    </ul>
-                </div>
-                <div class="changelog-item">
-                    <div class="ver-title">v1.1.0</div>
-                    <div class="ver-date">2026-08-22</div>
-                    <ul>
-                        <li>物资管理界面新增「操作人」字段显示和筛选</li>
-                        <li>系统名称更改为「城治学生会物资管理系统」</li>
-                        <li>添加学院 Logo 标识</li>
-                        <li>去除搜索框自动填充账户名功能，默认显示全部物资</li>
-                        <li>所有图片支持点击放大查看</li>
-                        <li>物资归还地点自动对应物资存放地点，确保一一对应</li>
-                        <li>新增版本号和版权信息展示</li>
-                        <li>手机端新增扫码入口，支持摄像头扫码和编号搜索</li>
-                        <li>手机端管理员账号可快速进入电脑版管理后台</li>
-                    </ul>
-                </div>
-                <div class="changelog-item">
-                    <div class="ver-title">v1.0.0</div>
-                    <div class="ver-date">2026-08-01</div>
-                    <ul>
-                        <li>系统初始版本发布</li>
-                        <li>管理员登录、物资管理、库存管理</li>
-                        <li>扫码领用、扫码归还功能</li>
-                        <li>数据可视化大屏</li>
-                        <li>用户管理和权限控制</li>
-                    </ul>
-                </div>
+            <div class="changelog-list" id="changelogList">
+                <div style="text-align:center;padding:30px;color:#999;">加载中...</div>
             </div>
-            <div class="modal-actions"><button class="btn-submit" onclick="closeChangelog()">我知道了</button></div>
+            <button class="btn btn-primary" style="width:100%;margin-top:16px;" onclick="closeChangelog()">关闭</button>
         </div>
     </div>
 
@@ -741,7 +688,43 @@
         function closeViewImg(){ document.getElementById('viewImgModal').style.display = 'none'; }
 
         // 更新日志
-        function openChangelog(){ document.getElementById('changelogModal').style.display = 'flex'; }
+        function loadVersionInfo() {
+            fetch('/api/version')
+            .then(res=>res.json())
+            .then(data=>{
+                document.getElementById('sidebarVersion').textContent = 'v' + data.version;
+            })
+            .catch(()=>{});
+        }
+        loadVersionInfo();
+
+        function openChangelog(){
+            document.getElementById('changelogModal').style.display = 'flex';
+            const list = document.getElementById('changelogList');
+            list.innerHTML = '<div style="text-align:center;padding:30px;color:#999;">加载中...</div>';
+            fetch('/api/version')
+            .then(res=>res.json())
+            .then(data=>{
+                if (!data.changelog || !data.changelog.length) {
+                    list.innerHTML = '<div style="text-align:center;padding:30px;color:#999;">暂无更新日志</div>';
+                    return;
+                }
+                list.innerHTML = data.changelog.map(item=>{
+                    // 简单解析markdown内容
+                    let content = item.content
+                        .replace(/### (新增|修复|优化|安全|文档|清理)/g, '<div style="font-weight:600;color:#667eea;margin:10px 0 6px;font-size:13px;">$1</div>')
+                        .replace(/^- (.+)$/gm, '<li style="margin:4px 0;color:#555;font-size:13px;line-height:1.6;">$1</li>')
+                        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                        .replace(/`([^`]+)`/g, '<code style="background:#f5f5f5;padding:1px 5px;border-radius:3px;font-size:12px;">$1</code>');
+                    return `<div class="changelog-item">
+                        <div class="ver-title">v${item.version}</div>
+                        <div class="ver-date">${item.date}</div>
+                        <ul style="list-style:none;padding:0;margin:0;">${content}</ul>
+                    </div>`;
+                }).join('');
+            })
+            .catch(()=>{ list.innerHTML = '<div style="text-align:center;padding:30px;color:#999;">加载失败</div>'; });
+        }
         function closeChangelog(){ document.getElementById('changelogModal').style.display = 'none'; }
 
         // 用户管理

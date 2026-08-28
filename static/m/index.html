@@ -175,8 +175,19 @@
 
     <!-- 底部版权 -->
     <div class="mobile-footer">
-        <div>城治学生会物资管理系统 <span class="version">v1.1.0</span></div>
+        <div>城治学生会物资管理系统 <span class="version" id="mobileVersion" style="cursor:pointer;" onclick="openMobileChangelog()">v1.4.0</span></div>
         <div>© 2026 重庆超大城市数字化治理学院 版权所有</div>
+    </div>
+
+    <!-- 更新日志弹窗 -->
+    <div class="modal-mask" id="mobileChangelogModal" onclick="if(event.target===this)closeMobileChangelog()">
+        <div class="modal">
+            <div class="modal-title">📋 更新日志</div>
+            <div id="mobileChangelogList" style="max-height:60vh;overflow-y:auto;">
+                <div style="text-align:center;padding:30px;color:#999;">加载中...</div>
+            </div>
+            <button class="btn-full ghost" onclick="closeMobileChangelog()">关闭</button>
+        </div>
     </div>
 
     <div class="toast" id="toast"></div>
@@ -465,6 +476,46 @@
             document.getElementById('viewImgMask').style.display = 'none';
         }
         function logout() { if(confirm('确定退出登录？')){ localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href='/m/login'; } }
+
+        // 版本号和更新日志
+        function loadMobileVersion() {
+            fetch('/api/version')
+            .then(res=>res.json())
+            .then(data=>{
+                document.getElementById('mobileVersion').textContent = 'v' + data.version;
+            })
+            .catch(()=>{});
+        }
+        loadMobileVersion();
+
+        function openMobileChangelog() {
+            document.getElementById('mobileChangelogModal').classList.add('show');
+            const list = document.getElementById('mobileChangelogList');
+            list.innerHTML = '<div style="text-align:center;padding:30px;color:#999;">加载中...</div>';
+            fetch('/api/version')
+            .then(res=>res.json())
+            .then(data=>{
+                if (!data.changelog || !data.changelog.length) {
+                    list.innerHTML = '<div style="text-align:center;padding:30px;color:#999;">暂无更新日志</div>';
+                    return;
+                }
+                list.innerHTML = data.changelog.map(item=>{
+                    let content = item.content
+                        .replace(/### (新增|修复|优化|安全|文档|清理)/g, '<div style="font-weight:600;color:#667eea;margin:12px 0 6px;font-size:13px;">$1</div>')
+                        .replace(/^- (.+)$/gm, '<div style="margin:5px 0;color:#555;font-size:13px;line-height:1.6;padding-left:12px;position:relative;"><span style="position:absolute;left:0;color:#667eea;">•</span>$1</div>')
+                        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+                    return `<div style="padding:14px 0;border-bottom:1px solid #f0f0f0;">
+                        <div style="font-size:15px;font-weight:700;color:#333;">v${item.version}</div>
+                        <div style="font-size:11px;color:#999;margin-top:3px;">${item.date}</div>
+                        <div style="margin-top:8px;">${content}</div>
+                    </div>`;
+                }).join('');
+            })
+            .catch(()=>{ list.innerHTML = '<div style="text-align:center;padding:30px;color:#999;">加载失败</div>'; });
+        }
+        function closeMobileChangelog() {
+            document.getElementById('mobileChangelogModal').classList.remove('show');
+        }
     </script>
 </body>
 </html>

@@ -15,6 +15,10 @@ from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
 from typing import Optional, List
 
+# ==================== 版本信息 ====================
+VERSION = "1.4.0"
+VERSION_DATE = "2026-08-29"
+
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
 def load_env():
     env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
@@ -339,6 +343,27 @@ def get_current_user(authorization: str = Header(...), conn=Depends(get_db)):
     return dict(user)
 
 # ==================== API 接口 ====================
+
+# ==================== 版本信息 ====================
+@app.get("/api/version")
+def get_version():
+    changelog = []
+    try:
+        changelog_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "CHANGELOG.md")
+        with open(changelog_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        # 简单解析，取最近3个版本
+        import re
+        versions = re.findall(r'## \[([^\]]+)\] - ([^\n]+)\n(.*?)(?=\n## \[|\Z)', content, re.DOTALL)
+        for v, date, body in versions[:3]:
+            changelog.append({"version": v, "date": date.strip(), "content": body.strip()})
+    except Exception:
+        pass
+    return {
+        "version": VERSION,
+        "date": VERSION_DATE,
+        "changelog": changelog
+    }
 
 @app.post("/api/login")
 def login(req: LoginRequest, conn=Depends(get_db)):
