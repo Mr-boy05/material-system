@@ -1054,6 +1054,65 @@ def export_materials(conn=Depends(get_db), user=Depends(get_current_user)):
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
 
+# ---------- 下载导入模板 ----------
+@app.get("/api/materials/template")
+def download_material_template(user=Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="只有管理员可以下载模板")
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "物资导入模板"
+
+    # 表头
+    headers = ["物资名称", "规格", "单位", "库存数量", "存放位置"]
+    header_fill = openpyxl.styles.PatternFill(start_color="43A047", end_color="43A047", fill_type="solid")
+    header_font = openpyxl.styles.Font(bold=True, color="FFFFFF", size=11)
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = openpyxl.styles.Alignment(horizontal="center", vertical="center")
+
+    # 示例数据（第2行）
+    sample_data = ["笔记本电脑", "ThinkPad X1", "台", 5, "办公室A柜"]
+    for col, value in enumerate(sample_data, 1):
+        cell = ws.cell(row=2, column=col, value=value)
+        cell.font = openpyxl.styles.Font(color="999999", italic=True)
+
+    # 说明（第4行开始）
+    notes = [
+        "【填写说明】",
+        "1. 第1行为表头，请勿修改或删除",
+        "2. 第2行为示例数据，导入前请删除或替换",
+        "3. 从第2行开始填写您的物资数据",
+        "4. 物资名称为必填项，其他列可选填",
+        "5. 单位默认值为「个」，库存数量默认值为0",
+        "6. 同名物资导入时会自动累加库存",
+    ]
+    note_font = openpyxl.styles.Font(color="E53935", size=10)
+    for i, note in enumerate(notes):
+        cell = ws.cell(row=4 + i, column=1, value=note)
+        cell.font = note_font
+
+    # 调整列宽
+    column_widths = [20, 25, 10, 12, 20]
+    for col, width in enumerate(column_widths, 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = width
+
+    # 冻结首行
+    ws.freeze_panes = "A2"
+
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=物资导入模板.xlsx"}
+    )
+
 # ---------- 从 Excel 导入物资 ----------
 @app.post("/api/materials/import")
 async def import_materials(file: UploadFile = File(...), conn=Depends(get_db), user=Depends(get_current_user)):

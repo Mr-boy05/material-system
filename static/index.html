@@ -159,6 +159,7 @@
                 <span style="color:#666;font-size:13px;" id="materialCount">共 0 条</span>
                 <div style="display:flex;gap:8px;">
                     <button class="btn" style="background:#43a047;color:white;" onclick="exportMaterials()">📥 导出Excel</button>
+                    <button class="btn" style="background:#1976d2;color:white;" onclick="downloadTemplate()">📋 下载模板</button>
                     <button class="btn" style="background:#fb8c00;color:white;" onclick="document.getElementById('importFileInput').click()">📤 导入Excel</button>
                     <input type="file" id="importFileInput" accept=".xlsx,.xls" style="display:none" onchange="importMaterials(this)">
                     <button class="btn btn-primary" onclick="openAddModal()">+ 新增物资</button>
@@ -568,6 +569,27 @@
                 showToast('导出成功');
             })
             .catch(() => showToast('导出失败，请重试'));
+        }
+
+        // 下载导入模板
+        function downloadTemplate() {
+            fetch('/api/materials/template', { headers:{'Authorization':'Bearer '+token} })
+            .then(res => {
+                if (!res.ok) throw new Error('下载失败');
+                return res.blob();
+            })
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = '物资导入模板.xlsx';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+                showToast('模板下载成功，请填写后导入');
+            })
+            .catch(() => showToast('模板下载失败，请重试'));
         }
 
         // 从 Excel 导入物资
