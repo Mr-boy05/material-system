@@ -4,6 +4,7 @@
 """
 
 import os
+import time
 import sqlite3
 import uuid
 import random
@@ -16,7 +17,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "1.4.4"
+VERSION = "1.5.0"
 VERSION_DATE = "2026-08-29"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
@@ -39,7 +40,7 @@ load_env()
 
 from fastapi import FastAPI, Depends, HTTPException, status, Header, UploadFile, File, Form
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from jose import JWTError, jwt
@@ -1182,6 +1183,49 @@ def update_material_image(material_id: str, file: UploadFile = File(...), conn=D
     cur.execute("UPDATE materials SET image=? WHERE id=?", (f"/static/uploads/{filename}", material_id))
     conn.commit()
     return {"success": True, "message": "图片更新成功", "image": f"/static/uploads/{filename}"}
+
+# ---------- 数据备份 ----------
+@app.get("/api/backup")
+def backup_database(user=Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="只有管理员可以备份数据")
+    if not os.path.exists(DATABASE_FILE):
+        raise HTTPException(status_code=404, detail="数据库文件不存在")
+    from datetime import datetime as dt
+    filename = f"物资管理系统_备份_{dt.now().strftime('%Y%m%d_%H%M%S')}.db"
+    with open(DATABASE_FILE, "rb") as f:
+        content = f.read()
+    return Response(
+        content=content,
+        media_type="application/octet-stream",
+        headers={"Content-Disposition": f"attachment; filename=backup.db; filename*=UTF-8''{quote(filename)}"}
+    )
+
+# ---------- 数据恢复 ----------
+@app.post("/api/restore")
+def restore_database(file: UploadFile = File(...), user=Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="只有管理员可以恢复数据")
+    if not file.filename.endswith('.db'):
+        raise HTTPException(status_code=400, detail="请上传 .db 格式的备份文件")
+    try:
+        content = file.file.read()
+        # 验证是否是有效的 SQLite 数据库文件（前16字节是 SQLite header）
+        if not content.startswith(b"SQLite format 3"):
+            raise HTTPException(status_code=400, detail="文件不是有效的 SQLite 数据库备份")
+        # 先备份当前数据库
+        backup_path = DATABASE_FILE + ".bak_" + str(int(time.time()))
+        if os.path.exists(DATABASE_FILE):
+            import shutil
+            shutil.copy2(DATABASE_FILE, backup_path)
+        # 写入新数据库
+        with open(DATABASE_FILE, "wb") as f:
+            f.write(content)
+        return {"success": True, "message": "数据恢复成功，请刷新页面。当前数据库已自动备份为 " + os.path.basename(backup_path)}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"恢复失败: {str(e)}")
 
 # ---------- 从 Excel 导入物资 ----------
 @app.post("/api/materials/import")

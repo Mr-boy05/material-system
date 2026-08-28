@@ -136,7 +136,6 @@
             <div class="nav-item" onclick="switchPage('page-users',this)"><span class="icon">👥</span>用户管理</div>
             <div class="nav-item" onclick="location.href='/dashboard'"><span class="icon">📊</span>数据大屏</div>
             <div class="nav-item" onclick="location.href='/m/'"><span class="icon">📱</span>手机端</div>
-            <div class="nav-item" onclick="downloadClient()"><span class="icon">💻</span>下载客户端</div>
         </div>
         <div class="user-box">
             <div class="name" id="userName">管理员</div>
@@ -297,6 +296,20 @@
             <div class="form-group"><label>新密码</label><input type="password" id="profilePassword" placeholder="留空则不修改密码"></div>
             <div class="error-msg" id="profileError" style="display:none;margin-top:0;"></div>
             <div class="success-msg" id="profileSuccess" style="display:none;margin-top:0;"></div>
+
+            <!-- 数据管理（仅管理员） -->
+            <div id="dataManageSection" style="display:none;margin-top:20px;padding-top:20px;border-top:1px solid #eee;">
+                <div style="font-weight:600;margin-bottom:12px;color:#333;">💾 数据管理</div>
+                <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                    <button class="btn" style="background:#1976d2;color:white;" onclick="backupDatabase()">📥 备份数据</button>
+                    <button class="btn" style="background:#fb8c00;color:white;" onclick="document.getElementById('restoreFileInput').click()">📤 恢复数据</button>
+                    <input type="file" id="restoreFileInput" accept=".db" style="display:none" onchange="restoreDatabase(this)">
+                </div>
+                <div style="font-size:12px;color:#999;margin-top:8px;line-height:1.6;">
+                    备份会下载当前数据库文件；恢复会用备份文件覆盖当前数据，恢复前会自动备份当前数据库。
+                </div>
+            </div>
+
             <div class="modal-actions"><button class="btn-cancel" onclick="closeProfile()">取消</button><button class="btn-submit" onclick="submitProfile()">保存修改</button></div>
         </div>
     </div>
@@ -700,17 +713,6 @@
         }
         loadVersionInfo();
 
-        // 下载客户端
-        function downloadClient() {
-            const a = document.createElement('a');
-            a.href = '/static/downloads/物资管理系统_桌面版_v1.4.3.zip';
-            a.download = '物资管理系统_桌面版_v1.4.3.zip';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            showToast('开始下载客户端...');
-        }
-
         function openChangelog(){
             document.getElementById('changelogModal').style.display = 'flex';
             const list = document.getElementById('changelogList');
@@ -866,11 +868,63 @@
             document.getElementById('profilePassword').value = '';
             document.getElementById('profileError').style.display = 'none';
             document.getElementById('profileSuccess').style.display = 'none';
+            // 管理员显示数据管理
+            document.getElementById('dataManageSection').style.display = (user.role === 'admin') ? 'block' : 'none';
             document.getElementById('profileModal').style.display = 'flex';
         }
 
         function closeProfile() {
             document.getElementById('profileModal').style.display = 'none';
+        }
+
+        // 数据备份
+        function backupDatabase() {
+            if (!confirm('确定要备份当前所有数据吗？')) return;
+            showToast('正在生成备份...');
+            fetch('/api/backup', { headers: {'Authorization': 'Bearer ' + token} })
+            .then(res => {
+                if (!res.ok) throw new Error('备份失败');
+                return res.blob();
+            })
+            .then(blob => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = '物资管理系统_备份_' + new Date().toISOString().slice(0,10) + '.db';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showToast('备份成功，已下载');
+            })
+            .catch(err => showToast(err.message || '备份失败'));
+        }
+
+        // 数据恢复
+        function restoreDatabase(input) {
+            const file = input.files[0];
+            if (!file) return;
+            if (!confirm('确定要恢复数据吗？\n\n恢复后当前数据将被覆盖，系统会自动备份当前数据库。\n恢复完成后请刷新页面。')) return;
+            const formData = new FormData();
+            formData.append('file', file);
+            showToast('正在恢复数据...');
+            fetch('/api/restore', {
+                method: 'POST',
+                headers: {'Authorization': 'Bearer ' + token},
+                body: formData
+            })
+            .then(res => res.json().then(data => ({ok: res.ok, data})))
+            .then(({ok, data}) => {
+                if (ok) {
+                    alert(data.message || '恢复成功！');
+                    closeProfile();
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    alert(data.detail || '恢复失败');
+                }
+            })
+            .catch(() => alert('恢复失败，请重试'))
+            .finally(() => { input.value = ''; });
         }
 
         function submitProfile() {
