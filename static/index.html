@@ -5,8 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>城治学生会物资管理系统</title>
     <script>
-        // 设备检测：手机访问自动跳转到手机端
+        // 设备检测：手机访问自动跳转到手机端（除非指定 desktop=1）
         (function() {
+            var params = new URLSearchParams(window.location.search);
+            if (params.get('desktop') === '1') {
+                localStorage.setItem('force_desktop', '1');
+            }
+            var forceDesktop = localStorage.getItem('force_desktop') === '1';
+            if (forceDesktop) return;
             var token = localStorage.getItem('token');
             var ua = navigator.userAgent.toLowerCase();
             var isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile/i.test(ua)
@@ -135,7 +141,7 @@
             <div class="nav-item" onclick="switchPage('page-records',this)"><span class="icon">📋</span>领用记录</div>
             <div class="nav-item" onclick="switchPage('page-users',this)"><span class="icon">👥</span>用户管理</div>
             <div class="nav-item" onclick="location.href='/dashboard'"><span class="icon">📊</span>数据大屏</div>
-            <div class="nav-item" onclick="location.href='/m/'"><span class="icon">📱</span>手机端</div>
+            <div class="nav-item" onclick="goMobile()"><span class="icon">📱</span>手机端</div>
         </div>
         <div class="user-box">
             <div class="name" id="userName">管理员</div>
@@ -777,7 +783,8 @@
 
         function showQR(id,name,qrCode){ document.getElementById('qrName').textContent=name; document.getElementById('qrCodeText').textContent='编号：'+qrCode; document.getElementById('qrcode').innerHTML=''; new QRCode(document.getElementById('qrcode'),{text:qrCode,width:180,height:180}); document.getElementById('qrModal').style.display='flex'; }
         function closeQrModal(){ document.getElementById('qrModal').style.display='none'; }
-        function logout(){ localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href='/login'; }
+        function goMobile(){ localStorage.removeItem('force_desktop'); window.location.href='/m/'; }
+        function logout(){ localStorage.removeItem('token'); localStorage.removeItem('user'); localStorage.removeItem('force_desktop'); window.location.href='/login'; }
 
         function resetFilter(){ document.getElementById('filterField').value='all'; document.getElementById('filterKeyword').value=''; loadMaterials(); }
 

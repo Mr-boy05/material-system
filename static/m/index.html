@@ -232,7 +232,7 @@
             const menu = isAdmin ? [...adminMenu, ...commonMenu] : commonMenu;
             document.getElementById('menuGrid').innerHTML = menu.map(m=>{
                 if (m.page === 'dashboard') return `<div class="menu-item" onclick="location.href='/dashboard'"><div class="icon">${m.icon}</div><div class="label">${m.label}</div><div class="desc">${m.desc}</div></div>`;
-                if (m.page === 'admin') return `<div class="menu-item" onclick="location.href='/'"><div class="icon">${m.icon}</div><div class="label">${m.label}</div><div class="desc">${m.desc}</div></div>`;
+                if (m.page === 'admin') return `<div class="menu-item" onclick="location.href='/?desktop=1'"><div class="icon">${m.icon}</div><div class="label">${m.label}</div><div class="desc">${m.desc}</div></div>`;
                 if (m.page === 'm-admin') return `<div class="menu-item" onclick="location.href='/m/admin'"><div class="icon">${m.icon}</div><div class="label">${m.label}</div><div class="desc">${m.desc}</div></div>`;
                 return `<div class="menu-item" onclick="showPage('${m.page}')"><div class="icon">${m.icon}</div><div class="label">${m.label}</div><div class="desc">${m.desc}</div></div>`;
             }).join('');
