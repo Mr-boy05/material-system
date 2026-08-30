@@ -1264,18 +1264,32 @@
             if (!checked.length) { showToast('请先选择要删除的用户'); return; }
             if (!confirm('确定删除选中的 ' + checked.length + ' 个用户吗？相关领用记录也会被删除。')) return;
             const ids = Array.from(checked).map(cb => cb.value);
+            console.log('批量删除用户ID:', ids);
             fetch('/api/users/batch-delete', {
                 method:'POST',
                 headers:{'Authorization':'Bearer '+token, 'Content-Type':'application/json'},
-                body: JSON.stringify({ids})
+                body: JSON.stringify({ids: ids})
             })
-            .then(res=>res.json())
-            .then(data=>{
-                showToast(data.message || '删除完成');
-                document.getElementById('selectAllUsers').checked = false;
-                loadUsers();
+            .then(async res=>{
+                const text = await res.text();
+                let data = {};
+                try { data = JSON.parse(text); } catch(e) { data = {detail: text}; }
+                return {ok: res.ok, status: res.status, data};
             })
-            .catch(()=>showToast('删除失败'));
+            .then(({ok,status,data})=>{
+                if (ok) {
+                    showToast(data.message || '删除完成');
+                    document.getElementById('selectAllUsers').checked = false;
+                    loadUsers();
+                } else {
+                    showToast('删除失败(' + status + '): ' + (data.detail || JSON.stringify(data)));
+                    console.error('批量删除失败:', status, data);
+                }
+            })
+            .catch(err=>{
+                showToast('网络错误：' + err.message);
+                console.error('批量删除网络错误:', err);
+            });
         }
 
         // 领取归还标签切换
