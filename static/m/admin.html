@@ -323,6 +323,19 @@ async function loadMaterials() {
             const imgHtml = m.image 
                 ? `<img src="${m.image}" class="mat-img" onclick="viewMatImage('${m.image}','${m.name}')" style="cursor:pointer;">`
                 : `<div class="mat-img-ph" onclick="uploadMatImage('${m.id}')" style="cursor:pointer;" title="点击上传图片">📷</div>`;
+            // 多位置库存显示
+            let locationsHtml = '';
+            if (m.locations && m.locations.length > 0) {
+                locationsHtml = '<div class="location-list" style="margin-top:8px;padding-top:8px;border-top:1px solid #f0f0f0;">' +
+                    m.locations.map((loc, idx) => {
+                        const locStockClass = loc.stock === 0 ? 'stock-out' : (loc.stock <= 5 ? 'stock-low' : 'stock-ok');
+                        const locTag = m.locations.length > 1 ? `<span style="display:inline-block;background:#e3f2fd;color:#1976d2;padding:1px 5px;border-radius:3px;font-size:10px;margin-right:4px;">位置${idx+1}</span>` : '';
+                        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;font-size:12px;">
+                            <span>${locTag}📍 ${loc.location || '未设置'}</span>
+                            <span class="stock-badge ${locStockClass}" style="font-size:11px;padding:2px 6px;">库存 ${loc.stock}</span>
+                        </div>`;
+                    }).join('') + '</div>';
+            }
             return `
             <div class="mat-item">
                 <div class="mat-item-header">
@@ -335,9 +348,9 @@ async function loadMaterials() {
                 </div>
                 <div class="meta">
                     <span>📐 ${m.spec || '无'}</span>
-                    <span>📍 ${m.location || '未设置'}</span>
                     <span>👤 ${m.operator || '未知'}</span>
                 </div>
+                ${locationsHtml}
                 <div class="actions">
                     <button class="btn-sm" style="background:#e3f2fd;color:#1976d2;" onclick="openEditMaterial('${m.id}')">✏️ 编辑</button>
                     <button class="btn-sm ghost" onclick="uploadMatImage('${m.id}')">${m.image ? '🖼️ 修改图片' : '📷 上传图片'}</button>

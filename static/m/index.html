@@ -130,9 +130,10 @@
     <div class="page" id="page-borrow">
         <div class="nav-bar"><div class="back" onclick="showPage('page-home')">←</div><div class="title">物资领取</div><div class="right"></div></div>
         <div class="form-card">
-            <div class="form-group"><label>领取物资名称 <span class="req">*</span></label><select id="borrowMaterial"><option value="">请选择物资</option></select></div>
+            <div class="form-group"><label>领取物资名称 <span class="req">*</span></label><select id="borrowMaterial" onchange="onBorrowMaterialChange()"><option value="">请选择物资</option></select></div>
             <div class="form-group"><label>应用于活动名称 <span class="req">*</span></label><input type="text" id="borrowActivity" placeholder="请输入活动名称"></div>
             <div class="form-group"><label>领取数量 <span class="req">*</span></label><input type="number" id="borrowQty" value="1" min="1"></div>
+            <div class="form-group"><label>领取位置 <span class="req">*</span></label><select id="borrowLocation"><option value="">请先选择物资</option></select></div>
             <div class="form-group"><label>领取人姓名 <span class="req">*</span></label><input type="text" id="borrowUser" readonly></div>
             <div class="form-group"><label>领取人电话 <span class="req">*</span></label><input type="tel" id="borrowPhone" placeholder="请输入电话号码"></div>
             <div class="form-group"><label>领取时物资图片</label><div class="upload-area" onclick="document.getElementById('borrowImage').click()">点击拍照或从相册选取</div><input type="file" id="borrowImage" accept="image/*" style="display:none" onchange="uploadImg(this,'borrowPreview')"><img id="borrowPreview" class="upload-preview" style="display:none"></div>
@@ -214,6 +215,8 @@
         document.getElementById('recordsTitle').textContent = isAdmin ? '所有记录' : '我的记录';
 
         let uploadedImages = { add:'', borrow:'', return:'' };
+        let allMaterials = [];
+        let pendingBorrowMaterial = null;
 
         // 根据角色生成菜单
         function buildMenu() {
@@ -300,12 +303,32 @@
             fetch('/api/materials', { headers:{'Authorization':'Bearer '+token} })
             .then(res=>res.json())
             .then(data=>{
+                allMaterials = data;
                 document.getElementById(selectId).innerHTML = '<option value="">请选择物资</option>' + data.map(m=>`<option value="${m.id}">${m.name}（可领${m.available_stock}${m.unit}）</option>`).join('');
                 if (pendingBorrowMaterial) {
                     document.getElementById(selectId).value = pendingBorrowMaterial;
                     pendingBorrowMaterial = null;
                 }
             });
+        }
+
+        function onBorrowMaterialChange() {
+            const materialId = document.getElementById('borrowMaterial').value;
+            const locSel = document.getElementById('borrowLocation');
+            if (!materialId) {
+                locSel.innerHTML = '<option value="">请先选择物资</option>';
+                return;
+            }
+            const m = allMaterials.find(x => x.id === materialId);
+            if (m && m.locations && m.locations.length) {
+                const availableLocs = m.locations.filter(l => l.stock > 0);
+                locSel.innerHTML = '<option value="">请选择领取位置</option>' + availableLocs.map(l=>`<option value="${l.location}">${l.location}（库存${l.stock}）</option>`).join('');
+                if (availableLocs.length === 1) {
+                    locSel.value = availableLocs[0].location;
+                }
+            } else {
+                locSel.innerHTML = '<option value="">默认位置</option>';
+            }
         }
 
         function loadBorrowedSelect() {
@@ -350,14 +373,15 @@
             const activity_name = document.getElementById('borrowActivity').value.trim();
             if (!activity_name) { showToast('请输入活动名称'); return; }
             const quantity = Number(document.getElementById('borrowQty').value)||1;
+            const location = document.getElementById('borrowLocation').value;
             const phone = document.getElementById('borrowPhone').value.trim();
             if (!phone) { showToast('请输入电话号码'); return; }
             showLoading(true);
-            fetch('/api/borrow', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({material_id,quantity,activity_name,phone,borrow_image:uploadedImages.borrow}) })
+            fetch('/api/borrow', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({material_id,quantity,activity_name,phone,borrow_image:uploadedImages.borrow,location}) })
             .then(res=>res.json().then(d=>({ok:res.ok,data:d})))
             .then(({ok,data})=>{
                 showLoading(false);
-                if (ok) { showToast('✅ '+data.message); setTimeout(()=>{ document.getElementById('borrowActivity').value=''; document.getElementById('borrowQty').value='1'; document.getElementById('borrowPreview').style.display='none'; uploadedImages.borrow=''; showPage('page-home'); },1500); }
+                if (ok) { showToast('✅ '+data.message); setTimeout(()=>{ document.getElementById('borrowActivity').value=''; document.getElementById('borrowQty').value='1'; document.getElementById('borrowLocation').innerHTML='<option value="">请先选择物资</option>'; document.getElementById('borrowPreview').style.display='none'; uploadedImages.borrow=''; showPage('page-home'); },1500); }
                 else showToast('❌ '+(data.detail||'领取失败'));
             })
             .catch(()=>{ showLoading(false); showToast('网络错误'); });
