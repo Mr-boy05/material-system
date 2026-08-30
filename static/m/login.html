@@ -317,7 +317,13 @@
                 </select>
             </div>
             <div class="form-group"><label>电话</label><input type="tel" id="regPhone" placeholder="请输入电话号码"></div>
-            <div class="form-group"><label>邮箱</label><input type="email" id="regEmail" placeholder="用于忘记密码找回"></div>
+            <div class="form-group"><label>邮箱 <span style="color:#e74c3c;">*</span></label><input type="email" id="regEmail" placeholder="用于接收验证码和找回密码"></div>
+            <div class="form-group"><label>邮箱验证码 <span style="color:#e74c3c;">*</span></label>
+                <div style="display:flex;gap:8px;">
+                    <input type="text" id="regCode" placeholder="6位验证码" style="flex:1;">
+                    <button id="regSendCodeBtn" onclick="sendRegisterCode()" style="padding:0 12px;background:#667eea;color:white;border:none;border-radius:8px;cursor:pointer;font-size:12px;white-space:nowrap;">发送</button>
+                </div>
+            </div>
             <div class="form-group"><label>密码</label><input type="password" id="regPassword" placeholder="不填则默认 123456"></div>
             <div class="error-msg" id="regError" style="display:none;margin-top:0;"></div>
             <div class="success-msg" id="regSuccess" style="display:none;margin-top:0;"></div>
@@ -683,22 +689,71 @@
         function openRegister() {
             document.getElementById('regUsername').value = ''; document.getElementById('regRealName').value = '';
             document.getElementById('regDepartment').value = ''; document.getElementById('regPhone').value = '';
-            document.getElementById('regEmail').value = ''; document.getElementById('regPassword').value = '';
+            document.getElementById('regEmail').value = ''; document.getElementById('regCode').value = '';
+            document.getElementById('regPassword').value = '';
             document.getElementById('regError').style.display = 'none'; document.getElementById('regSuccess').style.display = 'none';
             document.getElementById('registerModal').style.display = 'flex';
         }
         function closeRegister() { document.getElementById('registerModal').style.display = 'none'; }
+
+        let regCodeCountdown = 0;
+        function sendRegisterCode() {
+            const email = document.getElementById('regEmail').value.trim();
+            const errEl = document.getElementById('regError');
+            errEl.style.display = 'none';
+            if (!email) { errEl.textContent = '请先输入邮箱'; errEl.style.display = 'block'; return; }
+            const btn = document.getElementById('regSendCodeBtn');
+            btn.disabled = true;
+            btn.textContent = '...';
+            fetch('/api/send-register-code', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+            })
+            .then(res => res.json().then(data => ({ok: res.ok, data})))
+            .then(({ok, data}) => {
+                if (ok) {
+                    alert(data.message || '验证码已发送');
+                    regCodeCountdown = 60;
+                    const timer = setInterval(() => {
+                        regCodeCountdown--;
+                        if (regCodeCountdown <= 0) {
+                            clearInterval(timer);
+                            btn.disabled = false;
+                            btn.textContent = '发送';
+                        } else {
+                            btn.textContent = regCodeCountdown + 's';
+                        }
+                    }, 1000);
+                } else {
+                    errEl.textContent = data.detail || '发送失败';
+                    errEl.style.display = 'block';
+                    btn.disabled = false;
+                    btn.textContent = '发送';
+                }
+            })
+            .catch(() => {
+                errEl.textContent = '网络错误，请重试';
+                errEl.style.display = 'block';
+                btn.disabled = false;
+                btn.textContent = '发送';
+            });
+        }
+
         function submitRegister() {
             const username = document.getElementById('regUsername').value.trim();
             const real_name = document.getElementById('regRealName').value.trim();
             const department = document.getElementById('regDepartment').value.trim();
             const phone = document.getElementById('regPhone').value.trim();
             const email = document.getElementById('regEmail').value.trim();
+            const code = document.getElementById('regCode').value.trim();
             const password = document.getElementById('regPassword').value;
             const errEl = document.getElementById('regError'); const sucEl = document.getElementById('regSuccess');
             errEl.style.display = 'none'; sucEl.style.display = 'none';
             if (!username) { errEl.textContent = '请输入用户名'; errEl.style.display = 'block'; return; }
-            fetch('/api/register', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username,password,real_name,department,phone,email}) })
+            if (!email) { errEl.textContent = '请输入邮箱'; errEl.style.display = 'block'; return; }
+            if (!code) { errEl.textContent = '请输入邮箱验证码'; errEl.style.display = 'block'; return; }
+            fetch('/api/register', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username,password,real_name,department,phone,email,code}) })
             .then(res => res.json().then(data => ({ok:res.ok, data})))
             .then(({ok,data}) => {
                 if (ok) { sucEl.textContent = data.message || '注册成功'; sucEl.style.display = 'block'; setTimeout(() => { closeRegister(); document.getElementById('username').value = username; document.getElementById('password').value = password || '123456'; }, 1500); }

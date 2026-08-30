@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "1.6.1"
+VERSION = "1.7.0"
 VERSION_DATE = "2026-08-30"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
@@ -72,6 +72,7 @@ SMTP_ENABLED = bool(SMTP_SERVER and SMTP_USER and SMTP_PASSWORD)
 
 # 验证码存储（内存）：{email: {"code": "123456", "expire": datetime}}
 reset_codes = {}
+register_codes = {}
 
 # 确保上传目录存在
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -256,6 +257,7 @@ class RegisterRequest(BaseModel):
     phone: str = ""
     email: str = ""
     department: str = ""
+    code: str = ""
 
 class UserCreateRequest(BaseModel):
     username: str
@@ -422,10 +424,27 @@ def register(req: RegisterRequest, conn=Depends(get_db)):
         raise HTTPException(status_code=400, detail="用户名不能为空")
     if len(username) > 20:
         raise HTTPException(status_code=400, detail="用户名不能超过20个字符")
+    email = req.email.strip().lower()
+    if not email:
+        raise HTTPException(status_code=400, detail="请输入邮箱")
+    if not req.code:
+        raise HTTPException(status_code=400, detail="请输入邮箱验证码")
+    # 验证验证码
+    record = register_codes.get(email)
+    if not record:
+        raise HTTPException(status_code=400, detail="请先获取邮箱验证码")
+    if datetime.now() > record["expire"]:
+        del register_codes[email]
+        raise HTTPException(status_code=400, detail="验证码已过期，请重新获取")
+    if record["code"] != req.code.strip():
+        raise HTTPException(status_code=400, detail="验证码错误")
     cur = conn.cursor()
     cur.execute("SELECT id FROM users WHERE username = ?", (username,))
     if cur.fetchone():
         raise HTTPException(status_code=400, detail="该用户名已被注册")
+    cur.execute("SELECT id FROM users WHERE email = ?", (email,))
+    if cur.fetchone():
+        raise HTTPException(status_code=400, detail="该邮箱已被注册")
     password = req.password if req.password else "123456"
     if len(password) < 4:
         raise HTTPException(status_code=400, detail="密码至少4位")
@@ -434,8 +453,11 @@ def register(req: RegisterRequest, conn=Depends(get_db)):
     cur.execute("""
         INSERT INTO users (id, username, password_hash, real_name, phone, email, department, role)
         VALUES (?, ?, ?, ?, ?, ?, ?, 'user')
-    """, (user_id, username, hash_password(password), real_name, req.phone, req.email, req.department))
+    """, (user_id, username, hash_password(password), real_name, req.phone, email, req.department))
     conn.commit()
+    # 删除已使用的验证码
+    if email in register_codes:
+        del register_codes[email]
     return {"success": True, "message": "注册成功，请登录", "username": username}
 
 # ---------- 用户管理（管理员）----------
@@ -603,6 +625,40 @@ def send_email(to_email: str, subject: str, content: str) -> bool:
         print(f"[邮件发送失败] {e}")
         return False
 
+@app.post("/api/send-register-code")
+def send_register_code(req: SendCodeRequest, conn=Depends(get_db)):
+    if not SMTP_ENABLED:
+        raise HTTPException(status_code=400, detail="系统未配置邮箱，注册功能暂不可用，请联系管理员")
+    email = req.email.strip().lower()
+    if not email:
+        raise HTTPException(status_code=400, detail="请输入邮箱")
+    # 检查邮箱是否已被注册
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM users WHERE email = ?", (email,))
+    if cur.fetchone():
+        raise HTTPException(status_code=400, detail="该邮箱已被注册")
+    # 生成6位验证码
+    code = ''.join(random.choices(string.digits, k=6))
+    register_codes[email] = {"code": code, "expire": datetime.now() + timedelta(minutes=10)}
+    # 发送邮件
+    subject = "城治学生会物资管理系统 - 注册验证码"
+    content = f"""您好！
+
+您正在注册城治学生会物资管理系统账号。
+
+邮箱：{email}
+
+验证码：{code}
+
+该验证码10分钟内有效，请勿泄露给他人。
+如非本人操作，请忽略此邮件。
+
+—— 城治学生会物资管理系统"""
+    success = send_email(email, subject, content)
+    if not success:
+        raise HTTPException(status_code=500, detail="验证码发送失败，请检查邮箱配置或稍后重试")
+    return {"success": True, "message": f"验证码已发送到 {email}，请注意查收（10分钟内有效）"}
+
 @app.post("/api/send-reset-code")
 def send_reset_code(req: SendCodeRequest, conn=Depends(get_db)):
     if not SMTP_ENABLED:
@@ -612,7 +668,7 @@ def send_reset_code(req: SendCodeRequest, conn=Depends(get_db)):
         raise HTTPException(status_code=400, detail="请输入邮箱")
     # 检查邮箱是否绑定了账号
     cur = conn.cursor()
-    cur.execute("SELECT id, real_name FROM users WHERE email = ?", (email,))
+    cur.execute("SELECT id, real_name, username, department FROM users WHERE email = ?", (email,))
     user = cur.fetchone()
     if not user:
         raise HTTPException(status_code=400, detail="该邮箱未绑定任何账号")
@@ -620,10 +676,14 @@ def send_reset_code(req: SendCodeRequest, conn=Depends(get_db)):
     code = ''.join(random.choices(string.digits, k=6))
     reset_codes[email] = {"code": code, "expire": datetime.now() + timedelta(minutes=10)}
     # 发送邮件
+    dept = user['department'] if user['department'] else '（未填写）'
     subject = "城治学生会物资管理系统 - 密码重置验证码"
     content = f"""您好，{user['real_name']}！
 
 您正在重置城治学生会物资管理系统的登录密码。
+
+账号：{user['username']}
+部门：{dept}
 
 验证码：{code}
 

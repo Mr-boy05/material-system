@@ -158,9 +158,9 @@
     <div class="login-box">
         <div style="text-align:center;margin-bottom:20px;">
             <img src="/static/logo.png" alt="城治学生会物资管理系统" style="max-width:100%;height:auto;max-height:60px;object-fit:contain;">
+            <div style="margin-top:12px;font-size:18px;font-weight:700;color:#1a1a2e;letter-spacing:1px;">城治学生会物资管理系统</div>
         </div>
-        <h1 style="font-size:20px;margin-bottom:6px;">管理后台登录</h1>
-        <p class="subtitle">城治学生会物资管理系统</p>
+        <h1 style="font-size:16px;margin-bottom:6px;color:#666;font-weight:500;">管理后台登录</h1>
         <div class="form-group">
             <label>账号</label>
             <input type="text" id="username" placeholder="请输入账号">
@@ -281,8 +281,15 @@
                 <input type="tel" id="regPhone" placeholder="请输入电话号码">
             </div>
             <div class="form-group">
-                <label>邮箱</label>
-                <input type="email" id="regEmail" placeholder="用于忘记密码找回">
+                <label>邮箱 <span style="color:#e74c3c;">*</span></label>
+                <input type="email" id="regEmail" placeholder="用于接收验证码和找回密码">
+            </div>
+            <div class="form-group">
+                <label>邮箱验证码 <span style="color:#e74c3c;">*</span></label>
+                <div style="display:flex;gap:8px;">
+                    <input type="text" id="regCode" placeholder="请输入6位验证码" style="flex:1;">
+                    <button id="regSendCodeBtn" onclick="sendRegisterCode()" style="padding:0 16px;background:#667eea;color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px;white-space:nowrap;">发送验证码</button>
+                </div>
             </div>
             <div class="form-group">
                 <label>密码</label>
@@ -565,10 +572,55 @@
             document.getElementById('regDepartment').value = '';
             document.getElementById('regPhone').value = '';
             document.getElementById('regEmail').value = '';
+            document.getElementById('regCode').value = '';
             document.getElementById('regPassword').value = '';
             document.getElementById('regError').style.display = 'none';
             document.getElementById('regSuccess').style.display = 'none';
             document.getElementById('registerModal').style.display = 'flex';
+        }
+
+        let regCodeCountdown = 0;
+        function sendRegisterCode() {
+            const email = document.getElementById('regEmail').value.trim();
+            const errEl = document.getElementById('regError');
+            errEl.style.display = 'none';
+            if (!email) { errEl.textContent = '请先输入邮箱'; errEl.style.display = 'block'; return; }
+            const btn = document.getElementById('regSendCodeBtn');
+            btn.disabled = true;
+            btn.textContent = '发送中...';
+            fetch('/api/send-register-code', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+            })
+            .then(res => res.json().then(data => ({ok: res.ok, data})))
+            .then(({ok, data}) => {
+                if (ok) {
+                    alert(data.message || '验证码已发送');
+                    regCodeCountdown = 60;
+                    const timer = setInterval(() => {
+                        regCodeCountdown--;
+                        if (regCodeCountdown <= 0) {
+                            clearInterval(timer);
+                            btn.disabled = false;
+                            btn.textContent = '发送验证码';
+                        } else {
+                            btn.textContent = regCodeCountdown + 's后重发';
+                        }
+                    }, 1000);
+                } else {
+                    errEl.textContent = data.detail || '发送失败';
+                    errEl.style.display = 'block';
+                    btn.disabled = false;
+                    btn.textContent = '发送验证码';
+                }
+            })
+            .catch(() => {
+                errEl.textContent = '网络错误，请重试';
+                errEl.style.display = 'block';
+                btn.disabled = false;
+                btn.textContent = '发送验证码';
+            });
         }
 
         function closeRegister() {
@@ -581,6 +633,7 @@
             const department = document.getElementById('regDepartment').value.trim();
             const phone = document.getElementById('regPhone').value.trim();
             const email = document.getElementById('regEmail').value.trim();
+            const code = document.getElementById('regCode').value.trim();
             const password = document.getElementById('regPassword').value;
             const errEl = document.getElementById('regError');
             const sucEl = document.getElementById('regSuccess');
@@ -592,11 +645,21 @@
                 errEl.style.display = 'block';
                 return;
             }
+            if (!email) {
+                errEl.textContent = '请输入邮箱';
+                errEl.style.display = 'block';
+                return;
+            }
+            if (!code) {
+                errEl.textContent = '请输入邮箱验证码';
+                errEl.style.display = 'block';
+                return;
+            }
 
             fetch('/api/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password, real_name, department, phone, email })
+                body: JSON.stringify({ username, password, real_name, department, phone, email, code })
             })
             .then(res => res.json().then(data => ({ ok: res.ok, data })))
             .then(({ ok, data }) => {
