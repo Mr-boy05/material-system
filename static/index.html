@@ -206,16 +206,6 @@
             </table>
         </div>
 
-        <!-- 物资领取 -->
-        <div class="page" id="page-borrow">
-            <div class="page-title">物资领取登记</div>
-            <div class="form-card">
-                <div class="form-group"><label>领取物资名称 <span class="req">*</span></label><select id="borrowMaterial"><option value="">请选择物资</option></select></div>
-                <div class="form-group"><label>应用于活动名称 <span class="req">*</span></label><input type="text" id="borrowActivity" placeholder="请输入活动名称"></div>
-                <div class="form-group"><label>领取数量 <span class="req">*</span></label><input type="number" id="borrowQty" value="1" min="1"></div>
-                <div class="form-group"><label>领取位置 <span class="req">*</span></label><select id="borrowLocation"><option value="">请先选择物资</option></select></div>
-                <div class="form-group"><label>领取人姓名 <span class="req">*</span></label><input type="text" id="borrowUser" readonly></div>
-                <div class="form-group"><label>领取人电话 <span class="req">*</span></label><input type="tel" id="borrowPhone" placeholder="请输入电话号码"></div>
         <!-- 领取归还（合并） -->
         <div class="page" id="page-borrow-return">
             <div class="page-title">领取归还</div>
@@ -1492,12 +1482,10 @@
         const urlParams = new URLSearchParams(window.location.search);
         const pageParam = urlParams.get('page');
         if (pageParam) {
-            const pageMap = { 'materials':0, 'borrow':1, 'return':2, 'records':3 };
-            const idx = pageMap[pageParam];
-            if (idx !== undefined) {
+            const validPages = ['materials', 'borrow-return', 'records', 'users', 'activities'];
+            if (validPages.includes(pageParam)) {
                 setTimeout(() => {
-                    const navItems = document.querySelectorAll('.nav-item');
-                    if (navItems[idx]) switchPage('page-'+pageParam, navItems[idx]);
+                    switchPage('page-' + pageParam, null);
                 }, 200);
             }
         }
