@@ -373,6 +373,7 @@
                 return;
             }
             const cred = localStorage.getItem('auto_login_cred');
+            const justLoggedOut = localStorage.getItem('just_logged_out') === '1';
             if (cred) {
                 try {
                     const raw = atob(cred);
@@ -382,10 +383,17 @@
                     document.getElementById('username').value = u;
                     document.getElementById('password').value = p;
                     document.getElementById('autoLogin').checked = true;
-                    setTimeout(doLogin, 100);
+                    // 刚退出登录时不自动登录，只填充，方便切换账号
+                    if (!justLoggedOut) {
+                        setTimeout(doLogin, 100);
+                    } else {
+                        localStorage.removeItem('just_logged_out');
+                    }
                 } catch(e) {
                     localStorage.removeItem('auto_login_cred');
                 }
+            } else {
+                localStorage.removeItem('just_logged_out');
             }
         })();
 

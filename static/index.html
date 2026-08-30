@@ -784,7 +784,14 @@
         function showQR(id,name,qrCode){ document.getElementById('qrName').textContent=name; document.getElementById('qrCodeText').textContent='编号：'+qrCode; document.getElementById('qrcode').innerHTML=''; new QRCode(document.getElementById('qrcode'),{text:qrCode,width:180,height:180}); document.getElementById('qrModal').style.display='flex'; }
         function closeQrModal(){ document.getElementById('qrModal').style.display='none'; }
         function goMobile(){ localStorage.removeItem('force_desktop'); window.location.href='/m/'; }
-        function logout(){ localStorage.removeItem('token'); localStorage.removeItem('user'); localStorage.removeItem('force_desktop'); window.location.href='/login'; }
+        function logout(){
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            localStorage.removeItem('force_desktop');
+            // 标记刚退出，登录页不自动登录，只填充账号
+            localStorage.setItem('just_logged_out', '1');
+            window.location.href='/login';
+        }
 
         function resetFilter(){ document.getElementById('filterField').value='all'; document.getElementById('filterKeyword').value=''; loadMaterials(); }
 
