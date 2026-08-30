@@ -18,7 +18,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "2.7.0"
+VERSION = "2.7.1"
 VERSION_DATE = "2026-08-30"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
@@ -991,6 +991,9 @@ def list_materials(conn=Depends(get_db), user=Depends(get_current_user)):
     materials = [dict(m) for m in cur.fetchall()]
     for m in materials:
         m["locations"] = get_material_locations(cur, m["id"])
+        # 兼容旧图片路径
+        if m.get("image") and m["image"].startswith("/static/uploads/"):
+            m["image"] = m["image"].replace("/static/uploads/", "/uploads/")
     return materials
 
 @app.get("/api/materials/search")
@@ -1011,6 +1014,9 @@ def search_materials(keyword: str = "", conn=Depends(get_db), user=Depends(get_c
     materials = [dict(m) for m in cur.fetchall()]
     for m in materials:
         m["locations"] = get_material_locations(cur, m["id"])
+        # 兼容旧图片路径
+        if m.get("image") and m["image"].startswith("/static/uploads/"):
+            m["image"] = m["image"].replace("/static/uploads/", "/uploads/")
     return materials
 
 @app.get("/api/materials/by-qr/{qr_code}")
@@ -1240,7 +1246,7 @@ async def upload_image(file: UploadFile = File(...), user=Depends(get_current_us
     filepath = os.path.join(UPLOAD_DIR, filename)
     with open(filepath, "wb") as f:
         f.write(await file.read())
-    return {"url": f"/static/uploads/{filename}", "filename": filename}
+    return {"url": f"/uploads/{filename}", "filename": filename}
 
 # ---------- 领取 ----------
 @app.post("/api/borrow")
@@ -1644,9 +1650,9 @@ def update_material_image(material_id: str, file: UploadFile = File(...), conn=D
     with open(filepath, "wb") as f:
         f.write(file.file.read())
     cur = conn.cursor()
-    cur.execute("UPDATE materials SET image=? WHERE id=?", (f"/static/uploads/{filename}", material_id))
+    cur.execute("UPDATE materials SET image=? WHERE id=?", (f"/uploads/{filename}", material_id))
     conn.commit()
-    return {"success": True, "message": "图片更新成功", "image": f"/static/uploads/{filename}"}
+    return {"success": True, "message": "图片更新成功", "image": f"/uploads/{filename}"}
 
 # ---------- 数据备份 ----------
 @app.get("/api/backup")

@@ -459,11 +459,11 @@
             </div>
             <div class="form-group"><label>活动文件（小文件，单个≤50MB，支持多文件/文件夹）</label>
                 <div style="display:flex;gap:8px;margin-bottom:8px;">
-                    <button type="button" class="btn btn-sm" style="flex:1;background:#e3f2fd;color:#1976d2;" onclick="document.getElementById('activityFile').click()">📁 选择文件</button>
-                    <button type="button" class="btn btn-sm" style="flex:1;background:#f3e5f5;color:#7b1fa2;" onclick="document.getElementById('activityFolder').click()">📂 选择文件夹</button>
+                    <button type="button" class="btn btn-sm" style="flex:1;background:#e3f2fd;color:#1976d2;" onclick="document.getElementById('activityFileUpload').click()">📁 选择文件</button>
+                    <button type="button" class="btn btn-sm" style="flex:1;background:#f3e5f5;color:#7b1fa2;" onclick="document.getElementById('activityFolderUpload').click()">📂 选择文件夹</button>
                 </div>
-                <input type="file" id="activityFile" style="display:none" multiple onchange="uploadActivityFiles(this.files)">
-                <input type="file" id="activityFolder" style="display:none" webkitdirectory directory multiple onchange="uploadActivityFiles(this.files)">
+                <input type="file" id="activityFileUpload" style="display:none" multiple onchange="uploadActivityFiles(this.files)">
+                <input type="file" id="activityFolderUpload" style="display:none" webkitdirectory directory multiple onchange="uploadActivityFiles(this.files)">
                 <div id="activityFileList" style="margin-top:8px;"></div>
             </div>
             <div style="font-size:12px;color:#999;margin-bottom:10px;">💡 除活动名称外，其他内容可先留空，保存后点击「编辑」随时补充</div>
