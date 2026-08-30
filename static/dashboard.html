@@ -321,8 +321,11 @@
             || window.innerWidth < 768;
 
         function goBack() {
-            if (isMobile) {
-                window.location.href = '/m/admin';
+            // 如果有上一页，返回上一页；否则根据设备返回对应首页
+            if (document.referrer && document.referrer !== window.location.href) {
+                window.history.back();
+            } else if (isMobile) {
+                window.location.href = '/m/';
             } else {
                 window.location.href = '/';
             }

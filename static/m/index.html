@@ -220,13 +220,15 @@
                 { icon:'↩️', label:'物资归还', desc:'归还借出物资', page:'page-return' },
                 { icon:'🔍', label:'物资查询', desc:'查看库存详情', page:'page-search' },
                 { icon:'📋', label:'我的记录', desc:'领取归还历史', page:'page-records' },
+                { icon:'📊', label:'数据大屏', desc:'可视化数据统计', url:'/dashboard' },
             ];
             // 普通用户只显示物资管理相关功能
             const menu = commonMenu;
             const menuGrid = document.getElementById('menuGrid');
             if (menuGrid) {
                 menuGrid.innerHTML = menu.map(m=>{
-                    return `<div class="menu-item" onclick="showPage('${m.page}')"><div class="icon">${m.icon}</div><div class="label">${m.label}</div><div class="desc">${m.desc}</div></div>`;
+                    const clickAction = m.url ? `window.location.href='${m.url}'` : `showPage('${m.page}')`;
+                    return `<div class="menu-item" onclick="${clickAction}"><div class="icon">${m.icon}</div><div class="label">${m.label}</div><div class="desc">${m.desc}</div></div>`;
                 }).join('');
             }
         }
