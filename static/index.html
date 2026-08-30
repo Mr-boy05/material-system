@@ -24,6 +24,7 @@
         })();
     </script>
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
         body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; background:#f5f7fa; min-height:100vh; display:flex; }
@@ -1408,63 +1409,128 @@
 
         function uploadActivityFiles(files) {
             if (!files || !files.length) return;
-            Array.from(files).forEach(file => {
-                if (file.size > 50 * 1024 * 1024) {
-                    showToast('文件 ' + file.name + ' 超过50MB，大文件请使用WPS云文档链接');
-                    return;
-                }
-                // 显示上传进度
-                const list = document.getElementById('activityFileList');
-                const progressId = 'upload-progress-' + Date.now() + '-' + Math.random().toString(36).substr(2,5);
-                list.insertAdjacentHTML('beforeend', `
-                    <div id="${progressId}" style="padding:8px 10px;background:#e3f2fd;border-radius:6px;margin-top:4px;font-size:12px;">
-                        <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-                            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%;">📤 正在上传：${file.name}</span>
-                            <span class="progress-percent">0%</span>
-                        </div>
-                        <div style="height:6px;background:#e0e0e0;border-radius:3px;overflow:hidden;">
-                            <div class="progress-bar" style="height:100%;width:0%;background:#2196f3;transition:width 0.3s;"></div>
-                        </div>
-                    </div>
-                `);
-                const progressEl = document.getElementById(progressId);
-                const percentEl = progressEl.querySelector('.progress-percent');
-                const barEl = progressEl.querySelector('.progress-bar');
+            // 检查是否是文件夹上传（有webkitRelativePath）
+            const isFolder = Array.from(files).some(f => f.webkitRelativePath);
+            if (isFolder) {
+                // 文件夹上传：自动压缩为zip
+                compressAndUploadFolder(files);
+            } else {
+                // 多文件上传：逐个上传
+                Array.from(files).forEach(file => uploadSingleActivityFile(file));
+            }
+        }
 
-                const formData = new FormData();
-                formData.append('file', file);
-                const xhr = new XMLHttpRequest();
-                xhr.open('POST', '/api/activities/upload');
-                xhr.setRequestHeader('Authorization', 'Bearer ' + token);
-                xhr.upload.onprogress = function(e) {
-                    if (e.lengthComputable) {
-                        const percent = Math.round((e.loaded / e.total) * 100);
-                        percentEl.textContent = percent + '%';
-                        barEl.style.width = percent + '%';
-                    }
-                };
-                xhr.onload = function() {
-                    try {
-                        const data = JSON.parse(xhr.responseText);
-                        if (data.success) {
-                            activityFiles.push({url:data.url, filename:data.filename, size:data.size || file.size});
-                            progressEl.remove();
-                            renderActivityFiles();
-                        } else {
-                            progressEl.remove();
-                            showToast(data.detail || '上传失败：' + file.name);
-                        }
-                    } catch(e) {
-                        progressEl.remove();
-                        showToast('上传失败：' + file.name);
-                    }
-                };
-                xhr.onerror = function() {
-                    progressEl.remove();
-                    showToast('网络错误，上传失败：' + file.name);
-                };
-                xhr.send(formData);
+        // 压缩文件夹为zip并上传
+        function compressAndUploadFolder(files) {
+            if (typeof JSZip === 'undefined') {
+                showToast('压缩库加载失败，请刷新页面');
+                return;
+            }
+            const zip = new JSZip();
+            const fileArray = Array.from(files);
+            const folderName = fileArray[0].webkitRelativePath.split('/')[0] || '活动文件';
+
+            // 显示压缩进度
+            const list = document.getElementById('activityFileList');
+            const progressId = 'zip-progress-' + Date.now();
+            list.insertAdjacentHTML('beforeend', `
+                <div id="${progressId}" style="padding:8px 10px;background:#f3e5f5;border-radius:6px;margin-top:4px;font-size:12px;">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                        <span>📦 正在压缩文件夹：${folderName}（${fileArray.length}个文件）</span>
+                        <span class="zip-percent">0%</span>
+                    </div>
+                    <div style="height:6px;background:#e0e0e0;border-radius:3px;overflow:hidden;">
+                        <div class="zip-bar" style="height:100%;width:0%;background:#9c27b0;transition:width 0.3s;"></div>
+                    </div>
+                </div>
+            `);
+            const progressEl = document.getElementById(progressId);
+            const percentEl = progressEl.querySelector('.zip-percent');
+            const barEl = progressEl.querySelector('.zip-bar');
+
+            // 添加所有文件到zip
+            fileArray.forEach((file, index) => {
+                const path = file.webkitRelativePath;
+                zip.file(path, file);
+                const percent = Math.round(((index + 1) / fileArray.length) * 50);
+                percentEl.textContent = percent + '%';
+                barEl.style.width = percent + '%';
             });
+
+            // 生成zip
+            zip.generateAsync({ type: 'blob', compression: 'DEFLATE' }, function(meta) {
+                const percent = 50 + Math.round(meta.percent / 2);
+                percentEl.textContent = percent + '%';
+                barEl.style.width = percent + '%';
+            }).then(function(blob) {
+                // 上传zip
+                const zipFileName = folderName + '.zip';
+                const zipFile = new File([blob], zipFileName, { type: 'application/zip' });
+                progressEl.remove();
+                uploadSingleActivityFile(zipFile);
+            }).catch(function(err) {
+                progressEl.remove();
+                showToast('压缩失败：' + err.message);
+            });
+        }
+
+        // 上传单个活动文件
+        function uploadSingleActivityFile(file) {
+            if (file.size > 50 * 1024 * 1024) {
+                showToast('文件 ' + file.name + ' 超过50MB，大文件请使用WPS云文档链接');
+                return;
+            }
+            // 显示上传进度
+            const list = document.getElementById('activityFileList');
+            const progressId = 'upload-progress-' + Date.now() + '-' + Math.random().toString(36).substr(2,5);
+            list.insertAdjacentHTML('beforeend', `
+                <div id="${progressId}" style="padding:8px 10px;background:#e3f2fd;border-radius:6px;margin-top:4px;font-size:12px;">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%;">📤 正在上传：${file.name}</span>
+                        <span class="progress-percent">0%</span>
+                    </div>
+                    <div style="height:6px;background:#e0e0e0;border-radius:3px;overflow:hidden;">
+                        <div class="progress-bar" style="height:100%;width:0%;background:#2196f3;transition:width 0.3s;"></div>
+                    </div>
+                </div>
+            `);
+            const progressEl = document.getElementById(progressId);
+            const percentEl = progressEl.querySelector('.progress-percent');
+            const barEl = progressEl.querySelector('.progress-bar');
+
+            const formData = new FormData();
+            formData.append('file', file);
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/activities/upload');
+            xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+            xhr.upload.onprogress = function(e) {
+                if (e.lengthComputable) {
+                    const percent = Math.round((e.loaded / e.total) * 100);
+                    percentEl.textContent = percent + '%';
+                    barEl.style.width = percent + '%';
+                }
+            };
+            xhr.onload = function() {
+                try {
+                    const data = JSON.parse(xhr.responseText);
+                    if (data.success) {
+                        activityFiles.push({url:data.url, filename:data.filename, size:data.size || file.size});
+                        progressEl.remove();
+                        renderActivityFiles();
+                    } else {
+                        progressEl.remove();
+                        showToast(data.detail || '上传失败：' + file.name);
+                    }
+                } catch(e) {
+                    progressEl.remove();
+                    showToast('上传失败：' + file.name);
+                }
+            };
+            xhr.onerror = function() {
+                progressEl.remove();
+                showToast('网络错误，上传失败：' + file.name);
+            };
+            xhr.send(formData);
         }
 
         function submitActivity() {
