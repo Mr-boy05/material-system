@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "2.1.1"
+VERSION = "2.2.0"
 VERSION_DATE = "2026-08-30"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
@@ -218,6 +218,14 @@ def init_db():
         )
     """)
 
+    # 系统配置表（存储自定义字段等配置）
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS config (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        )
+    """)
+
     # 索引
     c.execute("CREATE INDEX IF NOT EXISTS idx_materials_qr ON materials(qr_code)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_transactions_material ON transactions(material_id)")
@@ -242,6 +250,8 @@ def init_db():
     add_column_if_not_exists("users", "phone", "TEXT DEFAULT ''")
     add_column_if_not_exists("users", "email", "TEXT DEFAULT ''")
     add_column_if_not_exists("users", "department", "TEXT DEFAULT ''")
+    add_column_if_not_exists("activities", "extra_fields", "TEXT DEFAULT '{}'")
+    add_column_if_not_exists("attendance", "extra_fields", "TEXT DEFAULT '{}'")
 
     # 初始化管理员
     c.execute("SELECT COUNT(*) FROM users WHERE username = 'admin'")
@@ -1851,6 +1861,7 @@ class ActivityCreate(BaseModel):
     folder_link: str = ""
     files: list = []
     status: str = "planned"
+    extra_fields: dict = {}
 
 class ActivityUpdate(BaseModel):
     title: Optional[str] = None
@@ -1861,6 +1872,7 @@ class ActivityUpdate(BaseModel):
     folder_link: Optional[str] = None
     files: Optional[list] = None
     status: Optional[str] = None
+    extra_fields: Optional[dict] = None
 
 @app.get("/api/activities")
 def list_activities(conn=Depends(get_db), user=Depends(get_current_user)):
@@ -1871,7 +1883,12 @@ def list_activities(conn=Depends(get_db), user=Depends(get_current_user)):
         LEFT JOIN users u ON a.creator_id = u.id
         ORDER BY a.start_time DESC
     """)
-    return [dict(a) for a in cur.fetchall()]
+    result = []
+    for a in cur.fetchall():
+        item = dict(a)
+        item["extra_fields"] = json.loads(item["extra_fields"]) if item.get("extra_fields") else {}
+        result.append(item)
+    return result
 
 @app.get("/api/activities/{activity_id}")
 def get_activity(activity_id: str, conn=Depends(get_db), user=Depends(get_current_user)):
@@ -1885,17 +1902,20 @@ def get_activity(activity_id: str, conn=Depends(get_db), user=Depends(get_curren
     activity = cur.fetchone()
     if not activity:
         raise HTTPException(status_code=404, detail="活动不存在")
-    return dict(activity)
+    result = dict(activity)
+    result["extra_fields"] = json.loads(result["extra_fields"]) if result.get("extra_fields") else {}
+    return result
 
 @app.post("/api/activities")
 def create_activity(req: ActivityCreate, conn=Depends(get_db), user=Depends(get_current_user)):
     activity_id = str(uuid.uuid4())
     cur = conn.cursor()
     cur.execute("""
-        INSERT INTO activities (id, title, start_time, location, organizer, description, folder_link, files, status, creator_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO activities (id, title, start_time, location, organizer, description, folder_link, files, status, creator_id, extra_fields)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (activity_id, req.title, req.start_time, req.location, req.organizer,
-          req.description, req.folder_link, json.dumps(req.files, ensure_ascii=False), req.status, user["id"]))
+          req.description, req.folder_link, json.dumps(req.files, ensure_ascii=False), req.status, user["id"],
+          json.dumps(req.extra_fields, ensure_ascii=False)))
     conn.commit()
     return {"success": True, "message": "活动创建成功", "id": activity_id}
 
@@ -1923,6 +1943,8 @@ def update_activity(activity_id: str, req: ActivityUpdate, conn=Depends(get_db),
         updates.append("files=?"); params.append(json.dumps(req.files, ensure_ascii=False))
     if req.status is not None:
         updates.append("status=?"); params.append(req.status)
+    if req.extra_fields is not None:
+        updates.append("extra_fields=?"); params.append(json.dumps(req.extra_fields, ensure_ascii=False))
     if updates:
         params.append(activity_id)
         cur.execute(f"UPDATE activities SET {', '.join(updates)} WHERE id=?", params)
@@ -1968,6 +1990,7 @@ class AttendanceCreate(BaseModel):
     attendees: list = []
     absentees: list = []
     remark: str = ""
+    extra_fields: dict = {}
 
 class AttendanceUpdate(BaseModel):
     title: Optional[str] = None
@@ -1977,6 +2000,7 @@ class AttendanceUpdate(BaseModel):
     attendees: Optional[list] = None
     absentees: Optional[list] = None
     remark: Optional[str] = None
+    extra_fields: Optional[dict] = None
 
 @app.get("/api/attendance")
 def list_attendance(conn=Depends(get_db), user=Depends(get_current_user)):
@@ -1989,10 +2013,11 @@ def list_attendance(conn=Depends(get_db), user=Depends(get_current_user)):
         ORDER BY a.date DESC, a.created_at DESC
     """)
     records = [dict(r) for r in cur.fetchall()]
-    # 解析参加和缺席人员
+    # 解析参加和缺席人员以及自定义字段
     for r in records:
         r["attendees"] = json.loads(r["attendees"]) if r["attendees"] else []
         r["absentees"] = json.loads(r["absentees"]) if r["absentees"] else []
+        r["extra_fields"] = json.loads(r["extra_fields"]) if r.get("extra_fields") else {}
     return records
 
 @app.get("/api/attendance/{attendance_id}")
@@ -2011,6 +2036,7 @@ def get_attendance(attendance_id: str, conn=Depends(get_db), user=Depends(get_cu
     result = dict(record)
     result["attendees"] = json.loads(result["attendees"]) if result["attendees"] else []
     result["absentees"] = json.loads(result["absentees"]) if result["absentees"] else []
+    result["extra_fields"] = json.loads(result["extra_fields"]) if result.get("extra_fields") else {}
     return result
 
 @app.post("/api/attendance")
@@ -2018,11 +2044,11 @@ def create_attendance(req: AttendanceCreate, conn=Depends(get_db), user=Depends(
     attendance_id = str(uuid.uuid4())
     cur = conn.cursor()
     cur.execute("""
-        INSERT INTO attendance (id, title, type, activity_id, date, attendees, absentees, remark, creator_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO attendance (id, title, type, activity_id, date, attendees, absentees, remark, creator_id, extra_fields)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (attendance_id, req.title, req.type, req.activity_id or None, req.date,
           json.dumps(req.attendees, ensure_ascii=False), json.dumps(req.absentees, ensure_ascii=False),
-          req.remark, user["id"]))
+          req.remark, user["id"], json.dumps(req.extra_fields, ensure_ascii=False)))
     conn.commit()
     return {"success": True, "message": "考勤记录创建成功", "id": attendance_id}
 
@@ -2048,6 +2074,8 @@ def update_attendance(attendance_id: str, req: AttendanceUpdate, conn=Depends(ge
         updates.append("absentees=?"); params.append(json.dumps(req.absentees, ensure_ascii=False))
     if req.remark is not None:
         updates.append("remark=?"); params.append(req.remark)
+    if req.extra_fields is not None:
+        updates.append("extra_fields=?"); params.append(json.dumps(req.extra_fields, ensure_ascii=False))
     if updates:
         params.append(attendance_id)
         cur.execute(f"UPDATE attendance SET {', '.join(updates)} WHERE id=?", params)
@@ -2062,6 +2090,70 @@ def delete_attendance(attendance_id: str, conn=Depends(get_db), user=Depends(get
     cur.execute("DELETE FROM attendance WHERE id=?", (attendance_id,))
     conn.commit()
     return {"success": True, "message": "考勤记录已删除"}
+
+# ==================== 自定义字段配置 ====================
+@app.get("/api/config/fields/{target}")
+def get_custom_fields(target: str, conn=Depends(get_db), user=Depends(get_current_user)):
+    """获取考勤或活动的自定义字段列表"""
+    if target not in ["attendance", "activity"]:
+        raise HTTPException(status_code=400, detail="目标类型错误")
+    cur = conn.cursor()
+    cur.execute("SELECT value FROM config WHERE key=?", (f"{target}_fields",))
+    row = cur.fetchone()
+    if row and row[0]:
+        return json.loads(row[0])
+    return []
+
+@app.post("/api/config/fields/{target}")
+def add_custom_field(target: str, req: dict, conn=Depends(get_db), user=Depends(get_current_user)):
+    """添加自定义字段"""
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="只有管理员可以添加字段")
+    if target not in ["attendance", "activity"]:
+        raise HTTPException(status_code=400, detail="目标类型错误")
+    field_name = req.get("field_name", "").strip()
+    if not field_name:
+        raise HTTPException(status_code=400, detail="字段名称不能为空")
+    cur = conn.cursor()
+    cur.execute("SELECT value FROM config WHERE key=?", (f"{target}_fields",))
+    row = cur.fetchone()
+    fields = json.loads(row[0]) if row and row[0] else []
+    if field_name in fields:
+        raise HTTPException(status_code=400, detail="该字段已存在")
+    fields.append(field_name)
+    cur.execute("INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)",
+                (f"{target}_fields", json.dumps(fields, ensure_ascii=False)))
+    conn.commit()
+    return {"success": True, "message": "字段添加成功", "fields": fields}
+
+@app.delete("/api/config/fields/{target}/{field_name}")
+def delete_custom_field(target: str, field_name: str, conn=Depends(get_db), user=Depends(get_current_user)):
+    """删除自定义字段"""
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="只有管理员可以删除字段")
+    if target not in ["attendance", "activity"]:
+        raise HTTPException(status_code=400, detail="目标类型错误")
+    cur = conn.cursor()
+    cur.execute("SELECT value FROM config WHERE key=?", (f"{target}_fields",))
+    row = cur.fetchone()
+    fields = json.loads(row[0]) if row and row[0] else []
+    if field_name not in fields:
+        raise HTTPException(status_code=404, detail="字段不存在")
+    fields.remove(field_name)
+    cur.execute("INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)",
+                (f"{target}_fields", json.dumps(fields, ensure_ascii=False)))
+    # 同时清除所有记录中该字段的值
+    table = "attendance" if target == "attendance" else "activities"
+    cur.execute(f"SELECT id, extra_fields FROM {table}")
+    for row in cur.fetchall():
+        if row[1]:
+            extra = json.loads(row[1])
+            if field_name in extra:
+                del extra[field_name]
+                cur.execute(f"UPDATE {table} SET extra_fields=? WHERE id=?",
+                            (json.dumps(extra, ensure_ascii=False), row[0]))
+    conn.commit()
+    return {"success": True, "message": "字段已删除", "fields": fields}
 
 # ==================== 静态文件 ====================
 app.mount("/static", StaticFiles(directory="static"), name="static")

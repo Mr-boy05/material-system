@@ -452,6 +452,11 @@
             <div class="form-group"><label>活动地点</label><input type="text" id="activityLocation" placeholder="如：学校大礼堂"></div>
             <div class="form-group"><label>主办方</label><input type="text" id="activityOrganizer" placeholder="如：城治学生会文娱部"></div>
             <div class="form-group"><label>活动文件夹（WPS云文档链接，大文件用这个）</label><input type="text" id="activityFolder" placeholder="粘贴WPS云文档分享链接"></div>
+            <div class="form-group">
+                <label>自定义字段 <span style="font-size:11px;color:#999;">（管理员可添加）</span></label>
+                <div id="activityCustomFields"></div>
+                <button type="button" class="btn btn-sm" style="margin-top:8px;background:#f0f0f0;color:#666;" onclick="addCustomField('activity')">+ 添加字段</button>
+            </div>
             <div class="form-group"><label>活动文件（小文件，单个≤50MB）</label>
                 <div class="upload-area" onclick="document.getElementById('activityFile').click()">点击上传文件</div>
                 <input type="file" id="activityFile" style="display:none" onchange="uploadActivityFile(this)">
@@ -482,6 +487,11 @@
                 </div>
             </div>
             <div class="form-group"><label>备注</label><textarea id="attendanceRemark" rows="2" placeholder="如：张三请假" style="width:100%;padding:10px;border:2px solid #e8e8e8;border-radius:8px;resize:vertical;"></textarea></div>
+            <div class="form-group">
+                <label>自定义字段 <span style="font-size:11px;color:#999;">（管理员可添加）</span></label>
+                <div id="attendanceCustomFields"></div>
+                <button type="button" class="btn btn-sm" style="margin-top:8px;background:#f0f0f0;color:#666;" onclick="addCustomField('attendance')">+ 添加字段</button>
+            </div>
             <div class="modal-actions"><button class="btn-cancel" onclick="closeAttendanceModal()">取消</button><button class="btn-submit" onclick="submitAttendance()">确认保存</button></div>
         </div>
     </div>
@@ -1164,6 +1174,7 @@
                             ${dateStr ? `<div>📅 ${dateStr}</div>` : ''}
                             ${a.location ? `<div>📍 ${a.location}</div>` : ''}
                             ${a.organizer ? `<div>🏛️ ${a.organizer}</div>` : ''}
+                            ${a.extra_fields && Object.keys(a.extra_fields).length ? Object.entries(a.extra_fields).map(([k,v])=>`<div>📌 ${k}：${v||'-'}</div>`).join('') : ''}
                         </div>
                         ${a.folder_link ? `<div style="margin-top:10px;"><a href="${a.folder_link}" target="_blank" style="color:#667eea;font-size:13px;text-decoration:none;">📁 活动文件夹（WPS云文档）</a></div>` : ''}
                         ${files.length ? `<div style="margin-top:8px;font-size:12px;color:#888;">📎 ${files.length}个文件</div>` : ''}
@@ -1187,6 +1198,7 @@
             document.getElementById('activityFolder').value = '';
             activityFiles = [];
             document.getElementById('activityFileList').innerHTML = '';
+            loadCustomFields('activity').then(()=>renderCustomFields('activity', {}));
             document.getElementById('activityModal').style.display = 'flex';
         }
 
@@ -1203,8 +1215,9 @@
                 document.getElementById('activityLocation').value = a.location || '';
                 document.getElementById('activityOrganizer').value = a.organizer || '';
                 document.getElementById('activityFolder').value = a.folder_link || '';
-                activityFiles = a.files ? JSON.parse(a.files) : [];
+                activityFiles = a.files ? (typeof a.files === 'string' ? JSON.parse(a.files) : a.files) : [];
                 renderActivityFiles();
+                loadCustomFields('activity').then(()=>renderCustomFields('activity', a.extra_fields || {}));
                 document.getElementById('activityModal').style.display = 'flex';
             });
         }
@@ -1266,7 +1279,8 @@
                 location: document.getElementById('activityLocation').value.trim(),
                 organizer: document.getElementById('activityOrganizer').value.trim(),
                 folder_link: document.getElementById('activityFolder').value.trim(),
-                files: activityFiles
+                files: activityFiles,
+                extra_fields: getCustomFieldValues('activity')
             };
             const url = id ? '/api/activities/' + id : '/api/activities';
             const method = id ? 'PUT' : 'POST';
@@ -1358,6 +1372,7 @@
             document.getElementById('attendanceRemark').value = '';
             loadAttendanceUsers();
             loadActivitySelect();
+            loadCustomFields('attendance').then(()=>renderCustomFields('attendance', {}));
             setTimeout(()=>{
                 document.querySelectorAll('.attendance-user-checkbox').forEach(cb=>cb.checked=false);
             }, 300);
@@ -1392,9 +1407,10 @@
                 document.getElementById('attendanceRemark').value = a.remark || '';
                 loadAttendanceUsers();
                 loadActivitySelect();
+                loadCustomFields('attendance').then(()=>renderCustomFields('attendance', a.extra_fields || {}));
                 setTimeout(()=>{
                     document.querySelectorAll('.attendance-user-checkbox').forEach(cb=>{
-                        cb.checked = a.attendees && a.attendees.includes(cb.value);
+                        cb.checked = a.attendees && a.attendees.some(x=>x.id===cb.value);
                     });
                 }, 300);
                 document.getElementById('attendanceModal').style.display = 'flex';
@@ -1424,7 +1440,7 @@
                     absentees.push({id: cb.value, name: cb.dataset.name, department: cb.dataset.dept});
                 }
             });
-            const data = { title, type, activity_id, date, attendees, absentees, remark };
+            const data = { title, type, activity_id, date, attendees, absentees, remark, extra_fields: getCustomFieldValues('attendance') };
             const url = id ? '/api/attendance/' + id : '/api/attendance';
             const method = id ? 'PUT' : 'POST';
             fetch(url, { method, headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify(data) })
@@ -1432,7 +1448,8 @@
             .then(({ok,data})=>{
                 if (ok) { showToast(id ? '考勤更新成功' : '考勤创建成功'); closeAttendanceModal(); loadAttendance(); }
                 else showToast(data.detail || '保存失败');
-            });
+            })
+            .catch(err=>{ showToast('网络错误：' + err.message); });
         }
 
         function deleteAttendance(id, title) {
@@ -1459,6 +1476,7 @@
                             <div>📅 日期：${a.date || '-'}</div>
                             ${a.activity_title ? `<div>🎯 关联活动：${a.activity_title}</div>` : ''}
                             ${a.remark ? `<div>📝 备注：${a.remark}</div>` : ''}
+                            ${a.extra_fields && Object.keys(a.extra_fields).length ? Object.entries(a.extra_fields).map(([k,v])=>`<div>📌 ${k}：${v||'-'}</div>`).join('') : ''}
                         </div>
                     </div>
                     <div style="background:#e8f5e9;padding:12px;border-radius:8px;margin-bottom:12px;">
@@ -1477,6 +1495,88 @@
 
         function closeAttendanceDetail() {
             document.getElementById('attendanceDetailModal').style.display = 'none';
+        }
+
+        // ==================== 自定义字段 ====================
+        let customFieldsCache = {activity: [], attendance: []};
+
+        function loadCustomFields(target) {
+            return fetch('/api/config/fields/' + target, { headers:{'Authorization':'Bearer '+token} })
+            .then(res=>res.json())
+            .then(fields=>{
+                customFieldsCache[target] = fields || [];
+                return fields;
+            })
+            .catch(()=>[]);
+        }
+
+        function renderCustomFields(target, values) {
+            const containerId = target === 'activity' ? 'activityCustomFields' : 'attendanceCustomFields';
+            const container = document.getElementById(containerId);
+            const fields = customFieldsCache[target] || [];
+            if (!fields.length) {
+                container.innerHTML = '<div style="font-size:12px;color:#999;padding:5px 0;">暂无自定义字段</div>';
+                return;
+            }
+            values = values || {};
+            container.innerHTML = fields.map(f=>`
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                    <input type="text" class="custom-field-input" data-field="${f}" placeholder="${f}" value="${values[f]||''}" style="flex:1;padding:8px;border:2px solid #e8e8e8;border-radius:6px;font-size:13px;">
+                    <button type="button" style="background:none;border:none;color:#f44336;cursor:pointer;font-size:16px;padding:4px 8px;" onclick="removeCustomField('${target}','${f}')" title="删除字段">×</button>
+                </div>
+            `).join('');
+        }
+
+        function getCustomFieldValues(target) {
+            const containerId = target === 'activity' ? 'activityCustomFields' : 'attendanceCustomFields';
+            const container = document.getElementById(containerId);
+            const values = {};
+            container.querySelectorAll('.custom-field-input').forEach(input=>{
+                values[input.dataset.field] = input.value.trim();
+            });
+            return values;
+        }
+
+        function addCustomField(target) {
+            const fieldName = prompt('请输入新字段名称：');
+            if (!fieldName || !fieldName.trim()) return;
+            fetch('/api/config/fields/' + target, {
+                method:'POST',
+                headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+                body:JSON.stringify({field_name: fieldName.trim()})
+            })
+            .then(res=>res.json().then(d=>({ok:res.ok,data:d})))
+            .then(({ok,data})=>{
+                if (ok) {
+                    showToast('字段添加成功');
+                    customFieldsCache[target] = data.fields || [];
+                    // 重新渲染，保留已填的值
+                    const currentValues = getCustomFieldValues(target);
+                    renderCustomFields(target, currentValues);
+                } else {
+                    showToast(data.detail || '添加失败');
+                }
+            })
+            .catch(err=>showToast('网络错误：' + err.message));
+        }
+
+        function removeCustomField(target, fieldName) {
+            if (!confirm('确定删除字段「' + fieldName + '」吗？所有记录中该字段的值也会被清除。')) return;
+            fetch('/api/config/fields/' + target + '/' + encodeURIComponent(fieldName), {
+                method:'DELETE',
+                headers:{'Authorization':'Bearer '+token}
+            })
+            .then(res=>res.json().then(d=>({ok:res.ok,data:d})))
+            .then(({ok,data})=>{
+                if (ok) {
+                    showToast('字段已删除');
+                    customFieldsCache[target] = data.fields || [];
+                    renderCustomFields(target, {});
+                } else {
+                    showToast(data.detail || '删除失败');
+                }
+            })
+            .catch(err=>showToast('网络错误：' + err.message));
         }
 
         function openUserModal() {
