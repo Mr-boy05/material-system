@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "1.8.0"
+VERSION = "1.9.0"
 VERSION_DATE = "2026-08-30"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
@@ -139,6 +139,30 @@ def init_db():
         )
     """)
 
+    # 物资位置表（同一物资可存放在多个位置，每个位置独立库存）
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS material_locations (
+            id TEXT PRIMARY KEY,
+            material_id TEXT NOT NULL,
+            location TEXT NOT NULL,
+            stock INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(material_id, location)
+        )
+    """)
+
+    # 迁移现有物资的位置数据到位置表
+    c.execute("SELECT id, location, total_stock FROM materials WHERE location IS NOT NULL AND location != ''")
+    existing_materials = c.fetchall()
+    for m in existing_materials:
+        # 检查是否已经迁移过
+        c.execute("SELECT COUNT(*) FROM material_locations WHERE material_id=?", (m["id"],))
+        if c.fetchone()[0] == 0:
+            loc_id = str(uuid.uuid4())
+            c.execute("INSERT INTO material_locations (id, material_id, location, stock) VALUES (?, ?, ?, ?)",
+                      (loc_id, m["id"], m["location"], m["total_stock"]))
+    conn.commit()
+
     # 领用归还表
     c.execute("""
         CREATE TABLE IF NOT EXISTS transactions (
@@ -180,6 +204,7 @@ def init_db():
     add_column_if_not_exists("transactions", "return_time", "TEXT DEFAULT ''")
     add_column_if_not_exists("transactions", "return_location", "TEXT DEFAULT ''")
     add_column_if_not_exists("transactions", "return_image", "TEXT DEFAULT ''")
+    add_column_if_not_exists("transactions", "borrow_location", "TEXT DEFAULT ''")
     add_column_if_not_exists("users", "phone", "TEXT DEFAULT ''")
     add_column_if_not_exists("users", "email", "TEXT DEFAULT ''")
     add_column_if_not_exists("users", "department", "TEXT DEFAULT ''")
@@ -299,6 +324,7 @@ class BorrowRequest(BaseModel):
     activity_name: str = ""
     phone: str = ""
     borrow_image: str = ""
+    location: str = ""
 
 class ReturnRequest(BaseModel):
     material_id: str
@@ -316,6 +342,7 @@ class PublicBorrowRequest(BaseModel):
     activity_name: str = ""
     phone: str = ""
     borrow_image: str = ""
+    location: str = ""
 
 class PublicReturnRequest(BaseModel):
     username: str
@@ -899,6 +926,11 @@ def email_config_status():
     return {"enabled": SMTP_ENABLED, "message": "邮箱已配置" if SMTP_ENABLED else "邮箱未配置，忘记密码功能不可用"}
 
 # ---------- 物资管理 ----------
+def get_material_locations(cur, material_id):
+    """获取物资的所有位置及库存"""
+    cur.execute("SELECT id, location, stock FROM material_locations WHERE material_id=? ORDER BY created_at", (material_id,))
+    return [dict(r) for r in cur.fetchall()]
+
 @app.get("/api/materials")
 def list_materials(conn=Depends(get_db), user=Depends(get_current_user)):
     cur = conn.cursor()
@@ -906,7 +938,10 @@ def list_materials(conn=Depends(get_db), user=Depends(get_current_user)):
         SELECT id, name, qr_code, spec, unit, total_stock, available_stock, location, image, operator, created_at
         FROM materials ORDER BY created_at DESC
     """)
-    return [dict(m) for m in cur.fetchall()]
+    materials = [dict(m) for m in cur.fetchall()]
+    for m in materials:
+        m["locations"] = get_material_locations(cur, m["id"])
+    return materials
 
 @app.get("/api/materials/search")
 def search_materials(keyword: str = "", conn=Depends(get_db), user=Depends(get_current_user)):
@@ -923,7 +958,10 @@ def search_materials(keyword: str = "", conn=Depends(get_db), user=Depends(get_c
             SELECT id, name, qr_code, spec, unit, total_stock, available_stock, location, image, operator
             FROM materials ORDER BY name
         """)
-    return [dict(m) for m in cur.fetchall()]
+    materials = [dict(m) for m in cur.fetchall()]
+    for m in materials:
+        m["locations"] = get_material_locations(cur, m["id"])
+    return materials
 
 @app.get("/api/materials/by-qr/{qr_code}")
 def get_material_by_qr(qr_code: str, conn=Depends(get_db), user=Depends(get_current_user)):
@@ -1072,6 +1110,11 @@ def create_material(req: MaterialCreate, conn=Depends(get_db), user=Depends(get_
         INSERT INTO materials (id, name, qr_code, spec, unit, total_stock, available_stock, location, image, operator)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (material_id, req.name, qr_code, req.spec, req.unit, req.total_stock, req.total_stock, req.location, req.image, operator))
+    # 创建位置记录
+    if req.location:
+        loc_id = str(uuid.uuid4())
+        cur.execute("INSERT INTO material_locations (id, material_id, location, stock) VALUES (?, ?, ?, ?)",
+                  (loc_id, material_id, req.location, req.total_stock))
     conn.commit()
     return {"id": material_id, "qr_code": qr_code, "message": "物资添加成功"}
 
@@ -1146,11 +1189,29 @@ async def upload_image(file: UploadFile = File(...), user=Depends(get_current_us
 def borrow_material(req: BorrowRequest, conn=Depends(get_db), user=Depends(get_current_user)):
     try:
         cur = conn.cursor()
+        # 从指定位置扣减库存
+        if req.location:
+            cur.execute("SELECT id, stock FROM material_locations WHERE material_id=? AND location=?", (req.material_id, req.location))
+            loc = cur.fetchone()
+            if not loc:
+                raise HTTPException(status_code=400, detail=f"位置 {req.location} 不存在")
+            if loc["stock"] < req.quantity:
+                raise HTTPException(status_code=400, detail=f"位置 {req.location} 库存不足")
+            cur.execute("UPDATE material_locations SET stock = stock - ? WHERE id=?", (req.quantity, loc["id"]))
+        else:
+            # 未指定位置，从第一个有库存的位置扣减
+            cur.execute("SELECT id, stock, location FROM material_locations WHERE material_id=? AND stock >= ? ORDER BY stock DESC LIMIT 1", (req.material_id, req.quantity))
+            loc = cur.fetchone()
+            if not loc:
+                raise HTTPException(status_code=400, detail="库存不足")
+            cur.execute("UPDATE material_locations SET stock = stock - ? WHERE id=?", (req.quantity, loc["id"]))
+            req.location = loc["location"]
+
+        # 更新物资总可用库存
         cur.execute("""
             UPDATE materials SET available_stock = available_stock - ?
             WHERE id = ? AND available_stock >= ?
         """, (req.quantity, req.material_id, req.quantity))
-        conn.commit()
         if cur.rowcount == 0:
             conn.rollback()
             raise HTTPException(status_code=400, detail="库存不足")
@@ -1166,10 +1227,10 @@ def borrow_material(req: BorrowRequest, conn=Depends(get_db), user=Depends(get_c
         tx_id = str(uuid.uuid4())
         cur.execute("""
             INSERT INTO transactions (id, material_id, user_id, type, quantity, status,
-                                      activity_name, phone, borrow_image, borrowed_at)
-            VALUES (?, ?, ?, 'borrow', ?, 'active', ?, ?, ?, ?)
+                                      activity_name, phone, borrow_image, borrowed_at, borrow_location)
+            VALUES (?, ?, ?, 'borrow', ?, 'active', ?, ?, ?, ?, ?)
         """, (tx_id, req.material_id, user["id"], req.quantity,
-              req.activity_name, req.phone, req.borrow_image, datetime.now().isoformat()))
+              req.activity_name, req.phone, req.borrow_image, datetime.now().isoformat(), req.location))
         conn.commit()
 
         return {"success": True, "message": f"领取成功！{m['name']} 剩余 {m['available_stock']}",
@@ -1194,6 +1255,18 @@ def return_material(req: ReturnRequest, conn=Depends(get_db), user=Depends(get_c
             raise HTTPException(status_code=400, detail="你没有该物资的未归还记录")
         if req.quantity > total_borrowed:
             raise HTTPException(status_code=400, detail=f"归还数量不能超过未还数量（{total_borrowed}）")
+
+        # 归还到指定位置，不存在则新建
+        return_loc = req.return_location.strip() if req.return_location else ""
+        if return_loc:
+            cur.execute("SELECT id, stock FROM material_locations WHERE material_id=? AND location=?", (req.material_id, return_loc))
+            loc = cur.fetchone()
+            if loc:
+                cur.execute("UPDATE material_locations SET stock = stock + ? WHERE id=?", (req.quantity, loc["id"]))
+            else:
+                loc_id = str(uuid.uuid4())
+                cur.execute("INSERT INTO material_locations (id, material_id, location, stock) VALUES (?, ?, ?, ?)",
+                          (loc_id, req.material_id, return_loc, req.quantity))
 
         cur.execute("UPDATE materials SET available_stock = available_stock + ? WHERE id = ?",
                     (req.quantity, req.material_id))
@@ -1235,11 +1308,27 @@ def public_borrow(req: PublicBorrowRequest, conn=Depends(get_db)):
         raise HTTPException(status_code=401, detail="账号或密码错误")
     try:
         cur = conn.cursor()
+        # 从指定位置扣减库存
+        if req.location:
+            cur.execute("SELECT id, stock FROM material_locations WHERE material_id=? AND location=?", (req.material_id, req.location))
+            loc = cur.fetchone()
+            if not loc:
+                raise HTTPException(status_code=400, detail=f"位置 {req.location} 不存在")
+            if loc["stock"] < req.quantity:
+                raise HTTPException(status_code=400, detail=f"位置 {req.location} 库存不足")
+            cur.execute("UPDATE material_locations SET stock = stock - ? WHERE id=?", (req.quantity, loc["id"]))
+        else:
+            cur.execute("SELECT id, stock, location FROM material_locations WHERE material_id=? AND stock >= ? ORDER BY stock DESC LIMIT 1", (req.material_id, req.quantity))
+            loc = cur.fetchone()
+            if not loc:
+                raise HTTPException(status_code=400, detail="库存不足")
+            cur.execute("UPDATE material_locations SET stock = stock - ? WHERE id=?", (req.quantity, loc["id"]))
+            req.location = loc["location"]
+
         cur.execute("""
             UPDATE materials SET available_stock = available_stock - ?
             WHERE id = ? AND available_stock >= ?
         """, (req.quantity, req.material_id, req.quantity))
-        conn.commit()
         if cur.rowcount == 0:
             conn.rollback()
             raise HTTPException(status_code=400, detail="库存不足")
@@ -1254,10 +1343,10 @@ def public_borrow(req: PublicBorrowRequest, conn=Depends(get_db)):
         tx_id = str(uuid.uuid4())
         cur.execute("""
             INSERT INTO transactions (id, material_id, user_id, type, quantity, status,
-                                      activity_name, phone, borrow_image, borrowed_at)
-            VALUES (?, ?, ?, 'borrow', ?, 'active', ?, ?, ?, ?)
+                                      activity_name, phone, borrow_image, borrowed_at, borrow_location)
+            VALUES (?, ?, ?, 'borrow', ?, 'active', ?, ?, ?, ?, ?)
         """, (tx_id, req.material_id, user["id"], req.quantity,
-              req.activity_name, req.phone, req.borrow_image, datetime.now().isoformat()))
+              req.activity_name, req.phone, req.borrow_image, datetime.now().isoformat(), req.location))
         conn.commit()
 
         # 自动生成token返回，方便后续操作
@@ -1290,6 +1379,18 @@ def public_return(req: PublicReturnRequest, conn=Depends(get_db)):
             raise HTTPException(status_code=400, detail="你没有该物资的未归还记录")
         if req.quantity > total_borrowed:
             raise HTTPException(status_code=400, detail=f"归还数量不能超过未还数量（{total_borrowed}）")
+
+        # 归还到指定位置，不存在则新建
+        return_loc = req.return_location.strip() if req.return_location else ""
+        if return_loc:
+            cur.execute("SELECT id, stock FROM material_locations WHERE material_id=? AND location=?", (req.material_id, return_loc))
+            loc = cur.fetchone()
+            if loc:
+                cur.execute("UPDATE material_locations SET stock = stock + ? WHERE id=?", (req.quantity, loc["id"]))
+            else:
+                loc_id = str(uuid.uuid4())
+                cur.execute("INSERT INTO material_locations (id, material_id, location, stock) VALUES (?, ?, ?, ?)",
+                          (loc_id, req.material_id, return_loc, req.quantity))
 
         cur.execute("UPDATE materials SET available_stock = available_stock + ? WHERE id = ?",
                     (req.quantity, req.material_id))

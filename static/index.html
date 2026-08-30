@@ -198,6 +198,7 @@
                 <div class="form-group"><label>领取物资名称 <span class="req">*</span></label><select id="borrowMaterial"><option value="">请选择物资</option></select></div>
                 <div class="form-group"><label>应用于活动名称 <span class="req">*</span></label><input type="text" id="borrowActivity" placeholder="请输入活动名称"></div>
                 <div class="form-group"><label>领取数量 <span class="req">*</span></label><input type="number" id="borrowQty" value="1" min="1"></div>
+                <div class="form-group"><label>领取位置 <span class="req">*</span></label><select id="borrowLocation"><option value="">请先选择物资</option></select></div>
                 <div class="form-group"><label>领取人姓名 <span class="req">*</span></label><input type="text" id="borrowUser" readonly></div>
                 <div class="form-group"><label>领取人电话 <span class="req">*</span></label><input type="tel" id="borrowPhone" placeholder="请输入电话号码"></div>
                 <div class="form-group"><label>领取时物资图片</label><div class="upload-area" onclick="document.getElementById('borrowImage').click()">点击上传图片</div><input type="file" id="borrowImage" accept="image/*" style="display:none" onchange="uploadImg(this,'borrowPreview')"><img id="borrowPreview" class="upload-preview" style="display:none"></div>
@@ -492,14 +493,33 @@
                 const tbody = document.getElementById('materialTable');
                 document.getElementById('materialCount').textContent = '共 ' + filtered.length + ' 条';
                 if (!filtered.length) { tbody.innerHTML='<tr><td colspan="9" class="empty">暂无物资</td></tr>'; return; }
-                tbody.innerHTML = filtered.map(m=>{
-                    let sc = m.available_stock===0?'stock-out':m.available_stock<=5?'stock-low':'stock-ok';
+                let rows = [];
+                filtered.forEach(m=>{
                     let img = m.image ? `<img src="${m.image}" class="mat-img" style="cursor:pointer;" onclick="viewImage('${m.image}','${m.name}')" title="点击放大">` : `<div class="mat-img-ph" style="cursor:pointer;" onclick="uploadMatImage('${m.id}')" title="点击上传图片">📷</div>`;
                     let nameHtml = m.image 
                         ? `<strong>${m.name}</strong>`
                         : `<strong style="cursor:pointer;color:#667eea;text-decoration:underline;" onclick="uploadMatImage('${m.id}')" title="点击上传图片">${m.name}</strong>`;
-                    return `<tr><td><input type="checkbox" class="mat-checkbox" value="${m.id}"></td><td>${img}</td><td>${nameHtml}</td><td><code>${m.qr_code}</code></td><td>${m.total_stock}</td><td><span class="stock-badge ${sc}">${m.available_stock}</span></td><td>${m.location||'-'}</td><td>${m.operator||'-'}</td><td><button class="btn btn-sm" style="background:#e3f2fd;color:#1976d2;margin-right:4px;" onclick="openEditMaterial('${m.id}')">编辑</button><button class="btn btn-sm" style="background:#f0f0f0;color:#666;margin-right:4px;" onclick="showQR('${m.id}','${m.name}','${m.qr_code}')">二维码</button><button class="btn btn-sm btn-danger" onclick="deleteMaterial('${m.id}','${m.name}')">删除</button></td></tr>`;
-                }).join('');
+                    let actionBtns = `<button class="btn btn-sm" style="background:#e3f2fd;color:#1976d2;margin-right:4px;" onclick="openEditMaterial('${m.id}')">编辑</button><button class="btn btn-sm" style="background:#f0f0f0;color:#666;margin-right:4px;" onclick="showQR('${m.id}','${m.name}','${m.qr_code}')">二维码</button><button class="btn btn-sm btn-danger" onclick="deleteMaterial('${m.id}','${m.name}')">删除</button>`;
+                    // 按位置分别显示
+                    let locations = m.locations && m.locations.length ? m.locations : [{location: m.location || '-', stock: m.available_stock}];
+                    locations.forEach((loc, idx)=>{
+                        let sc = loc.stock===0?'stock-out':loc.stock<=5?'stock-low':'stock-ok';
+                        let locTag = locations.length > 1 ? `<span style="display:inline-block;background:#e3f2fd;color:#1976d2;padding:2px 6px;border-radius:4px;font-size:11px;margin-right:4px;">位置${idx+1}</span>` : '';
+                        let firstRow = idx === 0;
+                        rows.push(`<tr>
+                            <td>${firstRow ? `<input type="checkbox" class="mat-checkbox" value="${m.id}">` : ''}</td>
+                            <td>${firstRow ? img : ''}</td>
+                            <td>${firstRow ? nameHtml : ''}</td>
+                            <td>${firstRow ? `<code>${m.qr_code}</code>` : ''}</td>
+                            <td>${firstRow ? m.total_stock : ''}</td>
+                            <td><span class="stock-badge ${sc}">${loc.stock}</span></td>
+                            <td>${locTag}${loc.location || '-'}</td>
+                            <td>${firstRow ? (m.operator||'-') : ''}</td>
+                            <td>${firstRow ? actionBtns : ''}</td>
+                        </tr>`);
+                    });
+                });
+                tbody.innerHTML = rows.join('');
             });
         }
 
@@ -530,7 +550,20 @@
             const sel = document.getElementById('borrowMaterial');
             sel.value = materialId;
             sel.scrollIntoView({ behavior:'smooth', block:'center' });
-            showToast('已选择该物资，请填写领取信息');
+            // 加载该物资的位置列表
+            const m = allMaterials.find(x => x.id === materialId);
+            const locSel = document.getElementById('borrowLocation');
+            if (m && m.locations && m.locations.length) {
+                locSel.innerHTML = '<option value="">请选择领取位置</option>' + m.locations
+                    .filter(l => l.stock > 0)
+                    .map(l => `<option value="${l.location}">${l.location}（库存${l.stock}）</option>`).join('');
+                if (m.locations.filter(l => l.stock > 0).length === 1) {
+                    locSel.value = m.locations.find(l => l.stock > 0).location;
+                }
+            } else {
+                locSel.innerHTML = '<option value="">默认位置</option>';
+            }
+            showToast('已选择该物资，请选择领取位置');
         }
 
         function loadBorrowedSelect() {
@@ -780,12 +813,13 @@
             const activity_name = document.getElementById('borrowActivity').value.trim();
             if (!activity_name) { showToast('请输入活动名称'); return; }
             const quantity = Number(document.getElementById('borrowQty').value)||1;
+            const location = document.getElementById('borrowLocation').value;
             const phone = document.getElementById('borrowPhone').value.trim();
             if (!phone) { showToast('请输入电话号码'); return; }
-            fetch('/api/borrow', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({material_id,quantity,activity_name,phone,borrow_image:uploadedImages.borrow}) })
+            fetch('/api/borrow', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({material_id,quantity,activity_name,phone,borrow_image:uploadedImages.borrow,location}) })
             .then(res=>res.json().then(d=>({ok:res.ok,data:d})))
             .then(({ok,data})=>{
-                if (ok) { showToast('✅ '+data.message); setTimeout(()=>{ document.getElementById('borrowActivity').value=''; document.getElementById('borrowQty').value='1'; document.getElementById('borrowPreview').style.display='none'; uploadedImages.borrow=''; loadMaterialSelect('borrowMaterial'); },1000); }
+                if (ok) { showToast('✅ '+data.message); setTimeout(()=>{ document.getElementById('borrowActivity').value=''; document.getElementById('borrowQty').value='1'; document.getElementById('borrowLocation').innerHTML='<option value="">请先选择物资</option>'; document.getElementById('borrowPreview').style.display='none'; uploadedImages.borrow=''; loadMaterialSelect('borrowMaterial'); },1000); }
                 else showToast('❌ '+(data.detail||'领取失败'));
             });
         }
