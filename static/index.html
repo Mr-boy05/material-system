@@ -143,7 +143,7 @@
     <!-- 左侧导航 -->
     <div class="sidebar">
         <div class="logo"><img src="/static/logo.png" alt="城治学生会综合管理系统"></div>
-        <div class="system-name" style="text-align:center;color:white;font-size:14px;font-weight:600;margin-bottom:15px;padding:0 10px;line-height:1.4;">城治学生会<br>综合管理系统</div>
+        <div class="system-name" style="text-align:center;color:white;font-size:13px;font-weight:600;margin-bottom:15px;padding:0 8px;line-height:1.3;white-space:nowrap;">城治学生会综合管理系统</div>
         <div class="nav">
             <div class="nav-item" onclick="location.href='/dashboard'"><span class="icon">📊</span>数据大屏</div>
             <div class="nav-item" onclick="switchPage('page-users',this)"><span class="icon">👥</span>人员管理</div>
@@ -457,9 +457,13 @@
                 <div id="activityCustomFields"></div>
                 <button type="button" class="btn btn-sm" style="margin-top:8px;background:#f0f0f0;color:#666;" onclick="addCustomField('activity')">+ 添加字段</button>
             </div>
-            <div class="form-group"><label>活动文件（小文件，单个≤50MB）</label>
-                <div class="upload-area" onclick="document.getElementById('activityFile').click()">点击上传文件</div>
-                <input type="file" id="activityFile" style="display:none" onchange="uploadActivityFile(this)">
+            <div class="form-group"><label>活动文件（小文件，单个≤50MB，支持多文件/文件夹）</label>
+                <div style="display:flex;gap:8px;margin-bottom:8px;">
+                    <button type="button" class="btn btn-sm" style="flex:1;background:#e3f2fd;color:#1976d2;" onclick="document.getElementById('activityFile').click()">📁 选择文件</button>
+                    <button type="button" class="btn btn-sm" style="flex:1;background:#f3e5f5;color:#7b1fa2;" onclick="document.getElementById('activityFolder').click()">📂 选择文件夹</button>
+                </div>
+                <input type="file" id="activityFile" style="display:none" multiple onchange="uploadActivityFiles(this.files)">
+                <input type="file" id="activityFolder" style="display:none" webkitdirectory directory multiple onchange="uploadActivityFiles(this.files)">
                 <div id="activityFileList" style="margin-top:8px;"></div>
             </div>
             <div style="font-size:12px;color:#999;margin-bottom:10px;">💡 除活动名称外，其他内容可先留空，保存后点击「编辑」随时补充</div>
@@ -1331,10 +1335,25 @@
             if (!activityFiles.length) { list.innerHTML = ''; return; }
             list.innerHTML = activityFiles.map((f,i)=>{
                 const sizeStr = f.size ? (f.size > 1024*1024 ? (f.size/1024/1024).toFixed(1)+'MB' : (f.size/1024).toFixed(1)+'KB') : '';
+                const ext = (f.filename.split('.').pop() || '').toLowerCase();
+                const isImage = ['jpg','jpeg','png','gif','bmp','webp','svg'].includes(ext);
+                const isPdf = ext === 'pdf';
+                let previewHtml = '';
+                if (isImage) {
+                    previewHtml = `<img src="${f.url}" style="width:36px;height:36px;object-fit:cover;border-radius:4px;margin-right:8px;cursor:pointer;" onclick="previewFile('${f.url}','${f.filename}','image')" title="点击预览">`;
+                } else if (isPdf) {
+                    previewHtml = `<div style="width:36px;height:36px;background:#ffebee;color:#c62828;display:flex;align-items:center;justify-content:center;border-radius:4px;margin-right:8px;font-size:10px;font-weight:bold;cursor:pointer;" onclick="previewFile('${f.url}','${f.filename}','pdf')" title="点击预览">PDF</div>`;
+                } else {
+                    previewHtml = `<div style="width:36px;height:36px;background:#e3f2fd;color:#1976d2;display:flex;align-items:center;justify-content:center;border-radius:4px;margin-right:8px;font-size:10px;font-weight:bold;">${ext.toUpperCase().substring(0,4)}</div>`;
+                }
                 return `
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:#f5f5f5;border-radius:6px;margin-top:4px;font-size:12px;">
-                    <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">📎 ${f.filename} ${sizeStr ? `<span style="color:#999;">(${sizeStr})</span>` : ''}</span>
-                    <div style="display:flex;gap:8px;margin-left:8px;">
+                    <div style="display:flex;align-items:center;flex:1;overflow:hidden;">
+                        ${previewHtml}
+                        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f.filename} ${sizeStr ? `<span style="color:#999;">(${sizeStr})</span>` : ''}</span>
+                    </div>
+                    <div style="display:flex;gap:8px;margin-left:8px;flex-shrink:0;">
+                        ${(isImage || isPdf) ? `<span style="color:#4caf50;cursor:pointer;" onclick="previewFile('${f.url}','${f.filename}','${isImage?'image':'pdf'}')">预览</span>` : ''}
                         <a href="${f.url}" target="_blank" download="${f.filename}" style="color:#1976d2;text-decoration:none;cursor:pointer;">下载</a>
                         <span style="color:#f44336;cursor:pointer;" onclick="removeActivityFile(${i})">删除</span>
                     </div>
@@ -1342,72 +1361,91 @@
             }).join('');
         }
 
+        // 文件预览弹窗
+        function previewFile(url, filename, type) {
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+            modal.onclick = function(e) { if (e.target === modal) modal.remove(); };
+            let content = '';
+            if (type === 'image') {
+                content = `<img src="${url}" style="max-width:90%;max-height:85vh;border-radius:8px;">`;
+            } else if (type === 'pdf') {
+                content = `<iframe src="${url}" style="width:90%;height:85vh;border:none;border-radius:8px;background:white;"></iframe>`;
+            }
+            modal.innerHTML = `
+                <div style="position:relative;max-width:100%;">
+                    <button onclick="this.parentElement.parentElement.remove()" style="position:absolute;top:-40px;right:0;background:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:14px;">✕ 关闭</button>
+                    <div style="color:white;margin-bottom:10px;font-size:14px;">${filename}</div>
+                    ${content}
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
         function removeActivityFile(index) {
             activityFiles.splice(index, 1);
             renderActivityFiles();
         }
 
-        function uploadActivityFile(input) {
-            const file = input.files[0];
-            if (!file) return;
-            if (file.size > 50 * 1024 * 1024) {
-                alert('文件大小不能超过50MB，大文件请使用WPS云文档链接');
-                input.value = '';
-                return;
-            }
-            // 显示上传进度
-            const list = document.getElementById('activityFileList');
-            const progressId = 'upload-progress-' + Date.now();
-            list.insertAdjacentHTML('beforeend', `
-                <div id="${progressId}" style="padding:8px 10px;background:#e3f2fd;border-radius:6px;margin-top:4px;font-size:12px;">
-                    <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-                        <span>📤 正在上传：${file.name}</span>
-                        <span class="progress-percent">0%</span>
+        function uploadActivityFiles(files) {
+            if (!files || !files.length) return;
+            Array.from(files).forEach(file => {
+                if (file.size > 50 * 1024 * 1024) {
+                    showToast('文件 ' + file.name + ' 超过50MB，大文件请使用WPS云文档链接');
+                    return;
+                }
+                // 显示上传进度
+                const list = document.getElementById('activityFileList');
+                const progressId = 'upload-progress-' + Date.now() + '-' + Math.random().toString(36).substr(2,5);
+                list.insertAdjacentHTML('beforeend', `
+                    <div id="${progressId}" style="padding:8px 10px;background:#e3f2fd;border-radius:6px;margin-top:4px;font-size:12px;">
+                        <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%;">📤 正在上传：${file.name}</span>
+                            <span class="progress-percent">0%</span>
+                        </div>
+                        <div style="height:6px;background:#e0e0e0;border-radius:3px;overflow:hidden;">
+                            <div class="progress-bar" style="height:100%;width:0%;background:#2196f3;transition:width 0.3s;"></div>
+                        </div>
                     </div>
-                    <div style="height:6px;background:#e0e0e0;border-radius:3px;overflow:hidden;">
-                        <div class="progress-bar" style="height:100%;width:0%;background:#2196f3;transition:width 0.3s;"></div>
-                    </div>
-                </div>
-            `);
-            const progressEl = document.getElementById(progressId);
-            const percentEl = progressEl.querySelector('.progress-percent');
-            const barEl = progressEl.querySelector('.progress-bar');
+                `);
+                const progressEl = document.getElementById(progressId);
+                const percentEl = progressEl.querySelector('.progress-percent');
+                const barEl = progressEl.querySelector('.progress-bar');
 
-            const formData = new FormData();
-            formData.append('file', file);
-            const xhr = new XMLHttpRequest();
-            xhr.open('POST', '/api/activities/upload');
-            xhr.setRequestHeader('Authorization', 'Bearer ' + token);
-            xhr.upload.onprogress = function(e) {
-                if (e.lengthComputable) {
-                    const percent = Math.round((e.loaded / e.total) * 100);
-                    percentEl.textContent = percent + '%';
-                    barEl.style.width = percent + '%';
-                }
-            };
-            xhr.onload = function() {
-                try {
-                    const data = JSON.parse(xhr.responseText);
-                    if (data.success) {
-                        activityFiles.push({url:data.url, filename:data.filename, size:data.size || file.size});
-                        progressEl.remove();
-                        renderActivityFiles();
-                        showToast('文件上传成功');
-                    } else {
-                        progressEl.remove();
-                        showToast(data.detail || '上传失败');
+                const formData = new FormData();
+                formData.append('file', file);
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', '/api/activities/upload');
+                xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+                xhr.upload.onprogress = function(e) {
+                    if (e.lengthComputable) {
+                        const percent = Math.round((e.loaded / e.total) * 100);
+                        percentEl.textContent = percent + '%';
+                        barEl.style.width = percent + '%';
                     }
-                } catch(e) {
+                };
+                xhr.onload = function() {
+                    try {
+                        const data = JSON.parse(xhr.responseText);
+                        if (data.success) {
+                            activityFiles.push({url:data.url, filename:data.filename, size:data.size || file.size});
+                            progressEl.remove();
+                            renderActivityFiles();
+                        } else {
+                            progressEl.remove();
+                            showToast(data.detail || '上传失败：' + file.name);
+                        }
+                    } catch(e) {
+                        progressEl.remove();
+                        showToast('上传失败：' + file.name);
+                    }
+                };
+                xhr.onerror = function() {
                     progressEl.remove();
-                    showToast('上传失败');
-                }
-            };
-            xhr.onerror = function() {
-                progressEl.remove();
-                showToast('网络错误，上传失败');
-            };
-            xhr.send(formData);
-            input.value = '';
+                    showToast('网络错误，上传失败：' + file.name);
+                };
+                xhr.send(formData);
+            });
         }
 
         function submitActivity() {

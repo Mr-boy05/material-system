@@ -300,6 +300,11 @@
         <div class="form-group"><label>主办方</label><input type="text" id="activityOrganizer" placeholder="如：城治学生会文娱部"></div>
         <div class="form-group"><label>活动文件夹（WPS云文档链接）</label><input type="text" id="activityFolder" placeholder="粘贴WPS云文档分享链接"></div>
         <div class="form-group"><label>备注</label><textarea id="activityRemark" rows="2" style="width:100%;padding:10px;border:2px solid #e8e8e8;border-radius:8px;resize:vertical;"></textarea></div>
+        <div class="form-group"><label>活动文件（单个≤50MB，支持多选）</label>
+            <button type="button" class="btn-full ghost" style="margin:0 0 8px 0;padding:12px;" onclick="document.getElementById('mobActivityFile').click()">📁 选择文件上传</button>
+            <input type="file" id="mobActivityFile" style="display:none" multiple onchange="uploadMobActivityFiles(this.files)">
+            <div id="mobActivityFileList"></div>
+        </div>
         <button class="btn-full" onclick="submitActivityMobile()">确认保存</button>
         <button class="btn-full ghost" onclick="closeModal('activityModal')">取消</button>
     </div>
@@ -790,6 +795,7 @@ function loadActivitiesMobile() {
         if (!data.length) { list.innerHTML = '<div style="text-align:center;padding:40px;color:#999;">暂无活动记录</div>'; return; }
         list.innerHTML = data.map(a => {
             const dateStr = a.start_time ? a.start_time.slice(0,10) : '';
+            const files = a.files ? (typeof a.files === 'string' ? JSON.parse(a.files) : a.files) : [];
             return `
             <div style="background:white;border-radius:12px;padding:15px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,0.06);border-left:4px solid #667eea;">
                 <div style="font-size:16px;font-weight:600;color:#333;margin-bottom:8px;">${a.title}</div>
@@ -799,6 +805,13 @@ function loadActivitiesMobile() {
                     ${a.organizer ? `<div>🏛️ ${a.organizer}</div>` : ''}
                 </div>
                 ${a.folder_link ? `<div style="margin-top:8px;"><a href="${a.folder_link}" target="_blank" style="color:#667eea;font-size:13px;">📁 活动文件夹</a></div>` : ''}
+                ${files.length ? `<div style="margin-top:8px;padding:8px;background:#f5f5f5;border-radius:6px;">
+                    <div style="font-size:12px;color:#999;margin-bottom:4px;">📎 附件（${files.length}个）</div>
+                    ${files.map(f=>`<div style="padding:3px 0;font-size:12px;display:flex;justify-content:space-between;align-items:center;">
+                        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${f.filename}</span>
+                        <a href="${f.url}" target="_blank" download="${f.filename}" style="color:#1976d2;margin-left:8px;flex-shrink:0;">下载</a>
+                    </div>`).join('')}
+                </div>` : ''}
                 <div style="margin-top:10px;display:flex;gap:8px;">
                     <button style="flex:1;padding:8px;border:none;border-radius:8px;background:#e3f2fd;color:#1976d2;font-size:13px;cursor:pointer;" onclick="editActivityMobile('${a.id}')">编辑</button>
                     <button style="flex:1;padding:8px;border:none;border-radius:8px;background:#ffebee;color:#c62828;font-size:13px;cursor:pointer;" onclick="deleteActivityMobile('${a.id}','${a.title}')">删除</button>
@@ -810,6 +823,8 @@ function loadActivitiesMobile() {
     });
 }
 
+let mobActivityFiles = [];
+
 function showAddActivity() {
     document.getElementById('activityModalTitle').textContent = '新增活动';
     document.getElementById('editActivityId').value = '';
@@ -819,6 +834,8 @@ function showAddActivity() {
     document.getElementById('activityOrganizer').value = '';
     document.getElementById('activityFolder').value = '';
     document.getElementById('activityRemark').value = '';
+    mobActivityFiles = [];
+    renderMobActivityFiles();
     document.getElementById('activityModal').classList.add('show');
 }
 
@@ -834,7 +851,91 @@ function editActivityMobile(id) {
         document.getElementById('activityOrganizer').value = a.organizer || '';
         document.getElementById('activityFolder').value = a.folder_link || '';
         document.getElementById('activityRemark').value = a.description || '';
+        mobActivityFiles = a.files ? (typeof a.files === 'string' ? JSON.parse(a.files) : a.files) : [];
+        renderMobActivityFiles();
         document.getElementById('activityModal').classList.add('show');
+    });
+}
+
+function renderMobActivityFiles() {
+    const list = document.getElementById('mobActivityFileList');
+    if (!mobActivityFiles.length) { list.innerHTML = ''; return; }
+    list.innerHTML = mobActivityFiles.map((f,i) => {
+        const sizeStr = f.size ? (f.size > 1024*1024 ? (f.size/1024/1024).toFixed(1)+'MB' : (f.size/1024).toFixed(1)+'KB') : '';
+        return `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:#f5f5f5;border-radius:8px;margin-top:6px;font-size:13px;">
+            <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">📎 ${f.filename} ${sizeStr ? `<span style="color:#999;font-size:11px;">(${sizeStr})</span>` : ''}</span>
+            <div style="display:flex;gap:10px;margin-left:8px;flex-shrink:0;">
+                <a href="${f.url}" target="_blank" download="${f.filename}" style="color:#1976d2;text-decoration:none;font-size:13px;">下载</a>
+                <span style="color:#f44336;cursor:pointer;font-size:13px;" onclick="removeMobActivityFile(${i})">删除</span>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function removeMobActivityFile(index) {
+    mobActivityFiles.splice(index, 1);
+    renderMobActivityFiles();
+}
+
+function uploadMobActivityFiles(files) {
+    if (!files || !files.length) return;
+    Array.from(files).forEach(file => {
+        if (file.size > 50 * 1024 * 1024) {
+            showToast('文件 ' + file.name + ' 超过50MB');
+            return;
+        }
+        const list = document.getElementById('mobActivityFileList');
+        const progressId = 'mob-upload-' + Date.now() + '-' + Math.random().toString(36).substr(2,5);
+        list.insertAdjacentHTML('beforeend', `
+            <div id="${progressId}" style="padding:10px;background:#e3f2fd;border-radius:8px;margin-top:6px;font-size:13px;">
+                <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+                    <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%;">📤 ${file.name}</span>
+                    <span class="mob-progress-percent">0%</span>
+                </div>
+                <div style="height:6px;background:#e0e0e0;border-radius:3px;overflow:hidden;">
+                    <div class="mob-progress-bar" style="height:100%;width:0%;background:#2196f3;"></div>
+                </div>
+            </div>
+        `);
+        const progressEl = document.getElementById(progressId);
+        const percentEl = progressEl.querySelector('.mob-progress-percent');
+        const barEl = progressEl.querySelector('.mob-progress-bar');
+
+        const formData = new FormData();
+        formData.append('file', file);
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/activities/upload');
+        xhr.setRequestHeader('Authorization', 'Bearer ' + (localStorage.getItem('admin_token') || localStorage.getItem('token') || ''));
+        xhr.upload.onprogress = function(e) {
+            if (e.lengthComputable) {
+                const percent = Math.round((e.loaded / e.total) * 100);
+                percentEl.textContent = percent + '%';
+                barEl.style.width = percent + '%';
+            }
+        };
+        xhr.onload = function() {
+            try {
+                const data = JSON.parse(xhr.responseText);
+                if (data.success) {
+                    mobActivityFiles.push({url:data.url, filename:data.filename, size:data.size || file.size});
+                    progressEl.remove();
+                    renderMobActivityFiles();
+                    showToast('上传成功');
+                } else {
+                    progressEl.remove();
+                    showToast(data.detail || '上传失败');
+                }
+            } catch(e) {
+                progressEl.remove();
+                showToast('上传失败');
+            }
+        };
+        xhr.onerror = function() {
+            progressEl.remove();
+            showToast('网络错误');
+        };
+        xhr.send(formData);
     });
 }
 
@@ -848,7 +949,8 @@ function submitActivityMobile() {
         location: document.getElementById('activityLocation').value.trim(),
         organizer: document.getElementById('activityOrganizer').value.trim(),
         folder_link: document.getElementById('activityFolder').value.trim(),
-        description: document.getElementById('activityRemark').value.trim()
+        description: document.getElementById('activityRemark').value.trim(),
+        files: mobActivityFiles
     };
     const url = id ? '/api/activities/' + id : '/api/activities';
     const method = id ? 'PUT' : 'POST';
