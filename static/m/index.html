@@ -96,10 +96,15 @@
     <!-- 首页 -->
     <div class="page active" id="page-home">
         <div class="home-hero">
-            <div style="font-size:12px;opacity:0.8;margin-bottom:8px;">城治学生会综合管理系统</div>
-            <div class="avatar">👋</div>
-            <h2 id="welcomeName">你好</h2>
-            <div class="role-tag" id="roleTag">普通用户</div>
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                <div>
+                    <div style="font-size:12px;opacity:0.8;margin-bottom:8px;">城治学生会综合管理系统</div>
+                    <div class="avatar">👋</div>
+                    <h2 id="welcomeName">你好</h2>
+                    <div class="role-tag" id="roleTag">普通用户</div>
+                </div>
+                <button onclick="logout()" style="background:rgba(255,255,255,0.2);color:white;border:none;padding:8px 14px;border-radius:20px;font-size:13px;cursor:pointer;">退出登录</button>
+            </div>
         </div>
         <div class="home-stats">
             <div class="stat-card"><div class="num" id="statTotal">0</div><div class="label">物资总数</div></div>
@@ -546,7 +551,15 @@
         function closeViewImg() {
             document.getElementById('viewImgMask').style.display = 'none';
         }
-        function logout() { if(confirm('确定退出登录？')){ localStorage.removeItem('token'); localStorage.removeItem('user'); localStorage.setItem('just_logged_out', '1'); window.location.href='/m/login'; } }
+        function logout() {
+            if(confirm('确定退出登录？')){
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                localStorage.removeItem('auto_login_cred');
+                localStorage.setItem('just_logged_out', '1');
+                window.location.href='/m/login';
+            }
+        }
 
         // 版本号和更新日志
         function loadMobileVersion() {

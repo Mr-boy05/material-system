@@ -988,6 +988,7 @@ function logout() {
         localStorage.removeItem('admin_user');
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        localStorage.removeItem('auto_login_cred');
         localStorage.setItem('just_logged_out', '1');
         window.location.href = '/m/login';
     }
