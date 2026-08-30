@@ -18,7 +18,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "2.8.1"
+VERSION = "2.8.2"
 VERSION_DATE = "2026-08-30"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
@@ -383,6 +383,9 @@ class ReturnRequest(BaseModel):
     return_location: str = ""
     return_image: str = ""
 
+class BatchDeleteRequest(BaseModel):
+    ids: list = []
+
 # 公开接口请求模型（带登录信息，无需预先登录）
 class PublicBorrowRequest(BaseModel):
     username: str
@@ -677,10 +680,10 @@ def delete_user(user_id: str, conn=Depends(get_db), user=Depends(get_current_use
 
 # ---------- 批量删除用户 ----------
 @app.post("/api/users/batch-delete")
-def batch_delete_users(req: dict, conn=Depends(get_db), user=Depends(get_current_user)):
+def batch_delete_users(req: BatchDeleteRequest, conn=Depends(get_db), user=Depends(get_current_user)):
     if user["role"] != "admin":
         raise HTTPException(status_code=403, detail="只有管理员可以删除用户")
-    ids = req.get("ids", [])
+    ids = req.ids
     if not ids:
         raise HTTPException(status_code=400, detail="请选择要删除的用户")
     if user["id"] in ids:
