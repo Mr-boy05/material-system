@@ -147,7 +147,7 @@
             <img src="/static/college_logo_white.png" alt="重庆超大城市数字化治理学院" style="width:100%;height:auto;object-fit:contain;margin-bottom:10px;">
             <div style="display:flex;align-items:center;justify-content:center;gap:8px;">
                 <img src="/static/logo.png" alt="系统logo" style="width:32px;height:32px;object-fit:contain;border-radius:6px;">
-                <span style="font-size:12px;color:rgba(255,255,255,0.8);font-weight:500;">城治学生会综合管理系统</span>
+                <span id="systemName" style="font-size:12px;color:rgba(255,255,255,0.8);font-weight:500;">城治学生会综合管理系统</span>
             </div>
         </div>
         <div class="nav">
@@ -578,11 +578,13 @@
         if (isAdmin) {
             document.querySelectorAll('.admin-only').forEach(el => el.style.display = '');
             document.querySelectorAll('.user-only').forEach(el => el.style.display = 'none');
-            document.getElementById('systemName').textContent = '城治学生会综合管理系统';
+            const sysName = document.getElementById('systemName');
+            if (sysName) sysName.textContent = '城治学生会综合管理系统';
         } else {
             document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
             document.querySelectorAll('.user-only').forEach(el => el.style.display = '');
-            document.getElementById('systemName').textContent = '城治学生会物资管理系统';
+            const sysNameEl = document.getElementById('systemName');
+            if (sysNameEl) sysNameEl.textContent = '城治学生会物资管理系统';
             // 普通用户默认显示物资领取归还页面
             setTimeout(() => {
                 switchPage('page-borrow-return', document.querySelector('.user-only'));
