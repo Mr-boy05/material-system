@@ -7,6 +7,14 @@
 
 ---
 
+## [2.8.3] - 2026-08-30
+
+### 修复
+- **领取物资时选择物资后领取位置不更新**：HTML中引用了 `onBorrowMaterialChange()` 函数但该函数未定义，导致控制台报错 `ReferenceError: onBorrowMaterialChange is not defined`。现已添加该函数，选择物资后会自动加载该物资的所有存放位置及库存。
+- **领取物资页面物资数据未保存到全局变量**：`loadMaterialSelect` 函数获取物资列表后未保存到 `allMaterials`，导致选择物资时找不到位置信息。现已修复。
+
+---
+
 ## [2.8.2] - 2026-08-30
 
 ### 修复

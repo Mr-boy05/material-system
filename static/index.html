@@ -704,6 +704,7 @@
             fetch('/api/materials', { headers:{'Authorization':'Bearer '+token} })
             .then(res=>res.json())
             .then(data=>{
+                allMaterials = data; // 保存到全局变量，供选择物资时加载位置使用
                 document.getElementById(selectId).innerHTML = '<option value="">请选择物资</option>' + data.map(m=>`<option value="${m.id}">${m.name}（可领${m.available_stock}）</option>`).join('');
                 // 同时渲染下方物资清单
                 renderBorrowMaterialList(data);
@@ -741,6 +742,27 @@
                 locSel.innerHTML = '<option value="">默认位置</option>';
             }
             showToast('已选择该物资，请选择领取位置');
+        }
+
+        // 下拉框选择物资时加载位置列表
+        function onBorrowMaterialChange() {
+            const materialId = document.getElementById('borrowMaterial').value;
+            if (!materialId) {
+                document.getElementById('borrowLocation').innerHTML = '<option value="">请先选择物资</option>';
+                return;
+            }
+            const m = allMaterials.find(x => x.id === materialId);
+            const locSel = document.getElementById('borrowLocation');
+            if (m && m.locations && m.locations.length) {
+                locSel.innerHTML = '<option value="">请选择领取位置</option>' + m.locations
+                    .filter(l => l.stock > 0)
+                    .map(l => `<option value="${l.location}">${l.location}（库存${l.stock}）</option>`).join('');
+                if (m.locations.filter(l => l.stock > 0).length === 1) {
+                    locSel.value = m.locations.find(l => l.stock > 0).location;
+                }
+            } else {
+                locSel.innerHTML = '<option value="">默认位置</option>';
+            }
         }
 
         function loadBorrowedSelect() {
