@@ -238,13 +238,39 @@
         <!-- 用户管理 -->
         <div class="page" id="page-users">
             <div class="page-title">用户管理</div>
+            <!-- 用户统计卡片 -->
+            <div class="stat-cards" style="display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin-bottom:20px;">
+                <div class="stat-card" style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:20px;border-radius:12px;">
+                    <div style="font-size:28px;font-weight:700;" id="statTotalUsers">0</div>
+                    <div style="font-size:13px;opacity:0.9;margin-top:4px;">总用户数</div>
+                </div>
+                <div class="stat-card" style="background:linear-gradient(135deg,#f093fb,#f5576c);color:white;padding:20px;border-radius:12px;">
+                    <div style="font-size:28px;font-weight:700;" id="statAdminUsers">0</div>
+                    <div style="font-size:13px;opacity:0.9;margin-top:4px;">管理员</div>
+                </div>
+                <div class="stat-card" style="background:linear-gradient(135deg,#4facfe,#00f2fe);color:white;padding:20px;border-radius:12px;">
+                    <div style="font-size:28px;font-weight:700;" id="statNormalUsers">0</div>
+                    <div style="font-size:13px;opacity:0.9;margin-top:4px;">普通用户</div>
+                </div>
+                <div class="stat-card" style="background:linear-gradient(135deg,#43e97b,#38f9d7);color:white;padding:20px;border-radius:12px;">
+                    <div style="font-size:28px;font-weight:700;" id="statDeptCount">0</div>
+                    <div style="font-size:13px;opacity:0.9;margin-top:4px;">涉及部门</div>
+                </div>
+            </div>
             <div class="toolbar">
                 <span style="color:#666;font-size:13px;" id="userCount">共 0 人</span>
-                <button class="btn btn-primary" onclick="openUserModal()">+ 新增用户</button>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <button class="btn" style="background:#e3f2fd;color:#1976d2;" onclick="downloadUserTemplate()">📥 下载模板</button>
+                    <button class="btn" style="background:#e8f5e9;color:#388e3c;" onclick="document.getElementById('userImportFile').click()">📤 导入用户</button>
+                    <input type="file" id="userImportFile" accept=".xlsx,.xls" style="display:none" onchange="importUsers(this)">
+                    <button class="btn" style="background:#fff3e0;color:#f57c00;" onclick="exportUsers()">📊 导出用户</button>
+                    <button class="btn btn-danger" onclick="batchDeleteUsers()">🗑️ 批量删除</button>
+                    <button class="btn btn-primary" onclick="openUserModal()">+ 新增用户</button>
+                </div>
             </div>
             <table>
-                <thead><tr><th>用户名</th><th>真实姓名</th><th>部门</th><th>电话</th><th>邮箱</th><th>角色</th><th>注册时间</th><th>操作</th></tr></thead>
-                <tbody id="userTable"><tr><td colspan="8" class="empty">加载中...</td></tr></tbody>
+                <thead><tr><th style="width:40px;"><input type="checkbox" id="selectAllUsers" onchange="toggleSelectAllUsers(this)"></th><th>用户名</th><th>真实姓名</th><th>部门</th><th>电话</th><th>邮箱</th><th>角色</th><th>注册时间</th><th>操作</th></tr></thead>
+                <tbody id="userTable"><tr><td colspan="9" class="empty">加载中...</td></tr></tbody>
             </table>
         </div>
     </div>
@@ -849,16 +875,112 @@
             .then(data=>{
                 const tbody = document.getElementById('userTable');
                 document.getElementById('userCount').textContent = '共 ' + data.length + ' 人';
-                if (!data.length) { tbody.innerHTML='<tr><td colspan="8" class="empty">暂无用户</td></tr>'; return; }
+                // 统计
+                const adminCount = data.filter(u=>u.role==='admin').length;
+                const normalCount = data.length - adminCount;
+                const depts = new Set(data.map(u=>u.department).filter(d=>d));
+                document.getElementById('statTotalUsers').textContent = data.length;
+                document.getElementById('statAdminUsers').textContent = adminCount;
+                document.getElementById('statNormalUsers').textContent = normalCount;
+                document.getElementById('statDeptCount').textContent = depts.size;
+                if (!data.length) { tbody.innerHTML='<tr><td colspan="9" class="empty">暂无用户</td></tr>'; return; }
                 tbody.innerHTML = data.map(u=>{
                     const roleTag = u.role==='admin' ? '<span class="status-active">管理员</span>' : '<span class="status-completed">普通用户</span>';
                     const toggleRoleBtn = u.role==='admin'
                         ? `<button class="btn btn-sm" style="background:#fff3e0;color:#e65100;margin-right:4px;" onclick="toggleUserRole('${u.id}','user','${u.username}')">取消管理员</button>`
                         : `<button class="btn btn-sm" style="background:#e3f2fd;color:#1565c0;margin-right:4px;" onclick="toggleUserRole('${u.id}','admin','${u.username}')">设为管理员</button>`;
-                    return `<tr><td><strong>${u.username}</strong></td><td>${u.real_name||'-'}</td><td>${u.department||'-'}</td><td>${u.phone||'-'}</td><td>${u.email||'-'}</td><td>${roleTag}</td><td>${new Date(u.created_at).toLocaleDateString('zh-CN')}</td><td>${toggleRoleBtn}<button class="btn btn-sm" style="background:#f0f0f0;color:#666;margin-right:4px;" onclick="editUser('${u.id}')">编辑</button><button class="btn btn-sm btn-danger" onclick="deleteUser('${u.id}','${u.username}')">删除</button></td></tr>`;
+                    return `<tr><td><input type="checkbox" class="user-checkbox" value="${u.id}"></td><td><strong>${u.username}</strong></td><td>${u.real_name||'-'}</td><td>${u.department||'-'}</td><td>${u.phone||'-'}</td><td>${u.email||'-'}</td><td>${roleTag}</td><td>${new Date(u.created_at).toLocaleDateString('zh-CN')}</td><td>${toggleRoleBtn}<button class="btn btn-sm" style="background:#f0f0f0;color:#666;margin-right:4px;" onclick="editUser('${u.id}')">编辑</button><button class="btn btn-sm btn-danger" onclick="deleteUser('${u.id}','${u.username}')">删除</button></td></tr>`;
                 }).join('');
             })
-            .catch(()=>{ document.getElementById('userTable').innerHTML='<tr><td colspan="8" class="empty">加载失败</td></tr>'; });
+            .catch(()=>{ document.getElementById('userTable').innerHTML='<tr><td colspan="9" class="empty">加载失败</td></tr>'; });
+        }
+
+        // 用户批量操作
+        function toggleSelectAllUsers(checkbox) {
+            document.querySelectorAll('.user-checkbox').forEach(cb => cb.checked = checkbox.checked);
+        }
+
+        function downloadUserTemplate() {
+            fetch('/api/users/template', { headers:{'Authorization':'Bearer '+token} })
+            .then(res => {
+                if (!res.ok) throw new Error('下载失败');
+                return res.blob();
+            })
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = '用户导入模板.xlsx';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+                showToast('模板下载成功');
+            })
+            .catch(() => showToast('模板下载失败'));
+        }
+
+        function importUsers(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const formData = new FormData();
+            formData.append('file', file);
+            showToast('正在导入...');
+            fetch('/api/users/import', { method:'POST', headers:{'Authorization':'Bearer '+token}, body:formData })
+            .then(res => res.json().then(d=>({ok:res.ok, data:d})))
+            .then(({ok, data}) => {
+                if (ok) {
+                    let msg = `成功导入 ${data.imported} 个用户`;
+                    if (data.skipped && data.skipped.length) {
+                        msg += `\n跳过 ${data.skipped.length} 个：\n` + data.skipped.join('\n');
+                    }
+                    alert(msg);
+                    loadUsers();
+                } else {
+                    alert(data.detail || '导入失败');
+                }
+            })
+            .catch(() => alert('导入失败'))
+            .finally(() => { input.value = ''; });
+        }
+
+        function exportUsers() {
+            fetch('/api/users/export', { headers:{'Authorization':'Bearer '+token} })
+            .then(res => {
+                if (!res.ok) throw new Error('导出失败');
+                return res.blob();
+            })
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = '用户列表_' + new Date().toISOString().slice(0,10) + '.xlsx';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+                showToast('导出成功');
+            })
+            .catch(() => showToast('导出失败'));
+        }
+
+        function batchDeleteUsers() {
+            const checked = document.querySelectorAll('.user-checkbox:checked');
+            if (!checked.length) { showToast('请先选择要删除的用户'); return; }
+            if (!confirm('确定删除选中的 ' + checked.length + ' 个用户吗？相关领用记录也会被删除。')) return;
+            const ids = Array.from(checked).map(cb => cb.value);
+            fetch('/api/users/batch-delete', {
+                method:'POST',
+                headers:{'Authorization':'Bearer '+token, 'Content-Type':'application/json'},
+                body: JSON.stringify({ids})
+            })
+            .then(res=>res.json())
+            .then(data=>{
+                showToast(data.message || '删除完成');
+                document.getElementById('selectAllUsers').checked = false;
+                loadUsers();
+            })
+            .catch(()=>showToast('删除失败'));
         }
 
         function openUserModal() {

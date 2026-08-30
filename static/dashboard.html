@@ -169,6 +169,30 @@
             </div>
         </div>
 
+        <!-- 用户统计 -->
+        <div class="row row-4">
+            <div class="card" onclick="goTo('users')">
+                <div class="card-title">总用户数</div>
+                <div class="stat-number" id="userTotal">0</div>
+                <div class="stat-label">人</div>
+            </div>
+            <div class="card" onclick="goTo('users')">
+                <div class="card-title">管理员</div>
+                <div class="stat-number" id="userAdmin">0</div>
+                <div class="stat-label">人</div>
+            </div>
+            <div class="card" onclick="goTo('users')">
+                <div class="card-title">普通用户</div>
+                <div class="stat-number" id="userNormal">0</div>
+                <div class="stat-label">人</div>
+            </div>
+            <div class="card" onclick="goTo('users')">
+                <div class="card-title">涉及部门</div>
+                <div class="stat-number" id="userDept">0</div>
+                <div class="stat-label">个</div>
+            </div>
+        </div>
+
         <!-- 图表行1 -->
         <div class="row row-2">
             <div class="card" onclick="goTo('records')">
@@ -353,8 +377,32 @@
             .catch(err => console.error('加载统计失败:', err));
         }
 
+        // 用户统计
+        function loadUserStats() {
+            fetch('/api/users', {
+                headers: { 'Authorization': 'Bearer ' + token }
+            })
+            .then(res => {
+                if (res.status === 401) { window.location.href = '/login'; return; }
+                return res.json();
+            })
+            .then(data => {
+                if (!data) return;
+                const adminCount = data.filter(u => u.role === 'admin').length;
+                const normalCount = data.length - adminCount;
+                const depts = new Set(data.map(u => u.department).filter(d => d));
+                document.getElementById('userTotal').textContent = data.length;
+                document.getElementById('userAdmin').textContent = adminCount;
+                document.getElementById('userNormal').textContent = normalCount;
+                document.getElementById('userDept').textContent = depts.size;
+            })
+            .catch(err => console.error('加载用户统计失败:', err));
+        }
+
         loadStats();
+        loadUserStats();
         setInterval(loadStats, 30000); // 每30秒自动刷新
+        setInterval(loadUserStats, 60000); // 每分钟刷新用户统计
     </script>
 </body>
 </html>

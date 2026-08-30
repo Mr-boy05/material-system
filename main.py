@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "1.7.0"
+VERSION = "1.8.0"
 VERSION_DATE = "2026-08-30"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
@@ -597,6 +597,175 @@ def delete_user(user_id: str, conn=Depends(get_db), user=Depends(get_current_use
     cur.execute("DELETE FROM transactions WHERE user_id = ?", (user_id,))
     conn.commit()
     return {"success": True, "message": f"用户 {target['username']} 已删除"}
+
+# ---------- 批量删除用户 ----------
+@app.post("/api/users/batch-delete")
+def batch_delete_users(req: dict, conn=Depends(get_db), user=Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="只有管理员可以删除用户")
+    ids = req.get("ids", [])
+    if not ids:
+        raise HTTPException(status_code=400, detail="请选择要删除的用户")
+    if user["id"] in ids:
+        raise HTTPException(status_code=400, detail="不能删除当前登录的账号")
+    cur = conn.cursor()
+    deleted = 0
+    for uid in ids:
+        cur.execute("SELECT id FROM users WHERE id=?", (uid,))
+        if cur.fetchone():
+            cur.execute("DELETE FROM users WHERE id=?", (uid,))
+            cur.execute("DELETE FROM transactions WHERE user_id=?", (uid,))
+            deleted += 1
+    conn.commit()
+    return {"success": True, "message": f"已删除 {deleted} 个用户"}
+
+# ---------- 下载用户导入模板 ----------
+@app.get("/api/users/template")
+def download_user_template(user=Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="只有管理员可以下载模板")
+    output = BytesIO()
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "用户导入模板"
+    # 表头
+    headers = ["用户名*", "真实姓名", "部门", "电话", "邮箱", "初始密码"]
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=h)
+        cell.font = openpyxl.styles.Font(bold=True, color="FFFFFF")
+        cell.fill = openpyxl.styles.PatternFill(start_color="667EEA", end_color="667EEA", fill_type="solid")
+    # 示例数据
+    examples = [
+        ["zhangsan", "张三", "办公室", "13800138000", "zhangsan@example.com", "123456"],
+        ["lisi", "李四", "学习部", "13900139000", "lisi@example.com", "123456"],
+    ]
+    for row_idx, row_data in enumerate(examples, 2):
+        for col_idx, val in enumerate(row_data, 1):
+            ws.cell(row=row_idx, column=col_idx, value=val)
+    # 填写说明
+    ws.cell(row=5, column=1, value="填写说明：").font = openpyxl.styles.Font(bold=True, color="FF0000")
+    notes = [
+        "1. 用户名必填，不能重复，支持中文或英文",
+        "2. 真实姓名不填则与用户名相同",
+        "3. 部门可选：办公室/学习部/体育部/文娱部/志工部/宣传部/马列部/组织部/权益部/社团部/主席团/副书记",
+        "4. 初始密码不填则默认123456",
+        "5. 邮箱用于忘记密码找回，建议填写",
+        "6. 带*为必填项",
+    ]
+    for i, note in enumerate(notes, 6):
+        ws.cell(row=i, column=1, value=note)
+    # 列宽
+    widths = [15, 12, 12, 15, 25, 12]
+    for i, w in enumerate(widths, 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
+    wb.save(output)
+    output.seek(0)
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=user_template.xlsx"}
+    )
+
+# ---------- 批量导入用户 ----------
+@app.post("/api/users/import")
+def import_users(file: UploadFile = File(...), conn=Depends(get_db), user=Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="只有管理员可以导入用户")
+    if not file.filename.endswith(('.xlsx', '.xls')):
+        raise HTTPException(status_code=400, detail="请上传 .xlsx 格式的 Excel 文件")
+    try:
+        content = file.file.read()
+        wb = openpyxl.load_workbook(BytesIO(content))
+        ws = wb.active
+        cur = conn.cursor()
+        imported = 0
+        skipped = []
+        for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), 2):
+            if row_idx > 4:  # 跳过示例和说明行
+                break
+            username = str(row[0]).strip() if row[0] else ""
+            if not username or username.startswith("填写说明") or username.startswith("1."):
+                continue
+            # 检查用户名是否已存在
+            cur.execute("SELECT id FROM users WHERE username=?", (username,))
+            if cur.fetchone():
+                skipped.append(f"第{row_idx}行：{username}（已存在）")
+                continue
+            real_name = str(row[1]).strip() if row[1] else username
+            department = str(row[2]).strip() if row[2] else ""
+            phone = str(row[3]).strip() if row[3] else ""
+            email = str(row[4]).strip() if row[4] else ""
+            password = str(row[5]).strip() if row[5] else "123456"
+            user_id = str(uuid.uuid4())
+            cur.execute("""
+                INSERT INTO users (id, username, password_hash, real_name, phone, email, department, role)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'user')
+            """, (user_id, username, hash_password(password), real_name, phone, email, department))
+            imported += 1
+        # 继续读取后面的行（如果有更多数据）
+        for row_idx, row in enumerate(ws.iter_rows(min_row=5, values_only=True), 5):
+            username = str(row[0]).strip() if row[0] else ""
+            if not username or username.startswith("填写说明") or username.startswith("1.") or username.startswith("2.") or username.startswith("3.") or username.startswith("4.") or username.startswith("5.") or username.startswith("6."):
+                continue
+            cur.execute("SELECT id FROM users WHERE username=?", (username,))
+            if cur.fetchone():
+                skipped.append(f"第{row_idx}行：{username}（已存在）")
+                continue
+            real_name = str(row[1]).strip() if row[1] else username
+            department = str(row[2]).strip() if row[2] else ""
+            phone = str(row[3]).strip() if row[3] else ""
+            email = str(row[4]).strip() if row[4] else ""
+            password = str(row[5]).strip() if row[5] else "123456"
+            user_id = str(uuid.uuid4())
+            cur.execute("""
+                INSERT INTO users (id, username, password_hash, real_name, phone, email, department, role)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'user')
+            """, (user_id, username, hash_password(password), real_name, phone, email, department))
+            imported += 1
+        conn.commit()
+        return {"success": True, "message": f"成功导入 {imported} 个用户", "imported": imported, "skipped": skipped}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"导入失败：{str(e)}")
+
+# ---------- 导出用户 ----------
+@app.get("/api/users/export")
+def export_users(conn=Depends(get_db), user=Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="只有管理员可以导出用户")
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT username, real_name, department, phone, email, role, created_at
+        FROM users ORDER BY created_at DESC
+    """)
+    users = cur.fetchall()
+    output = BytesIO()
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "用户列表"
+    headers = ["用户名", "真实姓名", "部门", "电话", "邮箱", "角色", "注册时间"]
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=h)
+        cell.font = openpyxl.styles.Font(bold=True, color="FFFFFF")
+        cell.fill = openpyxl.styles.PatternFill(start_color="667EEA", end_color="667EEA", fill_type="solid")
+    for row_idx, u in enumerate(users, 2):
+        ws.cell(row=row_idx, column=1, value=u["username"])
+        ws.cell(row=row_idx, column=2, value=u["real_name"])
+        ws.cell(row=row_idx, column=3, value=u["department"] or "")
+        ws.cell(row=row_idx, column=4, value=u["phone"] or "")
+        ws.cell(row=row_idx, column=5, value=u["email"] or "")
+        ws.cell(row=row_idx, column=6, value="管理员" if u["role"] == "admin" else "普通用户")
+        ws.cell(row=row_idx, column=7, value=u["created_at"] or "")
+    widths = [15, 12, 12, 15, 25, 10, 20]
+    for i, w in enumerate(widths, 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
+    wb.save(output)
+    output.seek(0)
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=users_export.xlsx"}
+    )
 
 # ==================== 忘记密码（邮箱验证码）====================
 class SendCodeRequest(BaseModel):
