@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "1.9.1"
+VERSION = "1.9.2"
 VERSION_DATE = "2026-08-30"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
@@ -105,6 +105,7 @@ def init_db():
     if db_dir:
         os.makedirs(db_dir, exist_ok=True)
     conn = sqlite3.connect(DATABASE_FILE)
+    conn.row_factory = sqlite3.Row
     c = conn.cursor()
 
     # 用户表
