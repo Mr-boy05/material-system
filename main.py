@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "2.0.2"
+VERSION = "2.1.0"
 VERSION_DATE = "2026-08-30"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
@@ -197,6 +197,22 @@ def init_db():
             folder_link TEXT DEFAULT '',
             files TEXT DEFAULT '[]',
             status TEXT DEFAULT 'planned',
+            creator_id TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    # 考勤记录表
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS attendance (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            type TEXT DEFAULT 'meeting',
+            activity_id TEXT,
+            date TEXT NOT NULL,
+            attendees TEXT DEFAULT '[]',
+            absentees TEXT DEFAULT '[]',
+            remark TEXT DEFAULT '',
             creator_id TEXT,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
@@ -1942,6 +1958,110 @@ async def upload_activity_file(file: UploadFile = File(...), user=Depends(get_cu
     # 返回可访问的URL
     file_url = f"/uploads/activities/{unique_name}"
     return {"success": True, "url": file_url, "filename": file.filename, "size": len(content)}
+
+# ==================== 考勤记录 ====================
+class AttendanceCreate(BaseModel):
+    title: str
+    type: str = "meeting"
+    activity_id: Optional[str] = ""
+    date: str
+    attendees: list = []
+    absentees: list = []
+    remark: str = ""
+
+class AttendanceUpdate(BaseModel):
+    title: Optional[str] = None
+    type: Optional[str] = None
+    activity_id: Optional[str] = None
+    date: Optional[str] = None
+    attendees: Optional[list] = None
+    absentees: Optional[list] = None
+    remark: Optional[str] = None
+
+@app.get("/api/attendance")
+def list_attendance(conn=Depends(get_db), user=Depends(get_current_user)):
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT a.*, u.real_name as creator_name, act.title as activity_title
+        FROM attendance a
+        LEFT JOIN users u ON a.creator_id = u.id
+        LEFT JOIN activities act ON a.activity_id = act.id
+        ORDER BY a.date DESC, a.created_at DESC
+    """)
+    records = [dict(r) for r in cur.fetchall()]
+    # 解析参加和缺席人员
+    for r in records:
+        r["attendees"] = json.loads(r["attendees"]) if r["attendees"] else []
+        r["absentees"] = json.loads(r["absentees"]) if r["absentees"] else []
+    return records
+
+@app.get("/api/attendance/{attendance_id}")
+def get_attendance(attendance_id: str, conn=Depends(get_db), user=Depends(get_current_user)):
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT a.*, u.real_name as creator_name, act.title as activity_title
+        FROM attendance a
+        LEFT JOIN users u ON a.creator_id = u.id
+        LEFT JOIN activities act ON a.activity_id = act.id
+        WHERE a.id = ?
+    """, (attendance_id,))
+    record = cur.fetchone()
+    if not record:
+        raise HTTPException(status_code=404, detail="考勤记录不存在")
+    result = dict(record)
+    result["attendees"] = json.loads(result["attendees"]) if result["attendees"] else []
+    result["absentees"] = json.loads(result["absentees"]) if result["absentees"] else []
+    return result
+
+@app.post("/api/attendance")
+def create_attendance(req: AttendanceCreate, conn=Depends(get_db), user=Depends(get_current_user)):
+    attendance_id = str(uuid.uuid4())
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO attendance (id, title, type, activity_id, date, attendees, absentees, remark, creator_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (attendance_id, req.title, req.type, req.activity_id or None, req.date,
+          json.dumps(req.attendees, ensure_ascii=False), json.dumps(req.absentees, ensure_ascii=False),
+          req.remark, user["id"]))
+    conn.commit()
+    return {"success": True, "message": "考勤记录创建成功", "id": attendance_id}
+
+@app.put("/api/attendance/{attendance_id}")
+def update_attendance(attendance_id: str, req: AttendanceUpdate, conn=Depends(get_db), user=Depends(get_current_user)):
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM attendance WHERE id=?", (attendance_id,))
+    if not cur.fetchone():
+        raise HTTPException(status_code=404, detail="考勤记录不存在")
+    updates = []
+    params = []
+    if req.title is not None:
+        updates.append("title=?"); params.append(req.title)
+    if req.type is not None:
+        updates.append("type=?"); params.append(req.type)
+    if req.activity_id is not None:
+        updates.append("activity_id=?"); params.append(req.activity_id or None)
+    if req.date is not None:
+        updates.append("date=?"); params.append(req.date)
+    if req.attendees is not None:
+        updates.append("attendees=?"); params.append(json.dumps(req.attendees, ensure_ascii=False))
+    if req.absentees is not None:
+        updates.append("absentees=?"); params.append(json.dumps(req.absentees, ensure_ascii=False))
+    if req.remark is not None:
+        updates.append("remark=?"); params.append(req.remark)
+    if updates:
+        params.append(attendance_id)
+        cur.execute(f"UPDATE attendance SET {', '.join(updates)} WHERE id=?", params)
+        conn.commit()
+    return {"success": True, "message": "考勤记录更新成功"}
+
+@app.delete("/api/attendance/{attendance_id}")
+def delete_attendance(attendance_id: str, conn=Depends(get_db), user=Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="只有管理员可以删除考勤记录")
+    cur = conn.cursor()
+    cur.execute("DELETE FROM attendance WHERE id=?", (attendance_id,))
+    conn.commit()
+    return {"success": True, "message": "考勤记录已删除"}
 
 # ==================== 静态文件 ====================
 app.mount("/static", StaticFiles(directory="static"), name="static")
