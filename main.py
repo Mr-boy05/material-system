@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "1.10.0"
+VERSION = "2.0.0"
 VERSION_DATE = "2026-08-30"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
@@ -182,6 +182,23 @@ def init_db():
             borrowed_at TEXT DEFAULT CURRENT_TIMESTAMP,
             returned_at TEXT,
             remark TEXT
+        )
+    """)
+
+    # 活动记录表
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS activities (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            start_time TEXT NOT NULL,
+            location TEXT DEFAULT '',
+            organizer TEXT DEFAULT '',
+            description TEXT DEFAULT '',
+            folder_link TEXT DEFAULT '',
+            files TEXT DEFAULT '[]',
+            status TEXT DEFAULT 'planned',
+            creator_id TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
     """)
 
@@ -1808,8 +1825,131 @@ def stats_overview(conn=Depends(get_db), user=Depends(get_current_user)):
         "borrow_trend": trend,
     }
 
+# ==================== 活动记录 ====================
+class ActivityCreate(BaseModel):
+    title: str
+    start_time: str
+    location: str = ""
+    organizer: str = ""
+    description: str = ""
+    folder_link: str = ""
+    files: list = []
+    status: str = "planned"
+
+class ActivityUpdate(BaseModel):
+    title: Optional[str] = None
+    start_time: Optional[str] = None
+    location: Optional[str] = None
+    organizer: Optional[str] = None
+    description: Optional[str] = None
+    folder_link: Optional[str] = None
+    files: Optional[list] = None
+    status: Optional[str] = None
+
+@app.get("/api/activities")
+def list_activities(conn=Depends(get_db), user=Depends(get_current_user)):
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT a.*, u.real_name as creator_name
+        FROM activities a
+        LEFT JOIN users u ON a.creator_id = u.id
+        ORDER BY a.start_time DESC
+    """)
+    return [dict(a) for a in cur.fetchall()]
+
+@app.get("/api/activities/{activity_id}")
+def get_activity(activity_id: str, conn=Depends(get_db), user=Depends(get_current_user)):
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT a.*, u.real_name as creator_name
+        FROM activities a
+        LEFT JOIN users u ON a.creator_id = u.id
+        WHERE a.id = ?
+    """, (activity_id,))
+    activity = cur.fetchone()
+    if not activity:
+        raise HTTPException(status_code=404, detail="活动不存在")
+    return dict(activity)
+
+@app.post("/api/activities")
+def create_activity(req: ActivityCreate, conn=Depends(get_db), user=Depends(get_current_user)):
+    activity_id = str(uuid.uuid4())
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO activities (id, title, start_time, location, organizer, description, folder_link, files, status, creator_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (activity_id, req.title, req.start_time, req.location, req.organizer,
+          req.description, req.folder_link, json.dumps(req.files, ensure_ascii=False), req.status, user["id"]))
+    conn.commit()
+    return {"success": True, "message": "活动创建成功", "id": activity_id}
+
+@app.put("/api/activities/{activity_id}")
+def update_activity(activity_id: str, req: ActivityUpdate, conn=Depends(get_db), user=Depends(get_current_user)):
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM activities WHERE id=?", (activity_id,))
+    if not cur.fetchone():
+        raise HTTPException(status_code=404, detail="活动不存在")
+    updates = []
+    params = []
+    if req.title is not None:
+        updates.append("title=?"); params.append(req.title)
+    if req.start_time is not None:
+        updates.append("start_time=?"); params.append(req.start_time)
+    if req.location is not None:
+        updates.append("location=?"); params.append(req.location)
+    if req.organizer is not None:
+        updates.append("organizer=?"); params.append(req.organizer)
+    if req.description is not None:
+        updates.append("description=?"); params.append(req.description)
+    if req.folder_link is not None:
+        updates.append("folder_link=?"); params.append(req.folder_link)
+    if req.files is not None:
+        updates.append("files=?"); params.append(json.dumps(req.files, ensure_ascii=False))
+    if req.status is not None:
+        updates.append("status=?"); params.append(req.status)
+    if updates:
+        params.append(activity_id)
+        cur.execute(f"UPDATE activities SET {', '.join(updates)} WHERE id=?", params)
+        conn.commit()
+    return {"success": True, "message": "活动更新成功"}
+
+@app.delete("/api/activities/{activity_id}")
+def delete_activity(activity_id: str, conn=Depends(get_db), user=Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="只有管理员可以删除活动")
+    cur = conn.cursor()
+    cur.execute("DELETE FROM activities WHERE id=?", (activity_id,))
+    conn.commit()
+    return {"success": True, "message": "活动已删除"}
+
+# 活动文件上传（小文件，限制50MB）
+@app.post("/api/activities/upload")
+async def upload_activity_file(file: UploadFile = File(...), user=Depends(get_current_user)):
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="请选择文件")
+    content = await file.read()
+    if len(content) > 50 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="文件大小不能超过50MB，大文件请使用WPS云文档链接")
+    # 确保上传目录存在
+    upload_dir = os.path.join(os.path.dirname(DATABASE_FILE), "uploads", "activities")
+    os.makedirs(upload_dir, exist_ok=True)
+    # 生成唯一文件名
+    ext = os.path.splitext(file.filename)[1]
+    unique_name = f"{uuid.uuid4()}{ext}"
+    file_path = os.path.join(upload_dir, unique_name)
+    with open(file_path, "wb") as f:
+        f.write(content)
+    # 返回可访问的URL
+    file_url = f"/uploads/activities/{unique_name}"
+    return {"success": True, "url": file_url, "filename": file.filename, "size": len(content)}
+
 # ==================== 静态文件 ====================
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# 上传文件目录
+UPLOAD_DIR = os.path.join(os.path.dirname(DATABASE_FILE), "uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 @app.get("/")
 def index():

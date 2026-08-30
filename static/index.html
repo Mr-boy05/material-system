@@ -37,6 +37,15 @@
         .sidebar .nav-item:hover { background:rgba(255,255,255,0.08); color:white; }
         .sidebar .nav-item.active { background:rgba(102,126,234,0.2); color:white; border-left-color:#667eea; }
         .sidebar .nav-item .icon { font-size:18px; width:22px; text-align:center; }
+        .sidebar .nav-dropdown { justify-content:space-between; }
+        .sidebar .nav-dropdown .dropdown-arrow { font-size:10px; transition:transform 0.2s; }
+        .sidebar .nav-dropdown.open .dropdown-arrow { transform:rotate(180deg); }
+        .sidebar .dropdown-menu { display:none; background:rgba(0,0,0,0.2); }
+        .sidebar .dropdown-menu.show { display:block; }
+        .sidebar .dropdown-item { padding:10px 20px 10px 50px; cursor:pointer; font-size:13px; display:flex; align-items:center; gap:8px; transition:all 0.2s; color:rgba(255,255,255,0.6); }
+        .sidebar .dropdown-item:hover { background:rgba(255,255,255,0.08); color:white; }
+        .sidebar .dropdown-item.active { background:rgba(102,126,234,0.2); color:white; }
+        .sidebar .dropdown-item .icon { font-size:15px; width:18px; text-align:center; }
         .sidebar .user-box { padding:16px 20px; border-top:1px solid rgba(255,255,255,0.1); }
         .sidebar .user-box .name { font-size:14px; font-weight:600; }
         .sidebar .user-box .role { font-size:11px; color:rgba(255,255,255,0.5); margin-top:2px; }
@@ -133,14 +142,20 @@
 <body>
     <!-- 左侧导航 -->
     <div class="sidebar">
-        <div class="logo"><img src="/static/logo.png" alt="城治学生会物资管理系统"></div>
+        <div class="logo"><img src="/static/logo.png" alt="城治学生会综合管理系统"></div>
+        <div class="system-name" style="text-align:center;color:white;font-size:14px;font-weight:600;margin-bottom:15px;padding:0 10px;line-height:1.4;">城治学生会<br>综合管理系统</div>
         <div class="nav">
-            <div class="nav-item active" onclick="switchPage('page-materials',this)"><span class="icon">📦</span>物资管理</div>
-            <div class="nav-item" onclick="switchPage('page-borrow',this)"><span class="icon">📤</span>物资领取</div>
-            <div class="nav-item" onclick="switchPage('page-return',this)"><span class="icon">↩️</span>物资归还</div>
-            <div class="nav-item" onclick="switchPage('page-records',this)"><span class="icon">📋</span>领用记录</div>
-            <div class="nav-item" onclick="switchPage('page-users',this)"><span class="icon">👥</span>用户管理</div>
             <div class="nav-item" onclick="location.href='/dashboard'"><span class="icon">📊</span>数据大屏</div>
+            <div class="nav-item" onclick="switchPage('page-users',this)"><span class="icon">👥</span>人员管理</div>
+            <div class="nav-item" onclick="switchPage('page-activities',this)"><span class="icon">📅</span>活动记录</div>
+            <div class="nav-item nav-dropdown" onclick="toggleDropdown(this)">
+                <span class="icon">📦</span>物资管理 <span class="dropdown-arrow">▼</span>
+            </div>
+            <div class="dropdown-menu">
+                <div class="dropdown-item" onclick="switchPage('page-materials',this)"><span class="icon">📋</span>物资列表</div>
+                <div class="dropdown-item" onclick="switchPage('page-borrow-return',this)"><span class="icon">🔄</span>领取归还</div>
+                <div class="dropdown-item" onclick="switchPage('page-records',this)"><span class="icon">📝</span>领用记录</div>
+            </div>
             <div class="nav-item" onclick="goMobile()"><span class="icon">📱</span>手机端</div>
         </div>
         <div class="user-box">
@@ -201,29 +216,44 @@
                 <div class="form-group"><label>领取位置 <span class="req">*</span></label><select id="borrowLocation"><option value="">请先选择物资</option></select></div>
                 <div class="form-group"><label>领取人姓名 <span class="req">*</span></label><input type="text" id="borrowUser" readonly></div>
                 <div class="form-group"><label>领取人电话 <span class="req">*</span></label><input type="tel" id="borrowPhone" placeholder="请输入电话号码"></div>
-                <div class="form-group"><label>领取时物资图片</label><div class="upload-area" onclick="document.getElementById('borrowImage').click()">点击上传图片</div><input type="file" id="borrowImage" accept="image/*" style="display:none" onchange="uploadImg(this,'borrowPreview')"><img id="borrowPreview" class="upload-preview" style="display:none"></div>
-                <button class="btn btn-primary" style="width:100%;padding:12px;margin-top:10px;" onclick="submitBorrow()">确认领取</button>
+        <!-- 领取归还（合并） -->
+        <div class="page" id="page-borrow-return">
+            <div class="page-title">领取归还</div>
+            <div style="display:flex;gap:10px;margin-bottom:20px;">
+                <button class="btn btn-primary" id="tabBorrow" onclick="switchBorrowReturnTab('borrow')">📤 物资领取</button>
+                <button class="btn" id="tabReturn" onclick="switchBorrowReturnTab('return')">↩️ 物资归还</button>
             </div>
-            <div style="margin-top:20px;">
-                <div class="page-title" style="font-size:16px;margin-bottom:12px;">📦 全部物资清单</div>
-                <table>
-                    <thead><tr><th>图片</th><th>物资名称</th><th>编号</th><th>规格</th><th>总库存</th><th>可领取</th><th>存放位置</th><th>操作</th></tr></thead>
-                    <tbody id="borrowMaterialList"><tr><td colspan="8" class="empty">加载中...</td></tr></tbody>
-                </table>
+            <!-- 领取表单 -->
+            <div id="borrowForm">
+                <div class="form-card">
+                    <div class="form-group"><label>领取物资名称 <span class="req">*</span></label><select id="borrowMaterial" onchange="onBorrowMaterialChange()"><option value="">请选择物资</option></select></div>
+                    <div class="form-group"><label>应用于活动名称 <span class="req">*</span></label><input type="text" id="borrowActivity" placeholder="请输入活动名称"></div>
+                    <div class="form-group"><label>领取数量 <span class="req">*</span></label><input type="number" id="borrowQty" value="1" min="1"></div>
+                    <div class="form-group"><label>领取位置 <span class="req">*</span></label><select id="borrowLocation"><option value="">请先选择物资</option></select></div>
+                    <div class="form-group"><label>领取人姓名 <span class="req">*</span></label><input type="text" id="borrowUser" readonly></div>
+                    <div class="form-group"><label>领取人电话 <span class="req">*</span></label><input type="tel" id="borrowPhone" placeholder="请输入电话号码"></div>
+                    <div class="form-group"><label>领取时物资图片</label><div class="upload-area" onclick="document.getElementById('borrowImage').click()">点击上传图片</div><input type="file" id="borrowImage" accept="image/*" style="display:none" onchange="uploadImg(this,'borrowPreview')"><img id="borrowPreview" class="upload-preview" style="display:none"></div>
+                    <button class="btn btn-primary" style="width:100%;padding:12px;margin-top:10px;" onclick="submitBorrow()">确认领取</button>
+                </div>
+                <div style="margin-top:20px;">
+                    <div class="page-title" style="font-size:16px;margin-bottom:12px;">📦 全部物资清单</div>
+                    <table>
+                        <thead><tr><th>图片</th><th>物资名称</th><th>编号</th><th>规格</th><th>总库存</th><th>可领取</th><th>存放位置</th><th>操作</th></tr></thead>
+                        <tbody id="borrowMaterialList"><tr><td colspan="8" class="empty">加载中...</td></tr></tbody>
+                    </table>
+                </div>
             </div>
-        </div>
-
-        <!-- 物资归还 -->
-        <div class="page" id="page-return">
-            <div class="page-title">物资归还登记</div>
-            <div class="form-card">
-                <div class="form-group"><label>归还物资名称 <span class="req">*</span></label><select id="returnMaterial" onchange="onReturnMaterialChange()"><option value="">请选择物资</option></select></div>
-                <div class="form-group"><label>归还数量 <span class="req">*</span></label><input type="number" id="returnQty" value="1" min="1"></div>
-                <div class="form-group"><label>归还人姓名 <span class="req">*</span></label><input type="text" id="returnUser" readonly></div>
-                <div class="form-group"><label>归还时间 <span class="req">*</span></label><input type="date" id="returnTime"></div>
-                <div class="form-group"><label>归还地点 <span class="req">*</span></label><input type="text" id="returnLocation" placeholder="选择物资后自动填充，可手动修改"></div>
-                <div class="form-group"><label>归还时图片 <span class="req">*</span></label><div class="upload-area" onclick="document.getElementById('returnImage').click()">点击上传图片</div><input type="file" id="returnImage" accept="image/*" style="display:none" onchange="uploadImg(this,'returnPreview')"><img id="returnPreview" class="upload-preview" style="display:none"></div>
-                <button class="btn btn-primary" style="width:100%;padding:12px;margin-top:10px;" onclick="submitReturn()">确认归还</button>
+            <!-- 归还表单 -->
+            <div id="returnForm" style="display:none;">
+                <div class="form-card">
+                    <div class="form-group"><label>归还物资名称 <span class="req">*</span></label><select id="returnMaterial" onchange="onReturnMaterialChange()"><option value="">请选择物资</option></select></div>
+                    <div class="form-group"><label>归还数量 <span class="req">*</span></label><input type="number" id="returnQty" value="1" min="1"></div>
+                    <div class="form-group"><label>归还人姓名 <span class="req">*</span></label><input type="text" id="returnUser" readonly></div>
+                    <div class="form-group"><label>归还时间 <span class="req">*</span></label><input type="date" id="returnTime"></div>
+                    <div class="form-group"><label>归还地点 <span class="req">*</span></label><input type="text" id="returnLocation" placeholder="选择物资后自动填充，可手动修改"></div>
+                    <div class="form-group"><label>归还时图片 <span class="req">*</span></label><div class="upload-area" onclick="document.getElementById('returnImage').click()">点击上传图片</div><input type="file" id="returnImage" accept="image/*" style="display:none" onchange="uploadImg(this,'returnPreview')"><img id="returnPreview" class="upload-preview" style="display:none"></div>
+                    <button class="btn btn-primary" style="width:100%;padding:12px;margin-top:10px;" onclick="submitReturn()">确认归还</button>
+                </div>
             </div>
         </div>
 
@@ -236,9 +266,9 @@
             </table>
         </div>
 
-        <!-- 用户管理 -->
+        <!-- 人员管理 -->
         <div class="page" id="page-users">
-            <div class="page-title">用户管理</div>
+            <div class="page-title">人员管理</div>
             <!-- 用户统计卡片 -->
             <div class="stat-cards" style="display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin-bottom:20px;">
                 <div class="stat-card" style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:20px;border-radius:12px;">
@@ -273,6 +303,18 @@
                 <thead><tr><th style="width:40px;"><input type="checkbox" id="selectAllUsers" onchange="toggleSelectAllUsers(this)"></th><th>用户名</th><th>真实姓名</th><th>部门</th><th>电话</th><th>邮箱</th><th>角色</th><th>注册时间</th><th>操作</th></tr></thead>
                 <tbody id="userTable"><tr><td colspan="9" class="empty">加载中...</td></tr></tbody>
             </table>
+        </div>
+
+        <!-- 活动记录 -->
+        <div class="page" id="page-activities">
+            <div class="page-title">活动记录</div>
+            <div class="toolbar">
+                <span style="color:#666;font-size:13px;" id="activityCount">共 0 场活动</span>
+                <button class="btn btn-primary" onclick="openActivityModal()">+ 新增活动</button>
+            </div>
+            <div id="activityList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(350px,1fr));gap:16px;">
+                <div class="empty">加载中...</div>
+            </div>
         </div>
     </div>
 
@@ -397,6 +439,33 @@
         </div>
     </div>
 
+    <!-- 活动新增/编辑弹窗 -->
+    <div class="modal-mask" id="activityModal">
+        <div class="modal" style="width:520px;">
+            <h3 id="activityModalTitle">新增活动</h3>
+            <input type="hidden" id="editActivityId">
+            <div class="form-group"><label>活动名称 <span class="req">*</span></label><input type="text" id="activityTitle" placeholder="如：2026年迎新晚会"></div>
+            <div class="form-group"><label>开始时间 <span class="req">*</span></label><input type="datetime-local" id="activityStartTime"></div>
+            <div class="form-group"><label>活动地点</label><input type="text" id="activityLocation" placeholder="如：学校大礼堂"></div>
+            <div class="form-group"><label>主办方</label><input type="text" id="activityOrganizer" placeholder="如：城治学生会文娱部"></div>
+            <div class="form-group"><label>活动描述</label><textarea id="activityDesc" rows="3" placeholder="活动简介、流程等" style="width:100%;padding:10px;border:2px solid #e8e8e8;border-radius:8px;resize:vertical;"></textarea></div>
+            <div class="form-group"><label>活动文件夹（WPS云文档链接，大文件用这个）</label><input type="text" id="activityFolder" placeholder="粘贴WPS云文档分享链接"></div>
+            <div class="form-group"><label>活动文件（小文件，单个≤50MB）</label>
+                <div class="upload-area" onclick="document.getElementById('activityFile').click()">点击上传文件</div>
+                <input type="file" id="activityFile" style="display:none" onchange="uploadActivityFile(this)">
+                <div id="activityFileList" style="margin-top:8px;"></div>
+            </div>
+            <div class="form-group"><label>活动状态</label>
+                <select id="activityStatus">
+                    <option value="planned">筹备中</option>
+                    <option value="ongoing">进行中</option>
+                    <option value="completed">已结束</option>
+                </select>
+            </div>
+            <div class="modal-actions"><button class="btn-cancel" onclick="closeActivityModal()">取消</button><button class="btn-submit" onclick="submitActivity()">确认保存</button></div>
+        </div>
+    </div>
+
     <!-- 更新日志弹窗 -->
     <div class="modal-mask" id="changelogModal">
         <div class="modal changelog-modal" style="width:560px;">
@@ -423,16 +492,24 @@
         let uploadedImages = { new:'', borrow:'', return:'' };
         let allMaterials = [];
 
+        function toggleDropdown(btn) {
+            btn.classList.toggle('open');
+            const menu = btn.nextElementSibling;
+            if (menu && menu.classList.contains('dropdown-menu')) {
+                menu.classList.toggle('show');
+            }
+        }
+
         function switchPage(id, btn) {
             document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
             document.getElementById(id).classList.add('active');
-            document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
+            document.querySelectorAll('.nav-item, .dropdown-item').forEach(b=>b.classList.remove('active'));
             if (btn) btn.classList.add('active');
             if (id==='page-materials') loadMaterials();
-            if (id==='page-borrow') loadMaterialSelect('borrowMaterial');
-            if (id==='page-return') loadBorrowedSelect();
+            if (id==='page-borrow-return') { loadMaterialSelect('borrowMaterial'); loadBorrowedSelect(); }
             if (id==='page-records') loadAllRecords();
             if (id==='page-users') loadUsers();
+            if (id==='page-activities') loadActivities();
         }
 
         function showToast(msg) { const t=document.getElementById('toast'); t.textContent=msg; t.style.display='block'; setTimeout(()=>t.style.display='none',2000); }
@@ -1018,6 +1095,178 @@
                 showToast(data.message || '删除完成');
                 document.getElementById('selectAllUsers').checked = false;
                 loadUsers();
+            })
+            .catch(()=>showToast('删除失败'));
+        }
+
+        // 领取归还标签切换
+        function switchBorrowReturnTab(tab) {
+            if (tab === 'borrow') {
+                document.getElementById('borrowForm').style.display = 'block';
+                document.getElementById('returnForm').style.display = 'none';
+                document.getElementById('tabBorrow').className = 'btn btn-primary';
+                document.getElementById('tabReturn').className = 'btn';
+            } else {
+                document.getElementById('borrowForm').style.display = 'none';
+                document.getElementById('returnForm').style.display = 'block';
+                document.getElementById('tabBorrow').className = 'btn';
+                document.getElementById('tabReturn').className = 'btn btn-primary';
+            }
+        }
+
+        // 活动记录
+        let activityFiles = [];
+
+        function loadActivities() {
+            fetch('/api/activities', { headers:{'Authorization':'Bearer '+token} })
+            .then(res=>res.json())
+            .then(data=>{
+                document.getElementById('activityCount').textContent = '共 ' + data.length + ' 场活动';
+                const list = document.getElementById('activityList');
+                if (!data.length) { list.innerHTML='<div class="empty" style="grid-column:1/-1;">暂无活动记录</div>'; return; }
+                const statusMap = {planned:'筹备中', ongoing:'进行中', completed:'已结束'};
+                const statusColor = {planned:'#ff9800', ongoing:'#2196f3', completed:'#4caf50'};
+                list.innerHTML = data.map(a=>{
+                    const files = a.files ? JSON.parse(a.files) : [];
+                    return `
+                    <div style="background:white;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);border-left:4px solid ${statusColor[a.status]||'#999'};">
+                        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+                            <div style="font-size:16px;font-weight:600;color:#333;">${a.title}</div>
+                            <span style="font-size:11px;padding:3px 8px;border-radius:10px;background:${statusColor[a.status]||'#999'};color:white;">${statusMap[a.status]||a.status}</span>
+                        </div>
+                        <div style="font-size:13px;color:#666;line-height:1.8;">
+                            <div>🕐 ${a.start_time ? a.start_time.replace('T',' ') : '-'}</div>
+                            <div>📍 ${a.location || '-'}</div>
+                            <div>🏛️ ${a.organizer || '-'}</div>
+                            ${a.description ? `<div style="margin-top:6px;color:#888;">${a.description}</div>` : ''}
+                        </div>
+                        ${a.folder_link ? `<div style="margin-top:10px;"><a href="${a.folder_link}" target="_blank" style="color:#667eea;font-size:13px;text-decoration:none;">📁 活动文件夹（WPS云文档）</a></div>` : ''}
+                        ${files.length ? `<div style="margin-top:8px;font-size:12px;color:#888;">📎 ${files.length}个文件</div>` : ''}
+                        <div style="margin-top:12px;display:flex;gap:8px;">
+                            <button class="btn btn-sm" style="background:#e3f2fd;color:#1976d2;" onclick="editActivity('${a.id}')">编辑</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteActivity('${a.id}','${a.title}')">删除</button>
+                        </div>
+                    </div>`;
+                }).join('');
+            })
+            .catch(()=>{ document.getElementById('activityList').innerHTML='<div class="empty">加载失败</div>'; });
+        }
+
+        function openActivityModal() {
+            document.getElementById('activityModalTitle').textContent = '新增活动';
+            document.getElementById('editActivityId').value = '';
+            document.getElementById('activityTitle').value = '';
+            document.getElementById('activityStartTime').value = '';
+            document.getElementById('activityLocation').value = '';
+            document.getElementById('activityOrganizer').value = '';
+            document.getElementById('activityDesc').value = '';
+            document.getElementById('activityFolder').value = '';
+            document.getElementById('activityStatus').value = 'planned';
+            activityFiles = [];
+            document.getElementById('activityFileList').innerHTML = '';
+            document.getElementById('activityModal').style.display = 'flex';
+        }
+
+        function editActivity(id) {
+            fetch('/api/activities', { headers:{'Authorization':'Bearer '+token} })
+            .then(res=>res.json())
+            .then(data=>{
+                const a = data.find(x=>x.id===id);
+                if (!a) return;
+                document.getElementById('activityModalTitle').textContent = '编辑活动';
+                document.getElementById('editActivityId').value = a.id;
+                document.getElementById('activityTitle').value = a.title;
+                document.getElementById('activityStartTime').value = a.start_time ? a.start_time.slice(0,16) : '';
+                document.getElementById('activityLocation').value = a.location || '';
+                document.getElementById('activityOrganizer').value = a.organizer || '';
+                document.getElementById('activityDesc').value = a.description || '';
+                document.getElementById('activityFolder').value = a.folder_link || '';
+                document.getElementById('activityStatus').value = a.status || 'planned';
+                activityFiles = a.files ? JSON.parse(a.files) : [];
+                renderActivityFiles();
+                document.getElementById('activityModal').style.display = 'flex';
+            });
+        }
+
+        function closeActivityModal() {
+            document.getElementById('activityModal').style.display = 'none';
+        }
+
+        function renderActivityFiles() {
+            const list = document.getElementById('activityFileList');
+            if (!activityFiles.length) { list.innerHTML = ''; return; }
+            list.innerHTML = activityFiles.map((f,i)=>`
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:#f5f5f5;border-radius:6px;margin-top:4px;font-size:12px;">
+                    <span>📎 ${f.filename}</span>
+                    <button style="background:none;border:none;color:#f44336;cursor:pointer;" onclick="removeActivityFile(${i})">删除</button>
+                </div>
+            `).join('');
+        }
+
+        function removeActivityFile(index) {
+            activityFiles.splice(index, 1);
+            renderActivityFiles();
+        }
+
+        function uploadActivityFile(input) {
+            const file = input.files[0];
+            if (!file) return;
+            if (file.size > 50 * 1024 * 1024) {
+                alert('文件大小不能超过50MB，大文件请使用WPS云文档链接');
+                input.value = '';
+                return;
+            }
+            showToast('正在上传文件...');
+            const formData = new FormData();
+            formData.append('file', file);
+            fetch('/api/activities/upload', { method:'POST', headers:{'Authorization':'Bearer '+token}, body:formData })
+            .then(res=>res.json())
+            .then(data=>{
+                if (data.success) {
+                    activityFiles.push({url:data.url, filename:data.filename});
+                    renderActivityFiles();
+                    showToast('文件上传成功');
+                } else {
+                    showToast(data.detail || '上传失败');
+                }
+            })
+            .catch(()=>showToast('上传失败'))
+            .finally(()=>{ input.value = ''; });
+        }
+
+        function submitActivity() {
+            const id = document.getElementById('editActivityId').value;
+            const title = document.getElementById('activityTitle').value.trim();
+            if (!title) { showToast('请输入活动名称'); return; }
+            const start_time = document.getElementById('activityStartTime').value;
+            if (!start_time) { showToast('请选择开始时间'); return; }
+            const data = {
+                title,
+                start_time,
+                location: document.getElementById('activityLocation').value.trim(),
+                organizer: document.getElementById('activityOrganizer').value.trim(),
+                description: document.getElementById('activityDesc').value.trim(),
+                folder_link: document.getElementById('activityFolder').value.trim(),
+                files: activityFiles,
+                status: document.getElementById('activityStatus').value
+            };
+            const url = id ? '/api/activities/' + id : '/api/activities';
+            const method = id ? 'PUT' : 'POST';
+            fetch(url, { method, headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify(data) })
+            .then(res=>res.json().then(d=>({ok:res.ok,data:d})))
+            .then(({ok,data})=>{
+                if (ok) { showToast(id ? '活动更新成功' : '活动创建成功'); closeActivityModal(); loadActivities(); }
+                else showToast(data.detail || '保存失败');
+            });
+        }
+
+        function deleteActivity(id, title) {
+            if (!confirm('确定删除活动「' + title + '」吗？')) return;
+            fetch('/api/activities/' + id, { method:'DELETE', headers:{'Authorization':'Bearer '+token} })
+            .then(res=>res.json())
+            .then(data=>{
+                showToast(data.message || '删除成功');
+                loadActivities();
             })
             .catch(()=>showToast('删除失败'));
         }
