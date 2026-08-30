@@ -435,7 +435,7 @@
             <h3 id="activityModalTitle">新增活动</h3>
             <input type="hidden" id="editActivityId">
             <div class="form-group"><label>活动名称 <span class="req">*</span></label><input type="text" id="activityTitle" placeholder="如：2026年迎新晚会"></div>
-            <div class="form-group"><label>开始时间 <span class="req">*</span></label><input type="datetime-local" id="activityStartTime"></div>
+            <div class="form-group"><label>活动日期</label><input type="date" id="activityStartTime"></div>
             <div class="form-group"><label>活动地点</label><input type="text" id="activityLocation" placeholder="如：学校大礼堂"></div>
             <div class="form-group"><label>主办方</label><input type="text" id="activityOrganizer" placeholder="如：城治学生会文娱部"></div>
             <div class="form-group"><label>活动描述</label><textarea id="activityDesc" rows="3" placeholder="活动简介、流程等" style="width:100%;padding:10px;border:2px solid #e8e8e8;border-radius:8px;resize:vertical;"></textarea></div>
@@ -445,13 +445,7 @@
                 <input type="file" id="activityFile" style="display:none" onchange="uploadActivityFile(this)">
                 <div id="activityFileList" style="margin-top:8px;"></div>
             </div>
-            <div class="form-group"><label>活动状态</label>
-                <select id="activityStatus">
-                    <option value="planned">筹备中</option>
-                    <option value="ongoing">进行中</option>
-                    <option value="completed">已结束</option>
-                </select>
-            </div>
+            <div style="font-size:12px;color:#999;margin-bottom:10px;">💡 除活动名称外，其他内容可先留空，保存后点击「编辑」随时补充</div>
             <div class="modal-actions"><button class="btn-cancel" onclick="closeActivityModal()">取消</button><button class="btn-submit" onclick="submitActivity()">确认保存</button></div>
         </div>
     </div>
@@ -1114,26 +1108,22 @@
                 document.getElementById('activityCount').textContent = '共 ' + data.length + ' 场活动';
                 const list = document.getElementById('activityList');
                 if (!data.length) { list.innerHTML='<div class="empty" style="grid-column:1/-1;">暂无活动记录</div>'; return; }
-                const statusMap = {planned:'筹备中', ongoing:'进行中', completed:'已结束'};
-                const statusColor = {planned:'#ff9800', ongoing:'#2196f3', completed:'#4caf50'};
                 list.innerHTML = data.map(a=>{
                     const files = a.files ? JSON.parse(a.files) : [];
+                    const dateStr = a.start_time ? a.start_time.slice(0,10) : '';
                     return `
-                    <div style="background:white;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);border-left:4px solid ${statusColor[a.status]||'#999'};">
-                        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
-                            <div style="font-size:16px;font-weight:600;color:#333;">${a.title}</div>
-                            <span style="font-size:11px;padding:3px 8px;border-radius:10px;background:${statusColor[a.status]||'#999'};color:white;">${statusMap[a.status]||a.status}</span>
-                        </div>
+                    <div style="background:white;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);border-left:4px solid #667eea;">
+                        <div style="font-size:16px;font-weight:600;color:#333;margin-bottom:10px;">${a.title}</div>
                         <div style="font-size:13px;color:#666;line-height:1.8;">
-                            <div>🕐 ${a.start_time ? a.start_time.replace('T',' ') : '-'}</div>
-                            <div>📍 ${a.location || '-'}</div>
-                            <div>🏛️ ${a.organizer || '-'}</div>
+                            ${dateStr ? `<div>📅 ${dateStr}</div>` : ''}
+                            ${a.location ? `<div>📍 ${a.location}</div>` : ''}
+                            ${a.organizer ? `<div>🏛️ ${a.organizer}</div>` : ''}
                             ${a.description ? `<div style="margin-top:6px;color:#888;">${a.description}</div>` : ''}
                         </div>
                         ${a.folder_link ? `<div style="margin-top:10px;"><a href="${a.folder_link}" target="_blank" style="color:#667eea;font-size:13px;text-decoration:none;">📁 活动文件夹（WPS云文档）</a></div>` : ''}
                         ${files.length ? `<div style="margin-top:8px;font-size:12px;color:#888;">📎 ${files.length}个文件</div>` : ''}
                         <div style="margin-top:12px;display:flex;gap:8px;">
-                            <button class="btn btn-sm" style="background:#e3f2fd;color:#1976d2;" onclick="editActivity('${a.id}')">编辑</button>
+                            <button class="btn btn-sm" style="background:#e3f2fd;color:#1976d2;" onclick="editActivity('${a.id}')">✏️ 编辑/补充</button>
                             <button class="btn btn-sm btn-danger" onclick="deleteActivity('${a.id}','${a.title}')">删除</button>
                         </div>
                     </div>`;
@@ -1151,7 +1141,6 @@
             document.getElementById('activityOrganizer').value = '';
             document.getElementById('activityDesc').value = '';
             document.getElementById('activityFolder').value = '';
-            document.getElementById('activityStatus').value = 'planned';
             activityFiles = [];
             document.getElementById('activityFileList').innerHTML = '';
             document.getElementById('activityModal').style.display = 'flex';
@@ -1166,12 +1155,11 @@
                 document.getElementById('activityModalTitle').textContent = '编辑活动';
                 document.getElementById('editActivityId').value = a.id;
                 document.getElementById('activityTitle').value = a.title;
-                document.getElementById('activityStartTime').value = a.start_time ? a.start_time.slice(0,16) : '';
+                document.getElementById('activityStartTime').value = a.start_time ? a.start_time.slice(0,10) : '';
                 document.getElementById('activityLocation').value = a.location || '';
                 document.getElementById('activityOrganizer').value = a.organizer || '';
                 document.getElementById('activityDesc').value = a.description || '';
                 document.getElementById('activityFolder').value = a.folder_link || '';
-                document.getElementById('activityStatus').value = a.status || 'planned';
                 activityFiles = a.files ? JSON.parse(a.files) : [];
                 renderActivityFiles();
                 document.getElementById('activityModal').style.display = 'flex';
@@ -1229,16 +1217,14 @@
             const title = document.getElementById('activityTitle').value.trim();
             if (!title) { showToast('请输入活动名称'); return; }
             const start_time = document.getElementById('activityStartTime').value;
-            if (!start_time) { showToast('请选择开始时间'); return; }
             const data = {
                 title,
-                start_time,
+                start_time: start_time || '',
                 location: document.getElementById('activityLocation').value.trim(),
                 organizer: document.getElementById('activityOrganizer').value.trim(),
                 description: document.getElementById('activityDesc').value.trim(),
                 folder_link: document.getElementById('activityFolder').value.trim(),
-                files: activityFiles,
-                status: document.getElementById('activityStatus').value
+                files: activityFiles
             };
             const url = id ? '/api/activities/' + id : '/api/activities';
             const method = id ? 'PUT' : 'POST';
