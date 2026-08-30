@@ -207,13 +207,22 @@
         if (!token) window.location.href = '/m/login';
         const user = JSON.parse(localStorage.getItem('user') || '{}');
         const isAdmin = user.role === 'admin';
-        document.getElementById('welcomeName').textContent = '你好，' + (user.real_name || '用户');
-        document.getElementById('roleTag').textContent = isAdmin ? '管理员' : '普通用户';
-        document.getElementById('borrowUser').value = user.real_name || '';
-        document.getElementById('returnUser').value = user.real_name || '';
-        document.getElementById('borrowPhone').value = user.phone || '';
-        document.getElementById('returnTime').value = new Date().toISOString().split('T')[0];
-        document.getElementById('recordsTitle').textContent = isAdmin ? '所有记录' : '我的记录';
+        // 安全设置元素值，避免元素不存在时报错
+        function safeSet(id, value) {
+            const el = document.getElementById(id);
+            if (el) el.value = value;
+        }
+        function safeText(id, text) {
+            const el = document.getElementById(id);
+            if (el) el.textContent = text;
+        }
+        safeText('welcomeName', '你好，' + (user.real_name || '用户'));
+        safeText('roleTag', isAdmin ? '管理员' : '普通用户');
+        safeSet('borrowUser', user.real_name || '');
+        safeSet('returnUser', user.real_name || '');
+        safeSet('borrowPhone', user.phone || '');
+        safeSet('returnTime', new Date().toISOString().split('T')[0]);
+        safeText('recordsTitle', isAdmin ? '所有记录' : '我的记录');
 
         let uploadedImages = { add:'', borrow:'', return:'' };
         let allMaterials = [];
