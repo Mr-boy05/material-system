@@ -127,6 +127,33 @@
         <button class="tool-btn import" onclick="document.getElementById('importFile').click()">📤 导入</button>
         <input type="file" id="importFile" accept=".xlsx,.xls" style="display:none" onchange="importExcel(this)">
     </div>
+    <div class="section-title">功能入口</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 16px;">
+        <div onclick="switchTabByName('materials')" style="background:white;padding:16px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.06);text-align:center;cursor:pointer;">
+            <div style="font-size:28px;">📦</div>
+            <div style="font-size:14px;font-weight:600;color:#333;margin-top:6px;">物资管理</div>
+        </div>
+        <div onclick="switchTabByName('records')" style="background:white;padding:16px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.06);text-align:center;cursor:pointer;">
+            <div style="font-size:28px;">📋</div>
+            <div style="font-size:14px;font-weight:600;color:#333;margin-top:6px;">领用记录</div>
+        </div>
+        <div onclick="switchTabByName('activities')" style="background:white;padding:16px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.06);text-align:center;cursor:pointer;">
+            <div style="font-size:28px;">📅</div>
+            <div style="font-size:14px;font-weight:600;color:#333;margin-top:6px;">活动记录</div>
+        </div>
+        <div onclick="switchTabByName('attendance')" style="background:white;padding:16px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.06);text-align:center;cursor:pointer;">
+            <div style="font-size:28px;">✅</div>
+            <div style="font-size:14px;font-weight:600;color:#333;margin-top:6px;">考勤记录</div>
+        </div>
+        <div onclick="switchTabByName('users')" style="background:white;padding:16px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.06);text-align:center;cursor:pointer;">
+            <div style="font-size:28px;">👥</div>
+            <div style="font-size:14px;font-weight:600;color:#333;margin-top:6px;">人员管理</div>
+        </div>
+        <div onclick="location.href='/dashboard'" style="background:white;padding:16px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.06);text-align:center;cursor:pointer;">
+            <div style="font-size:28px;">📊</div>
+            <div style="font-size:14px;font-weight:600;color:#333;margin-top:6px;">数据大屏</div>
+        </div>
+    </div>
     <div class="section-title">库存预警</div>
     <div id="warningList"></div>
 </div>
@@ -147,18 +174,37 @@
 <!-- 用户页面 -->
 <div class="page" id="page-users">
     <div class="nav-bar">
-        <div class="title">用户管理</div>
+        <div class="title">人员管理</div>
         <div class="action" onclick="showAddUser()">+ 添加</div>
     </div>
     <div id="userList"></div>
 </div>
 
+<!-- 活动记录页面 -->
+<div class="page" id="page-activities">
+    <div class="nav-bar">
+        <div class="title">活动记录</div>
+        <div class="action" onclick="showAddActivity()">+ 新增</div>
+    </div>
+    <div id="activityList" style="padding:12px;"><div style="text-align:center;padding:40px;color:#999;">加载中...</div></div>
+</div>
+
+<!-- 考勤记录页面 -->
+<div class="page" id="page-attendance">
+    <div class="nav-bar">
+        <div class="title">考勤记录</div>
+        <div class="action" onclick="showAddAttendance()">+ 新增</div>
+    </div>
+    <div id="attendanceList" style="padding:12px;"><div style="text-align:center;padding:40px;color:#999;">加载中...</div></div>
+</div>
+
 <!-- 底部导航 -->
 <div class="tab-bar">
-    <div class="tab-item active" onclick="switchTab('dashboard')"><div class="icon">📊</div><div class="label">仪表盘</div></div>
+    <div class="tab-item active" onclick="switchTab('dashboard')"><div class="icon">📊</div><div class="label">首页</div></div>
     <div class="tab-item" onclick="switchTab('materials')"><div class="icon">📦</div><div class="label">物资</div></div>
-    <div class="tab-item" onclick="switchTab('records')"><div class="icon">📋</div><div class="label">记录</div></div>
-    <div class="tab-item" onclick="switchTab('users')"><div class="icon">👥</div><div class="label">用户</div></div>
+    <div class="tab-item" onclick="switchTab('activities')"><div class="icon">📅</div><div class="label">活动</div></div>
+    <div class="tab-item" onclick="switchTab('attendance')"><div class="icon">✅</div><div class="label">考勤</div></div>
+    <div class="tab-item" onclick="switchTab('users')"><div class="icon">👥</div><div class="label">人员</div></div>
 </div>
 
 <!-- 新增物资弹窗 -->
@@ -239,6 +285,41 @@
     </div>
 </div>
 
+<!-- 活动新增/编辑弹窗 -->
+<div class="modal-mask" id="activityModal">
+    <div class="modal">
+        <div class="modal-title" id="activityModalTitle">新增活动</div>
+        <input type="hidden" id="editActivityId">
+        <div class="form-group"><label>活动名称 <span class="req">*</span></label><input type="text" id="activityTitle" placeholder="如：2026年迎新晚会"></div>
+        <div class="form-group"><label>活动日期</label><input type="date" id="activityDate"></div>
+        <div class="form-group"><label>活动地点</label><input type="text" id="activityLocation" placeholder="如：学校大礼堂"></div>
+        <div class="form-group"><label>主办方</label><input type="text" id="activityOrganizer" placeholder="如：城治学生会文娱部"></div>
+        <div class="form-group"><label>活动文件夹（WPS云文档链接）</label><input type="text" id="activityFolder" placeholder="粘贴WPS云文档分享链接"></div>
+        <div class="form-group"><label>备注</label><textarea id="activityRemark" rows="2" style="width:100%;padding:10px;border:2px solid #e8e8e8;border-radius:8px;resize:vertical;"></textarea></div>
+        <button class="btn-full" onclick="submitActivityMobile()">确认保存</button>
+        <button class="btn-full ghost" onclick="closeModal('activityModal')">取消</button>
+    </div>
+</div>
+
+<!-- 考勤新增/编辑弹窗 -->
+<div class="modal-mask" id="attendanceModal">
+    <div class="modal" style="max-height:85vh;overflow-y:auto;">
+        <div class="modal-title" id="attendanceModalTitle">新增考勤</div>
+        <input type="hidden" id="editAttendanceId">
+        <div class="form-group"><label>考勤名称 <span class="req">*</span></label><input type="text" id="attendanceTitle" placeholder="如：2026年第3周例会"></div>
+        <div class="form-group"><label>考勤类型</label><select id="attendanceType"><option value="meeting">例会考勤</option><option value="activity">活动考勤</option></select></div>
+        <div class="form-group"><label>考勤日期 <span class="req">*</span></label><input type="date" id="attendanceDate"></div>
+        <div class="form-group"><label>备注</label><textarea id="attendanceRemark" rows="2" style="width:100%;padding:10px;border:2px solid #e8e8e8;border-radius:8px;resize:vertical;"></textarea></div>
+        <div class="form-group"><label>参加人员（勾选参加）</label>
+            <div id="attendanceUserList" style="max-height:200px;overflow-y:auto;border:2px solid #e8e8e8;border-radius:8px;padding:10px;">
+                <div style="color:#999;text-align:center;padding:10px;">加载中...</div>
+            </div>
+        </div>
+        <button class="btn-full" onclick="submitAttendanceMobile()">确认保存</button>
+        <button class="btn-full ghost" onclick="closeModal('attendanceModal')">取消</button>
+    </div>
+</div>
+
 <script>
 let token = localStorage.getItem('token') || localStorage.getItem('admin_token');
 let currentUser = JSON.parse(localStorage.getItem('user') || localStorage.getItem('admin_user') || '{}');
@@ -264,6 +345,26 @@ function switchTab(tab) {
     if (tab === 'materials') loadMaterials();
     if (tab === 'records') loadRecords();
     if (tab === 'users') loadUsers();
+    if (tab === 'activities') loadActivitiesMobile();
+    if (tab === 'attendance') loadAttendanceMobile();
+}
+
+function switchTabByName(tab) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+    document.getElementById('page-' + tab).classList.add('active');
+    // 高亮对应的底部导航
+    document.querySelectorAll('.tab-item').forEach(t => {
+        if (t.getAttribute('onclick') && t.getAttribute('onclick').includes("'" + tab + "'")) {
+            t.classList.add('active');
+        }
+    });
+    if (tab === 'dashboard') loadDashboard();
+    if (tab === 'materials') loadMaterials();
+    if (tab === 'records') loadRecords();
+    if (tab === 'users') loadUsers();
+    if (tab === 'activities') loadActivitiesMobile();
+    if (tab === 'attendance') loadAttendanceMobile();
 }
 
 function api(url, options = {}) {
@@ -665,6 +766,216 @@ function importExcel(input) {
         loadDashboard();
     }).catch(() => showToast('导入失败'));
     input.value = '';
+}
+
+// ==================== 活动记录 ====================
+function loadActivitiesMobile() {
+    api('/api/activities').then(res => res.json()).then(data => {
+        const list = document.getElementById('activityList');
+        if (!data.length) { list.innerHTML = '<div style="text-align:center;padding:40px;color:#999;">暂无活动记录</div>'; return; }
+        list.innerHTML = data.map(a => {
+            const dateStr = a.start_time ? a.start_time.slice(0,10) : '';
+            return `
+            <div style="background:white;border-radius:12px;padding:15px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,0.06);border-left:4px solid #667eea;">
+                <div style="font-size:16px;font-weight:600;color:#333;margin-bottom:8px;">${a.title}</div>
+                <div style="font-size:13px;color:#666;line-height:1.8;">
+                    ${dateStr ? `<div>📅 ${dateStr}</div>` : ''}
+                    ${a.location ? `<div>📍 ${a.location}</div>` : ''}
+                    ${a.organizer ? `<div>🏛️ ${a.organizer}</div>` : ''}
+                </div>
+                ${a.folder_link ? `<div style="margin-top:8px;"><a href="${a.folder_link}" target="_blank" style="color:#667eea;font-size:13px;">📁 活动文件夹</a></div>` : ''}
+                <div style="margin-top:10px;display:flex;gap:8px;">
+                    <button style="flex:1;padding:8px;border:none;border-radius:8px;background:#e3f2fd;color:#1976d2;font-size:13px;cursor:pointer;" onclick="editActivityMobile('${a.id}')">编辑</button>
+                    <button style="flex:1;padding:8px;border:none;border-radius:8px;background:#ffebee;color:#c62828;font-size:13px;cursor:pointer;" onclick="deleteActivityMobile('${a.id}','${a.title}')">删除</button>
+                </div>
+            </div>`;
+        }).join('');
+    }).catch(() => {
+        document.getElementById('activityList').innerHTML = '<div style="text-align:center;padding:40px;color:#999;">加载失败</div>';
+    });
+}
+
+function showAddActivity() {
+    document.getElementById('activityModalTitle').textContent = '新增活动';
+    document.getElementById('editActivityId').value = '';
+    document.getElementById('activityTitle').value = '';
+    document.getElementById('activityDate').value = '';
+    document.getElementById('activityLocation').value = '';
+    document.getElementById('activityOrganizer').value = '';
+    document.getElementById('activityFolder').value = '';
+    document.getElementById('activityRemark').value = '';
+    document.getElementById('activityModal').classList.add('show');
+}
+
+function editActivityMobile(id) {
+    api('/api/activities').then(res => res.json()).then(data => {
+        const a = data.find(x => x.id === id);
+        if (!a) return;
+        document.getElementById('activityModalTitle').textContent = '编辑活动';
+        document.getElementById('editActivityId').value = a.id;
+        document.getElementById('activityTitle').value = a.title;
+        document.getElementById('activityDate').value = a.start_time ? a.start_time.slice(0,10) : '';
+        document.getElementById('activityLocation').value = a.location || '';
+        document.getElementById('activityOrganizer').value = a.organizer || '';
+        document.getElementById('activityFolder').value = a.folder_link || '';
+        document.getElementById('activityRemark').value = a.description || '';
+        document.getElementById('activityModal').classList.add('show');
+    });
+}
+
+function submitActivityMobile() {
+    const id = document.getElementById('editActivityId').value;
+    const title = document.getElementById('activityTitle').value.trim();
+    if (!title) { showToast('请输入活动名称'); return; }
+    const data = {
+        title,
+        start_time: document.getElementById('activityDate').value || '',
+        location: document.getElementById('activityLocation').value.trim(),
+        organizer: document.getElementById('activityOrganizer').value.trim(),
+        folder_link: document.getElementById('activityFolder').value.trim(),
+        description: document.getElementById('activityRemark').value.trim()
+    };
+    const url = id ? '/api/activities/' + id : '/api/activities';
+    const method = id ? 'PUT' : 'POST';
+    api(url, {method, headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)})
+    .then(res => res.json()).then(data => {
+        if (data.success || data.id) {
+            showToast(id ? '活动更新成功' : '活动创建成功');
+            closeModal('activityModal');
+            loadActivitiesMobile();
+        } else {
+            showToast(data.detail || '保存失败');
+        }
+    }).catch(() => showToast('网络错误'));
+}
+
+function deleteActivityMobile(id, title) {
+    if (!confirm('确定删除活动「' + title + '」吗？')) return;
+    api('/api/activities/' + id, {method: 'DELETE'}).then(res => res.json()).then(data => {
+        showToast(data.message || '删除成功');
+        loadActivitiesMobile();
+    }).catch(() => showToast('删除失败'));
+}
+
+// ==================== 考勤记录 ====================
+let mobileAttendanceUsers = [];
+
+function loadAttendanceMobile() {
+    api('/api/attendance').then(res => res.json()).then(data => {
+        const list = document.getElementById('attendanceList');
+        if (!data.length) { list.innerHTML = '<div style="text-align:center;padding:40px;color:#999;">暂无考勤记录</div>'; return; }
+        const typeMap = {meeting:'例会', activity:'活动'};
+        const typeColor = {meeting:'#2196f3', activity:'#9c27b0'};
+        list.innerHTML = data.map(a => {
+            const attendNames = a.attendees ? a.attendees.map(u=>u.name).join('、') : '';
+            const leaveNames = a.leave ? a.leave.map(u=>u.name).join('、') : '';
+            const absentNames = a.absentees ? a.absentees.map(u=>u.name).join('、') : '';
+            return `
+            <div style="background:white;border-radius:12px;padding:15px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,0.06);border-left:4px solid ${typeColor[a.type]||'#999'};">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+                    <div style="font-size:16px;font-weight:600;color:#333;">${a.title}</div>
+                    <span style="font-size:11px;padding:3px 8px;border-radius:10px;background:${typeColor[a.type]||'#999'};color:white;">${typeMap[a.type]||a.type}</span>
+                </div>
+                <div style="font-size:13px;color:#666;line-height:1.8;">
+                    <div>📅 ${a.date || '-'}</div>
+                    ${a.remark ? `<div>📝 ${a.remark}</div>` : ''}
+                </div>
+                ${a.attendees && a.attendees.length ? `<div style="margin-top:8px;padding:8px;background:#e8f5e9;border-radius:6px;font-size:12px;color:#2e7d32;">✅ 参加(${a.attendees.length})：${attendNames}</div>` : ''}
+                ${a.leave && a.leave.length ? `<div style="margin-top:6px;padding:8px;background:#fff3e0;border-radius:6px;font-size:12px;color:#e65100;">🏖️ 请假(${a.leave.length})：${leaveNames}</div>` : ''}
+                ${a.absentees && a.absentees.length ? `<div style="margin-top:6px;padding:8px;background:#ffebee;border-radius:6px;font-size:12px;color:#c62828;">❌ 缺席(${a.absentees.length})：${absentNames}</div>` : ''}
+                <div style="margin-top:10px;display:flex;gap:8px;">
+                    <button style="flex:1;padding:8px;border:none;border-radius:8px;background:#e3f2fd;color:#1976d2;font-size:13px;cursor:pointer;" onclick="editAttendanceMobile('${a.id}')">编辑</button>
+                    <button style="flex:1;padding:8px;border:none;border-radius:8px;background:#ffebee;color:#c62828;font-size:13px;cursor:pointer;" onclick="deleteAttendanceMobile('${a.id}','${a.title}')">删除</button>
+                </div>
+            </div>`;
+        }).join('');
+    }).catch(() => {
+        document.getElementById('attendanceList').innerHTML = '<div style="text-align:center;padding:40px;color:#999;">加载失败</div>';
+    });
+}
+
+function showAddAttendance() {
+    document.getElementById('attendanceModalTitle').textContent = '新增考勤';
+    document.getElementById('editAttendanceId').value = '';
+    document.getElementById('attendanceTitle').value = '';
+    document.getElementById('attendanceType').value = 'meeting';
+    document.getElementById('attendanceDate').value = new Date().toISOString().slice(0,10);
+    document.getElementById('attendanceRemark').value = '';
+    loadMobileAttendanceUsers([]);
+    document.getElementById('attendanceModal').classList.add('show');
+}
+
+function editAttendanceMobile(id) {
+    api('/api/attendance/' + id).then(res => res.json()).then(a => {
+        document.getElementById('attendanceModalTitle').textContent = '编辑考勤';
+        document.getElementById('editAttendanceId').value = a.id;
+        document.getElementById('attendanceTitle').value = a.title;
+        document.getElementById('attendanceType').value = a.type || 'meeting';
+        document.getElementById('attendanceDate').value = a.date || '';
+        document.getElementById('attendanceRemark').value = a.remark || '';
+        loadMobileAttendanceUsers(a.attendees || []);
+        document.getElementById('attendanceModal').classList.add('show');
+    });
+}
+
+function loadMobileAttendanceUsers(checkedAttendees) {
+    api('/api/users').then(res => res.json()).then(data => {
+        mobileAttendanceUsers = data;
+        const checkedIds = checkedAttendees.map(u => u.id);
+        const list = document.getElementById('attendanceUserList');
+        list.innerHTML = data.map(u => `
+            <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;border-bottom:1px solid #f5f5f5;">
+                <input type="checkbox" class="mobile-attend-checkbox" value="${u.id}" ${checkedIds.includes(u.id) ? 'checked' : ''}>
+                <span style="font-size:13px;">${u.real_name || u.username}</span>
+                ${u.department ? `<span style="font-size:11px;color:#999;background:#f0f0f0;padding:1px 6px;border-radius:3px;">${u.department}</span>` : ''}
+            </label>
+        `).join('');
+    });
+}
+
+function submitAttendanceMobile() {
+    const id = document.getElementById('editAttendanceId').value;
+    const title = document.getElementById('attendanceTitle').value.trim();
+    if (!title) { showToast('请输入考勤名称'); return; }
+    const date = document.getElementById('attendanceDate').value;
+    if (!date) { showToast('请选择考勤日期'); return; }
+    const attendees = [];
+    const absentees = [];
+    document.querySelectorAll('.mobile-attend-checkbox').forEach(cb => {
+        const u = mobileAttendanceUsers.find(x => x.id === cb.value);
+        const userObj = {id: u.id, name: u.real_name || u.username, department: u.department || ''};
+        if (cb.checked) attendees.push(userObj);
+        else absentees.push(userObj);
+    });
+    const data = {
+        title,
+        type: document.getElementById('attendanceType').value,
+        date,
+        remark: document.getElementById('attendanceRemark').value.trim(),
+        attendees,
+        absentees,
+        leave: []
+    };
+    const url = id ? '/api/attendance/' + id : '/api/attendance';
+    const method = id ? 'PUT' : 'POST';
+    api(url, {method, headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)})
+    .then(res => res.json()).then(data => {
+        if (data.success || data.id) {
+            showToast(id ? '考勤更新成功' : '考勤创建成功');
+            closeModal('attendanceModal');
+            loadAttendanceMobile();
+        } else {
+            showToast(data.detail || '保存失败');
+        }
+    }).catch(() => showToast('网络错误'));
+}
+
+function deleteAttendanceMobile(id, title) {
+    if (!confirm('确定删除考勤「' + title + '」吗？')) return;
+    api('/api/attendance/' + id, {method: 'DELETE'}).then(res => res.json()).then(data => {
+        showToast(data.message || '删除成功');
+        loadAttendanceMobile();
+    }).catch(() => showToast('删除失败'));
 }
 
 function closeModal(id) {
