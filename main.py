@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "1.9.2"
+VERSION = "1.10.0"
 VERSION_DATE = "2026-08-30"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
@@ -310,6 +310,7 @@ class MaterialCreate(BaseModel):
     total_stock: int = 0
     location: Optional[str] = ""
     image: Optional[str] = ""
+    qr_code: Optional[str] = ""
 
 class MaterialUpdate(BaseModel):
     name: Optional[str] = None
@@ -318,6 +319,7 @@ class MaterialUpdate(BaseModel):
     total_stock: Optional[int] = None
     location: Optional[str] = None
     image: Optional[str] = None
+    qr_code: Optional[str] = None
 
 class BorrowRequest(BaseModel):
     material_id: str
@@ -1103,9 +1105,17 @@ def get_material_detail(material_id: str, conn=Depends(get_db), user=Depends(get
 def create_material(req: MaterialCreate, conn=Depends(get_db), user=Depends(get_current_user)):
     material_id = str(uuid.uuid4())
     cur = conn.cursor()
-    cur.execute("SELECT COUNT(*) FROM materials")
-    count = cur.fetchone()[0]
-    qr_code = f"MAT-{count + 1:06d}"
+    # 编号：用户手动输入或自动生成 CZ-0000x 格式
+    if req.qr_code and req.qr_code.strip():
+        qr_code = req.qr_code.strip()
+        # 检查编号是否已存在
+        cur.execute("SELECT id FROM materials WHERE qr_code=?", (qr_code,))
+        if cur.fetchone():
+            raise HTTPException(status_code=400, detail=f"编号 {qr_code} 已存在")
+    else:
+        cur.execute("SELECT COUNT(*) FROM materials")
+        count = cur.fetchone()[0]
+        qr_code = f"CZ-{count + 1:05d}"
     operator = user.get("real_name", "") or user.get("username", "")
     cur.execute("""
         INSERT INTO materials (id, name, qr_code, spec, unit, total_stock, available_stock, location, image, operator)
@@ -1499,7 +1509,18 @@ def update_material(material_id: str, req: MaterialUpdate, conn=Depends(get_db),
     if req.location is not None:
         updates.append("location=?")
         params.append(req.location)
-    
+
+    if req.qr_code is not None:
+        new_qr = req.qr_code.strip()
+        if not new_qr:
+            raise HTTPException(status_code=400, detail="物资编号不能为空")
+        # 检查编号是否已被其他物资使用
+        cur.execute("SELECT id FROM materials WHERE qr_code=? AND id != ?", (new_qr, material_id))
+        if cur.fetchone():
+            raise HTTPException(status_code=400, detail=f"编号 {new_qr} 已被其他物资使用")
+        updates.append("qr_code=?")
+        params.append(new_qr)
+
     if req.image is not None:
         updates.append("image=?")
         params.append(req.image)
