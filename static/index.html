@@ -1256,7 +1256,7 @@
                     const files = a.files ? (typeof a.files === 'string' ? JSON.parse(a.files) : a.files) : [];
                     const dateStr = a.start_time ? a.start_time.slice(0,10) : '';
                     return `
-                    <div style="background:white;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);border-left:4px solid #667eea;cursor:pointer;transition:transform 0.2s,box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)'" onmouseout="this.style.transform='';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.06)'" onclick="viewActivityDetail('${a.id}')">
+                    <div style="background:white;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);border-left:4px solid #667eea;">
                         <div style="font-size:16px;font-weight:600;color:#333;margin-bottom:10px;">${a.title}</div>
                         <div style="font-size:13px;color:#666;line-height:1.8;">
                             ${dateStr ? `<div>📅 ${dateStr}</div>` : ''}
@@ -1264,9 +1264,15 @@
                             ${a.organizer ? `<div>🏛️ ${a.organizer}</div>` : ''}
                             ${a.extra_fields && Object.keys(a.extra_fields).length ? Object.entries(a.extra_fields).map(([k,v])=>`<div>📌 ${k}：${v||'-'}</div>`).join('') : ''}
                         </div>
-                        ${a.folder_link ? `<div style="margin-top:10px;"><span style="color:#667eea;font-size:13px;">📁 活动文件夹</span></div>` : ''}
-                        ${files.length ? `<div style="margin-top:8px;font-size:12px;color:#888;">📎 ${files.length}个文件</div>` : ''}
-                        <div style="margin-top:12px;display:flex;gap:8px;" onclick="event.stopPropagation()">
+                        ${a.folder_link ? `<div style="margin-top:10px;padding:8px 10px;background:#f0f7ff;border-radius:6px;"><a href="${a.folder_link}" target="_blank" style="color:#1976d2;font-size:13px;text-decoration:none;">📁 活动文件夹（点击打开WPS云文档）</a></div>` : ''}
+                        ${files.length ? `<div style="margin-top:8px;">
+                            <div style="font-size:12px;color:#999;margin-bottom:4px;">📎 附件（${files.length}个）</div>
+                            ${files.map(f=>{
+                                const sizeStr = f.size ? (f.size > 1024*1024 ? (f.size/1024/1024).toFixed(1)+'MB' : (f.size/1024).toFixed(1)+'KB') : '';
+                                return `<div style="padding:4px 0;font-size:12px;"><a href="${f.url}" target="_blank" download="${f.filename}" style="color:#667eea;text-decoration:none;">📄 ${f.filename}</a> ${sizeStr ? `<span style="color:#999;">${sizeStr}</span>` : ''}</div>`;
+                            }).join('')}
+                        </div>` : ''}
+                        <div style="margin-top:12px;display:flex;gap:8px;">
                             <button class="btn btn-sm" style="background:#e3f2fd;color:#1976d2;" onclick="editActivity('${a.id}')">✏️ 编辑</button>
                             <button class="btn btn-sm btn-danger" onclick="deleteActivity('${a.id}','${a.title}')">删除</button>
                         </div>
@@ -1317,12 +1323,17 @@
         function renderActivityFiles() {
             const list = document.getElementById('activityFileList');
             if (!activityFiles.length) { list.innerHTML = ''; return; }
-            list.innerHTML = activityFiles.map((f,i)=>`
-                <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:#f5f5f5;border-radius:6px;margin-top:4px;font-size:12px;">
-                    <span>📎 ${f.filename}</span>
-                    <button style="background:none;border:none;color:#f44336;cursor:pointer;" onclick="removeActivityFile(${i})">删除</button>
-                </div>
-            `).join('');
+            list.innerHTML = activityFiles.map((f,i)=>{
+                const sizeStr = f.size ? (f.size > 1024*1024 ? (f.size/1024/1024).toFixed(1)+'MB' : (f.size/1024).toFixed(1)+'KB') : '';
+                return `
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:#f5f5f5;border-radius:6px;margin-top:4px;font-size:12px;">
+                    <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">📎 ${f.filename} ${sizeStr ? `<span style="color:#999;">(${sizeStr})</span>` : ''}</span>
+                    <div style="display:flex;gap:8px;margin-left:8px;">
+                        <a href="${f.url}" target="_blank" download="${f.filename}" style="color:#1976d2;text-decoration:none;cursor:pointer;">下载</a>
+                        <span style="color:#f44336;cursor:pointer;" onclick="removeActivityFile(${i})">删除</span>
+                    </div>
+                </div>`;
+            }).join('');
         }
 
         function removeActivityFile(index) {
@@ -1338,22 +1349,59 @@
                 input.value = '';
                 return;
             }
-            showToast('正在上传文件...');
+            // 显示上传进度
+            const list = document.getElementById('activityFileList');
+            const progressId = 'upload-progress-' + Date.now();
+            list.insertAdjacentHTML('beforeend', `
+                <div id="${progressId}" style="padding:8px 10px;background:#e3f2fd;border-radius:6px;margin-top:4px;font-size:12px;">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                        <span>📤 正在上传：${file.name}</span>
+                        <span class="progress-percent">0%</span>
+                    </div>
+                    <div style="height:6px;background:#e0e0e0;border-radius:3px;overflow:hidden;">
+                        <div class="progress-bar" style="height:100%;width:0%;background:#2196f3;transition:width 0.3s;"></div>
+                    </div>
+                </div>
+            `);
+            const progressEl = document.getElementById(progressId);
+            const percentEl = progressEl.querySelector('.progress-percent');
+            const barEl = progressEl.querySelector('.progress-bar');
+
             const formData = new FormData();
             formData.append('file', file);
-            fetch('/api/activities/upload', { method:'POST', headers:{'Authorization':'Bearer '+token}, body:formData })
-            .then(res=>res.json())
-            .then(data=>{
-                if (data.success) {
-                    activityFiles.push({url:data.url, filename:data.filename});
-                    renderActivityFiles();
-                    showToast('文件上传成功');
-                } else {
-                    showToast(data.detail || '上传失败');
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/activities/upload');
+            xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+            xhr.upload.onprogress = function(e) {
+                if (e.lengthComputable) {
+                    const percent = Math.round((e.loaded / e.total) * 100);
+                    percentEl.textContent = percent + '%';
+                    barEl.style.width = percent + '%';
                 }
-            })
-            .catch(()=>showToast('上传失败'))
-            .finally(()=>{ input.value = ''; });
+            };
+            xhr.onload = function() {
+                try {
+                    const data = JSON.parse(xhr.responseText);
+                    if (data.success) {
+                        activityFiles.push({url:data.url, filename:data.filename, size:data.size || file.size});
+                        progressEl.remove();
+                        renderActivityFiles();
+                        showToast('文件上传成功');
+                    } else {
+                        progressEl.remove();
+                        showToast(data.detail || '上传失败');
+                    }
+                } catch(e) {
+                    progressEl.remove();
+                    showToast('上传失败');
+                }
+            };
+            xhr.onerror = function() {
+                progressEl.remove();
+                showToast('网络错误，上传失败');
+            };
+            xhr.send(formData);
+            input.value = '';
         }
 
         function submitActivity() {
@@ -1412,6 +1460,8 @@
                 list.innerHTML = data.map(a=>{
                     const attendCount = a.attendees ? a.attendees.length : 0;
                     const absentCount = a.absentees ? a.absentees.length : 0;
+                    const attendNames = a.attendees ? a.attendees.map(u=>u.name).join('、') : '';
+                    const absentNames = a.absentees ? a.absentees.map(u=>u.name).join('、') : '';
                     return `
                     <div style="background:white;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);border-left:4px solid ${typeColor[a.type]||'#999'};">
                         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
@@ -1421,14 +1471,18 @@
                         <div style="font-size:13px;color:#666;line-height:1.8;">
                             <div>📅 ${a.date || '-'}</div>
                             ${a.activity_title ? `<div>🎯 关联活动：${a.activity_title}</div>` : ''}
-                            <div style="margin-top:6px;">
-                                <span style="color:#4caf50;">✅ 参加 ${attendCount}人</span>
-                                <span style="margin-left:15px;color:#f44336;">❌ 缺席 ${absentCount}人</span>
-                            </div>
-                            ${a.remark ? `<div style="margin-top:6px;color:#888;">📝 ${a.remark}</div>` : ''}
+                            ${a.remark ? `<div>📝 ${a.remark}</div>` : ''}
+                            ${a.extra_fields && Object.keys(a.extra_fields).length ? Object.entries(a.extra_fields).map(([k,v])=>`<div>📌 ${k}：${v||'-'}</div>`).join('') : ''}
                         </div>
+                        ${attendCount ? `<div style="margin-top:10px;padding:8px 10px;background:#e8f5e9;border-radius:6px;">
+                            <div style="font-size:12px;color:#2e7d32;font-weight:600;margin-bottom:4px;">✅ 参加（${attendCount}人）</div>
+                            <div style="font-size:12px;color:#555;line-height:1.6;">${attendNames}</div>
+                        </div>` : ''}
+                        ${absentCount ? `<div style="margin-top:8px;padding:8px 10px;background:#ffebee;border-radius:6px;">
+                            <div style="font-size:12px;color:#c62828;font-weight:600;margin-bottom:4px;">❌ 缺席（${absentCount}人）</div>
+                            <div style="font-size:12px;color:#555;line-height:1.6;">${absentNames}</div>
+                        </div>` : ''}
                         <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
-                            <button class="btn btn-sm" style="background:#e8f5e9;color:#2e7d32;" onclick="viewAttendanceDetail('${a.id}')">👁️ 查看详情</button>
                             <button class="btn btn-sm" style="background:#e3f2fd;color:#1976d2;" onclick="editAttendance('${a.id}')">✏️ 编辑</button>
                             <button class="btn btn-sm btn-danger" onclick="deleteAttendance('${a.id}','${a.title}')">删除</button>
                         </div>
