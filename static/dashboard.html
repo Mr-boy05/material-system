@@ -198,15 +198,21 @@
             .header h1 { font-size: 18px; letter-spacing: 2px; }
             .header .time, .header .back { position: static; transform: none; margin: 5px 0; }
             .container { padding: 12px; }
-            .row { gap: 12px; margin-bottom: 12px; }
-            .row-6, .row-4, .row-2 { grid-template-columns: repeat(2, 1fr); }
-            .stat-number { font-size: 26px; }
-            .chart-container { height: 220px; }
-            .chart-container-sm { height: 200px; }
+            .row { gap: 10px; margin-bottom: 10px; }
+            .row-6, .row-4, .row-3, .row-2 { grid-template-columns: repeat(2, 1fr); }
+            .stat-number { font-size: 24px; }
+            .stat-label { font-size: 12px; }
+            .chart-container { height: 200px; }
+            .chart-container-sm { height: 180px; }
+            .stat-card { padding: 12px 10px; }
+            .stat-card .icon { font-size: 24px; }
+            .chart-card, .list-card { padding: 12px; }
+            .chart-card .title, .list-card .title { font-size: 13px; margin-bottom: 10px; }
         }
         @media (max-width: 480px) {
-            .row-6, .row-4, .row-2 { grid-template-columns: 1fr; }
-            .header h1 { font-size: 16px; }
+            .row-6, .row-4, .row-3, .row-2 { grid-template-columns: 1fr; }
+            .header h1 { font-size: 16px; letter-spacing: 1px; }
+            .stat-number { font-size: 28px; }
         }
     </style>
 </head>
