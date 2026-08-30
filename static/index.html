@@ -1285,10 +1285,15 @@
             const url = id ? '/api/activities/' + id : '/api/activities';
             const method = id ? 'PUT' : 'POST';
             fetch(url, { method, headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify(data) })
-            .then(res=>res.json().then(d=>({ok:res.ok,data:d})))
-            .then(({ok,data})=>{
+            .then(async res=>{
+                const text = await res.text();
+                let data = {};
+                try { data = JSON.parse(text); } catch(e) { data = {detail: text}; }
+                return {ok: res.ok, status: res.status, data};
+            })
+            .then(({ok,status,data})=>{
                 if (ok) { showToast(id ? '活动更新成功' : '活动创建成功'); closeActivityModal(); loadActivities(); }
-                else showToast(data.detail || '保存失败');
+                else showToast('保存失败(' + status + '): ' + (data.detail || JSON.stringify(data)));
             })
             .catch(err=>{ showToast('网络错误：' + err.message); });
         }
@@ -1444,10 +1449,15 @@
             const url = id ? '/api/attendance/' + id : '/api/attendance';
             const method = id ? 'PUT' : 'POST';
             fetch(url, { method, headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify(data) })
-            .then(res=>res.json().then(d=>({ok:res.ok,data:d})))
-            .then(({ok,data})=>{
+            .then(async res=>{
+                const text = await res.text();
+                let data = {};
+                try { data = JSON.parse(text); } catch(e) { data = {detail: text}; }
+                return {ok: res.ok, status: res.status, data};
+            })
+            .then(({ok,status,data})=>{
                 if (ok) { showToast(id ? '考勤更新成功' : '考勤创建成功'); closeAttendanceModal(); loadAttendance(); }
-                else showToast(data.detail || '保存失败');
+                else showToast('保存失败(' + status + '): ' + (data.detail || JSON.stringify(data)));
             })
             .catch(err=>{ showToast('网络错误：' + err.message); });
         }
