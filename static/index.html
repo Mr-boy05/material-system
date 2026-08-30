@@ -143,20 +143,24 @@
     <!-- 左侧导航 -->
     <div class="sidebar">
         <div class="logo"><img src="/static/logo.png" alt="城治学生会综合管理系统"></div>
-        <div class="system-name" style="text-align:center;color:white;font-size:13px;font-weight:600;margin-bottom:15px;padding:0 8px;line-height:1.3;white-space:nowrap;">城治学生会综合管理系统</div>
+        <div class="system-name" id="systemName" style="text-align:center;color:white;font-size:13px;font-weight:600;margin-bottom:15px;padding:0 8px;line-height:1.3;white-space:nowrap;">城治学生会综合管理系统</div>
         <div class="nav">
-            <div class="nav-item" onclick="location.href='/dashboard'"><span class="icon">📊</span>数据大屏</div>
-            <div class="nav-item" onclick="switchPage('page-users',this)"><span class="icon">👥</span>人员管理</div>
-            <div class="nav-item" onclick="switchPage('page-attendance',this)"><span class="icon">✅</span>考勤记录</div>
-            <div class="nav-item" onclick="switchPage('page-activities',this)"><span class="icon">📅</span>活动记录</div>
-            <div class="nav-item nav-dropdown" onclick="toggleDropdown(this)">
+            <div class="nav-item admin-only" onclick="location.href='/dashboard'"><span class="icon">📊</span>数据大屏</div>
+            <div class="nav-item admin-only" onclick="switchPage('page-users',this)"><span class="icon">👥</span>人员管理</div>
+            <div class="nav-item admin-only" onclick="switchPage('page-attendance',this)"><span class="icon">✅</span>考勤记录</div>
+            <div class="nav-item admin-only" onclick="switchPage('page-activities',this)"><span class="icon">📅</span>活动记录</div>
+            <div class="nav-item nav-dropdown admin-only" onclick="toggleDropdown(this)">
                 <span class="icon">📦</span>物资管理 <span class="dropdown-arrow">▼</span>
             </div>
-            <div class="dropdown-menu">
+            <div class="dropdown-menu admin-only">
                 <div class="dropdown-item" onclick="switchPage('page-materials',this)"><span class="icon">📋</span>物资列表</div>
                 <div class="dropdown-item" onclick="switchPage('page-borrow-return',this)"><span class="icon">🔄</span>领取归还</div>
                 <div class="dropdown-item" onclick="switchPage('page-records',this)"><span class="icon">📝</span>领用记录</div>
             </div>
+            <!-- 普通用户专属菜单 -->
+            <div class="nav-item user-only" onclick="switchPage('page-borrow-return',this)"><span class="icon">🔄</span>物资领取归还</div>
+            <div class="nav-item user-only" onclick="switchPage('page-materials',this)"><span class="icon">🔍</span>物资查询</div>
+            <div class="nav-item user-only" onclick="switchPage('page-records',this)"><span class="icon">📋</span>我的记录</div>
             <div class="nav-item" onclick="goMobile()"><span class="icon">📱</span>手机端</div>
         </div>
         <div class="user-box">
@@ -192,7 +196,7 @@
             </div>
             <div class="toolbar">
                 <span style="color:#666;font-size:13px;" id="materialCount">共 0 条</span>
-                <div style="display:flex;gap:8px;">
+                <div style="display:flex;gap:8px;" class="admin-only">
                     <button class="btn" style="background:#c62828;color:white;" onclick="batchDeleteMaterials()">🗑️ 批量删除</button>
                     <button class="btn" style="background:#43a047;color:white;" onclick="exportMaterials()">📥 导出Excel</button>
                     <button class="btn" style="background:#1976d2;color:white;" onclick="downloadTemplate()">📋 下载模板</button>
@@ -202,7 +206,7 @@
                 </div>
             </div>
             <table>
-                <thead><tr><th style="width:40px;"><input type="checkbox" id="selectAllMat" onchange="toggleSelectAllMat(this)"></th><th>图片</th><th>物资名称</th><th>编号</th><th>总库存</th><th>可领取</th><th>存放位置</th><th>操作人</th><th>操作</th></tr></thead>
+                <thead><tr><th style="width:40px;" class="admin-only"><input type="checkbox" id="selectAllMat" onchange="toggleSelectAllMat(this)"></th><th>图片</th><th>物资名称</th><th>编号</th><th>总库存</th><th>可领取</th><th>存放位置</th><th class="admin-only">操作人</th><th>操作</th></tr></thead>
                 <tbody id="materialTable"><tr><td colspan="9" class="empty">加载中...</td></tr></tbody>
             </table>
         </div>
@@ -561,8 +565,23 @@
         let token = localStorage.getItem('token');
         if (!token) window.location.href = '/login';
         const user = JSON.parse(localStorage.getItem('user') || '{}');
+        const isAdmin = user.role === 'admin';
         document.getElementById('userName').textContent = user.real_name || '用户';
-        document.getElementById('userRole').textContent = user.role === 'admin' ? '管理员' : '普通用户';
+        document.getElementById('userRole').textContent = isAdmin ? '管理员' : '普通用户';
+        // 根据角色显示不同菜单
+        if (isAdmin) {
+            document.querySelectorAll('.admin-only').forEach(el => el.style.display = '');
+            document.querySelectorAll('.user-only').forEach(el => el.style.display = 'none');
+            document.getElementById('systemName').textContent = '城治学生会综合管理系统';
+        } else {
+            document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.user-only').forEach(el => el.style.display = '');
+            document.getElementById('systemName').textContent = '城治学生会物资管理系统';
+            // 普通用户默认显示物资领取归还页面
+            setTimeout(() => {
+                switchPage('page-borrow-return', document.querySelector('.user-only'));
+            }, 100);
+        }
         document.getElementById('borrowUser').value = user.real_name || '';
         document.getElementById('returnUser').value = user.real_name || '';
         document.getElementById('borrowPhone').value = user.phone || '';
@@ -653,11 +672,11 @@
                 if (!filtered.length) { tbody.innerHTML='<tr><td colspan="9" class="empty">暂无物资</td></tr>'; return; }
                 let rows = [];
                 filtered.forEach(m=>{
-                    let img = m.image ? `<img src="${m.image}" class="mat-img" style="cursor:pointer;" onclick="viewImage('${m.image}','${m.name}')" title="点击放大">` : `<div class="mat-img-ph" style="cursor:pointer;" onclick="uploadMatImage('${m.id}')" title="点击上传图片">📷</div>`;
-                    let nameHtml = m.image 
-                        ? `<strong>${m.name}</strong>`
-                        : `<strong style="cursor:pointer;color:#667eea;text-decoration:underline;" onclick="uploadMatImage('${m.id}')" title="点击上传图片">${m.name}</strong>`;
-                    let actionBtns = `<button class="btn btn-sm" style="background:#e3f2fd;color:#1976d2;margin-right:4px;" onclick="openEditMaterial('${m.id}')">编辑</button><button class="btn btn-sm" style="background:#f0f0f0;color:#666;margin-right:4px;" onclick="showQR('${m.id}','${m.name}','${m.qr_code}')">二维码</button><button class="btn btn-sm btn-danger" onclick="deleteMaterial('${m.id}','${m.name}')">删除</button>`;
+                    let img = m.image ? `<img src="${m.image}" class="mat-img" style="cursor:pointer;" onclick="viewImage('${m.image}','${m.name}')" title="点击放大">` : `<div class="mat-img-ph">📷</div>`;
+                    let nameHtml = `<strong>${m.name}</strong>`;
+                    let actionBtns = isAdmin 
+                        ? `<button class="btn btn-sm" style="background:#e3f2fd;color:#1976d2;margin-right:4px;" onclick="openEditMaterial('${m.id}')">编辑</button><button class="btn btn-sm" style="background:#f0f0f0;color:#666;margin-right:4px;" onclick="showQR('${m.id}','${m.name}','${m.qr_code}')">二维码</button><button class="btn btn-sm btn-danger" onclick="deleteMaterial('${m.id}','${m.name}')">删除</button>`
+                        : `<button class="btn btn-sm" style="background:#e3f2fd;color:#1976d2;" onclick="quickBorrow('${m.id}')">领取</button>`;
                     // 按位置分别显示
                     let locations = m.locations && m.locations.length ? m.locations : [{location: m.location || '-', stock: m.available_stock}];
                     locations.forEach((loc, idx)=>{
@@ -665,14 +684,14 @@
                         let locTag = locations.length > 1 ? `<span style="display:inline-block;background:#e3f2fd;color:#1976d2;padding:2px 6px;border-radius:4px;font-size:11px;margin-right:4px;">位置${idx+1}</span>` : '';
                         let firstRow = idx === 0;
                         rows.push(`<tr>
-                            <td>${firstRow ? `<input type="checkbox" class="mat-checkbox" value="${m.id}">` : ''}</td>
+                            <td>${firstRow && isAdmin ? `<input type="checkbox" class="mat-checkbox" value="${m.id}">` : ''}</td>
                             <td>${firstRow ? img : ''}</td>
                             <td>${firstRow ? nameHtml : ''}</td>
                             <td>${firstRow ? `<code>${m.qr_code}</code>` : ''}</td>
                             <td>${firstRow ? m.total_stock : ''}</td>
                             <td><span class="stock-badge ${sc}">${loc.stock}</span></td>
                             <td>${locTag}${loc.location || '-'}</td>
-                            <td>${firstRow ? (m.operator||'-') : ''}</td>
+                            <td>${firstRow && isAdmin ? (m.operator||'-') : ''}</td>
                             <td>${firstRow ? actionBtns : ''}</td>
                         </tr>`);
                     });
