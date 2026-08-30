@@ -352,9 +352,9 @@
                 if (ok) {
                     localStorage.setItem('token', data.token);
                     localStorage.setItem('user', JSON.stringify(data));
-                    // 自动登录：保存凭据
+                    // 自动登录：保存凭据（处理中文用户名）
                     if (document.getElementById('autoLogin').checked) {
-                        localStorage.setItem('auto_login_cred', btoa(username + ':' + password));
+                        localStorage.setItem('auto_login_cred', btoa(encodeURIComponent(username) + ':' + encodeURIComponent(password)));
                     } else {
                         localStorage.removeItem('auto_login_cred');
                     }
@@ -375,11 +375,14 @@
             const cred = localStorage.getItem('auto_login_cred');
             if (cred) {
                 try {
-                    const [u, p] = atob(cred).split(':');
+                    const raw = atob(cred);
+                    const sep = raw.indexOf(':');
+                    const u = decodeURIComponent(raw.substring(0, sep));
+                    const p = decodeURIComponent(raw.substring(sep + 1));
                     document.getElementById('username').value = u;
                     document.getElementById('password').value = p;
                     document.getElementById('autoLogin').checked = true;
-                    doLogin();
+                    setTimeout(doLogin, 100);
                 } catch(e) {
                     localStorage.removeItem('auto_login_cred');
                 }
