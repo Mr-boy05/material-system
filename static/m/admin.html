@@ -12,8 +12,9 @@
 
         /* 顶部导航 */
         .nav-bar { background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); color:white; padding:16px 18px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100; box-shadow:0 2px 12px rgba(102,126,234,0.3); }
-        .nav-bar .title { font-size:17px; font-weight:600; }
-        .nav-bar .action { font-size:13px; cursor:pointer; opacity:0.9; }
+        .nav-bar .title { font-size:17px; font-weight:600; flex:1; text-align:center; }
+        .nav-bar .action { font-size:13px; cursor:pointer; opacity:0.9; min-width:50px; text-align:right; }
+        .nav-bar .back { font-size:20px; cursor:pointer; opacity:0.9; min-width:30px; font-weight:bold; }
 
         /* 统计卡片 */
         .stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:16px; }
@@ -160,20 +161,21 @@
 
 <!-- 物资管理页面 -->
 <div class="page" id="page-materials">
-    <div class="nav-bar"><div class="title">物资管理</div></div>
+    <div class="nav-bar"><div class="back" onclick="switchTabByName('dashboard')">←</div><div class="title">物资管理</div><div class="action" onclick="showAddMaterial()">+ 新增</div></div>
     <div class="search-bar"><input type="text" id="searchInput" placeholder="搜索物资名称、编号..." oninput="loadMaterials()"></div>
     <div class="mat-list" id="matList"></div>
 </div>
 
 <!-- 记录页面 -->
 <div class="page" id="page-records">
-    <div class="nav-bar"><div class="title">领用记录</div></div>
+    <div class="nav-bar"><div class="back" onclick="switchTabByName('dashboard')">←</div><div class="title">领用记录</div></div>
     <div id="recordList"></div>
 </div>
 
 <!-- 用户页面 -->
 <div class="page" id="page-users">
     <div class="nav-bar">
+        <div class="back" onclick="switchTabByName('dashboard')">←</div>
         <div class="title">人员管理</div>
         <div class="action" onclick="showAddUser()">+ 添加</div>
     </div>
@@ -183,6 +185,7 @@
 <!-- 活动记录页面 -->
 <div class="page" id="page-activities">
     <div class="nav-bar">
+        <div class="back" onclick="switchTabByName('dashboard')">←</div>
         <div class="title">活动记录</div>
         <div class="action" onclick="showAddActivity()">+ 新增</div>
     </div>
@@ -192,6 +195,7 @@
 <!-- 考勤记录页面 -->
 <div class="page" id="page-attendance">
     <div class="nav-bar">
+        <div class="back" onclick="switchTabByName('dashboard')">←</div>
         <div class="title">考勤记录</div>
         <div class="action" onclick="showAddAttendance()">+ 新增</div>
     </div>
@@ -310,10 +314,21 @@
         <div class="form-group"><label>考勤类型</label><select id="attendanceType"><option value="meeting">例会考勤</option><option value="activity">活动考勤</option></select></div>
         <div class="form-group"><label>考勤日期 <span class="req">*</span></label><input type="date" id="attendanceDate"></div>
         <div class="form-group"><label>备注</label><textarea id="attendanceRemark" rows="2" style="width:100%;padding:10px;border:2px solid #e8e8e8;border-radius:8px;resize:vertical;"></textarea></div>
-        <div class="form-group"><label>参加人员（勾选参加）</label>
-            <div id="attendanceUserList" style="max-height:200px;overflow-y:auto;border:2px solid #e8e8e8;border-radius:8px;padding:10px;">
+        <div class="form-group"><label>人员考勤状态</label>
+            <!-- 标签页切换 -->
+            <div style="display:flex;gap:4px;margin-bottom:10px;background:#f5f5f5;padding:4px;border-radius:8px;">
+                <button type="button" class="mob-att-tab" data-tab="attend" onclick="switchMobAttTab('attend')" style="flex:1;padding:8px;border:none;border-radius:6px;cursor:pointer;font-size:13px;background:#4caf50;color:white;">✅ 参加</button>
+                <button type="button" class="mob-att-tab" data-tab="leave" onclick="switchMobAttTab('leave')" style="flex:1;padding:8px;border:none;border-radius:6px;cursor:pointer;font-size:13px;background:transparent;color:#666;">🏖️ 请假</button>
+                <button type="button" class="mob-att-tab" data-tab="absent" onclick="switchMobAttTab('absent')" style="flex:1;padding:8px;border:none;border-radius:6px;cursor:pointer;font-size:13px;background:transparent;color:#666;">❌ 缺席</button>
+            </div>
+            <!-- 搜索框 -->
+            <input type="text" id="mobAttSearch" placeholder="🔍 搜索姓名/部门..." oninput="renderMobAttUsers()" style="width:100%;padding:8px 12px;border:2px solid #e8e8e8;border-radius:8px;font-size:13px;margin-bottom:10px;box-sizing:border-box;">
+            <!-- 人员列表 -->
+            <div id="mobAttUserList" style="max-height:250px;overflow-y:auto;border:2px solid #e8e8e8;border-radius:8px;padding:10px;">
                 <div style="color:#999;text-align:center;padding:10px;">加载中...</div>
             </div>
+            <!-- 统计 -->
+            <div style="margin-top:8px;font-size:12px;color:#999;" id="mobAttStats"></div>
         </div>
         <button class="btn-full" onclick="submitAttendanceMobile()">确认保存</button>
         <button class="btn-full ghost" onclick="closeModal('attendanceModal')">取消</button>
@@ -859,6 +874,8 @@ function deleteActivityMobile(id, title) {
 
 // ==================== 考勤记录 ====================
 let mobileAttendanceUsers = [];
+let currentMobAttTab = 'attend';
+let mobUserStatus = {};
 
 function loadAttendanceMobile() {
     api('/api/attendance').then(res => res.json()).then(data => {
@@ -901,7 +918,11 @@ function showAddAttendance() {
     document.getElementById('attendanceType').value = 'meeting';
     document.getElementById('attendanceDate').value = new Date().toISOString().slice(0,10);
     document.getElementById('attendanceRemark').value = '';
-    loadMobileAttendanceUsers([]);
+    document.getElementById('mobAttSearch').value = '';
+    mobUserStatus = {};
+    currentMobAttTab = 'attend';
+    switchMobAttTab('attend');
+    loadMobAttendanceUsers();
     document.getElementById('attendanceModal').classList.add('show');
 }
 
@@ -913,24 +934,105 @@ function editAttendanceMobile(id) {
         document.getElementById('attendanceType').value = a.type || 'meeting';
         document.getElementById('attendanceDate').value = a.date || '';
         document.getElementById('attendanceRemark').value = a.remark || '';
-        loadMobileAttendanceUsers(a.attendees || []);
+        document.getElementById('mobAttSearch').value = '';
+        // 恢复人员状态
+        mobUserStatus = {};
+        (a.attendees || []).forEach(u => mobUserStatus[u.id] = 'attend');
+        (a.leave || []).forEach(u => mobUserStatus[u.id] = 'leave');
+        (a.absentees || []).forEach(u => mobUserStatus[u.id] = 'absent');
+        currentMobAttTab = 'attend';
+        switchMobAttTab('attend');
+        loadMobAttendanceUsers();
         document.getElementById('attendanceModal').classList.add('show');
     });
 }
 
-function loadMobileAttendanceUsers(checkedAttendees) {
+function loadMobAttendanceUsers() {
     api('/api/users').then(res => res.json()).then(data => {
         mobileAttendanceUsers = data;
-        const checkedIds = checkedAttendees.map(u => u.id);
-        const list = document.getElementById('attendanceUserList');
-        list.innerHTML = data.map(u => `
-            <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;border-bottom:1px solid #f5f5f5;">
-                <input type="checkbox" class="mobile-attend-checkbox" value="${u.id}" ${checkedIds.includes(u.id) ? 'checked' : ''}>
-                <span style="font-size:13px;">${u.real_name || u.username}</span>
-                ${u.department ? `<span style="font-size:11px;color:#999;background:#f0f0f0;padding:1px 6px;border-radius:3px;">${u.department}</span>` : ''}
-            </label>
-        `).join('');
+        renderMobAttUsers();
     });
+}
+
+function switchMobAttTab(tab) {
+    currentMobAttTab = tab;
+    document.querySelectorAll('.mob-att-tab').forEach(btn => {
+        if (btn.dataset.tab === tab) {
+            btn.style.background = tab === 'attend' ? '#4caf50' : tab === 'leave' ? '#ff9800' : '#f44336';
+            btn.style.color = 'white';
+        } else {
+            btn.style.background = 'transparent';
+            btn.style.color = '#666';
+        }
+    });
+    renderMobAttUsers();
+}
+
+function renderMobAttUsers() {
+    const list = document.getElementById('mobAttUserList');
+    const search = (document.getElementById('mobAttSearch')?.value || '').toLowerCase();
+    const deptMap = {};
+    mobileAttendanceUsers.forEach(u => {
+        const dept = u.department || '未分配部门';
+        if (!deptMap[dept]) deptMap[dept] = [];
+        const match = !search || (u.real_name || u.username || '').toLowerCase().includes(search) || dept.toLowerCase().includes(search);
+        if (match) deptMap[dept].push(u);
+    });
+    let html = '';
+    Object.keys(deptMap).sort().forEach(dept => {
+        const users = deptMap[dept];
+        if (!users.length) return;
+        html += '<div style="margin-bottom:12px;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;padding:4px 0;">';
+        html += '<span style="font-size:13px;font-weight:600;color:#333;">🏛️ ' + dept + '（' + users.length + '人）</span>';
+        html += '<button type="button" style="font-size:11px;padding:3px 8px;border:1px solid #ddd;background:white;border-radius:4px;cursor:pointer;color:#666;" onclick="selectMobDeptAll(this)" data-dept="' + dept + '">全选本组</button>';
+        html += '</div>';
+        html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">';
+        users.forEach(u => {
+            const status = mobUserStatus[u.id] || 'absent';
+            const isInTab = status === currentMobAttTab;
+            let bgColor = '#fafafa', borderColor = '#e0e0e0';
+            if (isInTab) {
+                if (currentMobAttTab === 'attend') { bgColor = '#e8f5e9'; borderColor = '#4caf50'; }
+                else if (currentMobAttTab === 'leave') { bgColor = '#fff3e0'; borderColor = '#ff9800'; }
+                else { bgColor = '#ffebee'; borderColor = '#f44336'; }
+            }
+            const initial = (u.real_name || u.username || '?').charAt(0);
+            const name = u.real_name || u.username;
+            html += '<div onclick="toggleMobUserStatus(\'' + u.id + '\')" style="padding:8px 10px;border:2px solid ' + borderColor + ';border-radius:8px;cursor:pointer;background:' + bgColor + ';display:flex;align-items:center;gap:6px;">';
+            html += '<div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#667eea,#764ba2);color:white;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0;">' + initial + '</div>';
+            html += '<span style="font-size:12px;color:#333;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + name + '</span>';
+            html += '</div>';
+        });
+        html += '</div></div>';
+    });
+    if (!html) html = '<div style="color:#999;text-align:center;padding:20px;">没有找到匹配的人员</div>';
+    list.innerHTML = html;
+    // 更新统计
+    const attendCount = Object.values(mobUserStatus).filter(s=>s==='attend').length;
+    const leaveCount = Object.values(mobUserStatus).filter(s=>s==='leave').length;
+    const absentCount = mobileAttendanceUsers.length - attendCount - leaveCount;
+    const statsEl = document.getElementById('mobAttStats');
+    if (statsEl) statsEl.innerHTML = '✅ 参加 ' + attendCount + '人 &nbsp;|&nbsp; 🏖️ 请假 ' + leaveCount + '人 &nbsp;|&nbsp; ❌ 缺席 ' + absentCount + '人';
+}
+
+function toggleMobUserStatus(userId) {
+    if (mobUserStatus[userId] === currentMobAttTab) {
+        mobUserStatus[userId] = 'absent';
+    } else {
+        mobUserStatus[userId] = currentMobAttTab;
+    }
+    renderMobAttUsers();
+}
+
+function selectMobDeptAll(btn) {
+    const dept = btn.dataset.dept;
+    mobileAttendanceUsers.forEach(u => {
+        if ((u.department || '未分配部门') === dept) {
+            mobUserStatus[u.id] = currentMobAttTab;
+        }
+    });
+    renderMobAttUsers();
 }
 
 function submitAttendanceMobile() {
@@ -941,10 +1043,12 @@ function submitAttendanceMobile() {
     if (!date) { showToast('请选择考勤日期'); return; }
     const attendees = [];
     const absentees = [];
-    document.querySelectorAll('.mobile-attend-checkbox').forEach(cb => {
-        const u = mobileAttendanceUsers.find(x => x.id === cb.value);
+    const leave = [];
+    mobileAttendanceUsers.forEach(u => {
+        const status = mobUserStatus[u.id] || 'absent';
         const userObj = {id: u.id, name: u.real_name || u.username, department: u.department || ''};
-        if (cb.checked) attendees.push(userObj);
+        if (status === 'attend') attendees.push(userObj);
+        else if (status === 'leave') leave.push(userObj);
         else absentees.push(userObj);
     });
     const data = {
