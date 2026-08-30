@@ -18,7 +18,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "2.3.1"
+VERSION = "2.4.0"
 VERSION_DATE = "2026-08-30"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
@@ -213,7 +213,9 @@ def init_db():
             date TEXT NOT NULL,
             attendees TEXT DEFAULT '[]',
             absentees TEXT DEFAULT '[]',
+            leave TEXT DEFAULT '[]',
             remark TEXT DEFAULT '',
+            extra_fields TEXT DEFAULT '{}',
             creator_id TEXT,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
@@ -253,6 +255,7 @@ def init_db():
     add_column_if_not_exists("users", "department", "TEXT DEFAULT ''")
     add_column_if_not_exists("activities", "extra_fields", "TEXT DEFAULT '{}'")
     add_column_if_not_exists("attendance", "extra_fields", "TEXT DEFAULT '{}'")
+    add_column_if_not_exists("attendance", "leave", "TEXT DEFAULT '[]'")
 
     # 初始化管理员
     c.execute("SELECT COUNT(*) FROM users WHERE username = 'admin'")
@@ -1990,6 +1993,7 @@ class AttendanceCreate(BaseModel):
     date: str
     attendees: list = []
     absentees: list = []
+    leave: list = []
     remark: str = ""
     extra_fields: dict = {}
 
@@ -2000,6 +2004,7 @@ class AttendanceUpdate(BaseModel):
     date: Optional[str] = None
     attendees: Optional[list] = None
     absentees: Optional[list] = None
+    leave: Optional[list] = None
     remark: Optional[str] = None
     extra_fields: Optional[dict] = None
 
@@ -2014,10 +2019,11 @@ def list_attendance(conn=Depends(get_db), user=Depends(get_current_user)):
         ORDER BY a.date DESC, a.created_at DESC
     """)
     records = [dict(r) for r in cur.fetchall()]
-    # 解析参加和缺席人员以及自定义字段
+    # 解析参加、缺席、请假人员以及自定义字段
     for r in records:
         r["attendees"] = json.loads(r["attendees"]) if r["attendees"] else []
         r["absentees"] = json.loads(r["absentees"]) if r["absentees"] else []
+        r["leave"] = json.loads(r["leave"]) if r.get("leave") else []
         r["extra_fields"] = json.loads(r["extra_fields"]) if r.get("extra_fields") else {}
     return records
 
@@ -2037,6 +2043,7 @@ def get_attendance(attendance_id: str, conn=Depends(get_db), user=Depends(get_cu
     result = dict(record)
     result["attendees"] = json.loads(result["attendees"]) if result["attendees"] else []
     result["absentees"] = json.loads(result["absentees"]) if result["absentees"] else []
+    result["leave"] = json.loads(result["leave"]) if result.get("leave") else []
     result["extra_fields"] = json.loads(result["extra_fields"]) if result.get("extra_fields") else {}
     return result
 
@@ -2045,11 +2052,11 @@ def create_attendance(req: AttendanceCreate, conn=Depends(get_db), user=Depends(
     attendance_id = str(uuid.uuid4())
     cur = conn.cursor()
     cur.execute("""
-        INSERT INTO attendance (id, title, type, activity_id, date, attendees, absentees, remark, creator_id, extra_fields)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO attendance (id, title, type, activity_id, date, attendees, absentees, leave, remark, creator_id, extra_fields)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (attendance_id, req.title, req.type, req.activity_id or None, req.date,
           json.dumps(req.attendees, ensure_ascii=False), json.dumps(req.absentees, ensure_ascii=False),
-          req.remark, user["id"], json.dumps(req.extra_fields, ensure_ascii=False)))
+          json.dumps(req.leave, ensure_ascii=False), req.remark, user["id"], json.dumps(req.extra_fields, ensure_ascii=False)))
     conn.commit()
     return {"success": True, "message": "考勤记录创建成功", "id": attendance_id}
 
@@ -2073,6 +2080,8 @@ def update_attendance(attendance_id: str, req: AttendanceUpdate, conn=Depends(ge
         updates.append("attendees=?"); params.append(json.dumps(req.attendees, ensure_ascii=False))
     if req.absentees is not None:
         updates.append("absentees=?"); params.append(json.dumps(req.absentees, ensure_ascii=False))
+    if req.leave is not None:
+        updates.append("leave=?"); params.append(json.dumps(req.leave, ensure_ascii=False))
     if req.remark is not None:
         updates.append("remark=?"); params.append(req.remark)
     if req.extra_fields is not None:

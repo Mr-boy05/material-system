@@ -481,15 +481,21 @@
             </div>
             <div class="form-group" id="activitySelectGroup" style="display:none;"><label>关联活动</label><select id="attendanceActivity"><option value="">不关联</option></select></div>
             <div class="form-group"><label>考勤日期 <span class="req">*</span></label><input type="date" id="attendanceDate"></div>
-            <div class="form-group"><label>参加人员（勾选表示参加，未勾选为缺席）</label>
-                <div style="margin-bottom:8px;display:flex;gap:8px;">
-                    <button type="button" class="btn btn-sm" style="background:#e3f2fd;color:#1976d2;" onclick="selectAllAttendance(true)">全选</button>
-                    <button type="button" class="btn btn-sm" style="background:#fff3e0;color:#f57c00;" onclick="invertAttendance()">反选</button>
-                    <button type="button" class="btn btn-sm" style="background:#fafafa;color:#999;" onclick="selectAllAttendance(false)">清空</button>
+            <div class="form-group"><label>人员考勤状态</label>
+                <!-- 标签页切换 -->
+                <div style="display:flex;gap:4px;margin-bottom:10px;background:#f5f5f5;padding:4px;border-radius:8px;">
+                    <button type="button" class="attendance-tab active" data-tab="attend" onclick="switchAttendanceTab('attend')" style="flex:1;padding:8px;border:none;border-radius:6px;cursor:pointer;font-size:13px;background:#4caf50;color:white;">✅ 参加</button>
+                    <button type="button" class="attendance-tab" data-tab="leave" onclick="switchAttendanceTab('leave')" style="flex:1;padding:8px;border:none;border-radius:6px;cursor:pointer;font-size:13px;background:transparent;color:#666;">🏖️ 请假</button>
+                    <button type="button" class="attendance-tab" data-tab="absent" onclick="switchAttendanceTab('absent')" style="flex:1;padding:8px;border:none;border-radius:6px;cursor:pointer;font-size:13px;background:transparent;color:#666;">❌ 缺席</button>
                 </div>
-                <div id="attendanceUserList" style="max-height:200px;overflow-y:auto;border:2px solid #e8e8e8;border-radius:8px;padding:10px;">
+                <!-- 搜索框 -->
+                <input type="text" id="attendanceUserSearch" placeholder="🔍 搜索姓名/部门..." oninput="renderAttendanceUserList()" style="width:100%;padding:8px 12px;border:2px solid #e8e8e8;border-radius:8px;font-size:13px;margin-bottom:10px;box-sizing:border-box;">
+                <!-- 人员列表 -->
+                <div id="attendanceUserList" style="max-height:280px;overflow-y:auto;border:2px solid #e8e8e8;border-radius:8px;padding:10px;">
                     <div style="color:#999;text-align:center;padding:10px;">加载中...</div>
                 </div>
+                <!-- 统计 -->
+                <div style="margin-top:8px;font-size:12px;color:#999;" id="attendanceUserStats"></div>
             </div>
             <div class="form-group"><label>备注</label><textarea id="attendanceRemark" rows="2" placeholder="如：张三请假" style="width:100%;padding:10px;border:2px solid #e8e8e8;border-radius:8px;resize:vertical;"></textarea></div>
             <div class="form-group">
@@ -1447,8 +1453,149 @@
 
         // ==================== 考勤记录 ====================
         let allUsersForAttendance = [];
+        let currentAttendanceTab = 'attend';
+        let userAttendanceStatus = {};
 
         function loadAttendance() {
+            fetch('/api/attendance', { headers:{'Authorization':'Bearer '+token} })
+            .then(res=>res.json())
+            .then(data=>{
+                document.getElementById('attendanceCount').textContent = '共 ' + data.length + ' 条记录';
+                const list = document.getElementById('attendanceList');
+                if (!data.length) { list.innerHTML='<div class="empty" style="grid-column:1/-1;">暂无考勤记录</div>'; return; }
+                const typeMap = {meeting:'例会', activity:'活动'};
+                const typeColor = {meeting:'#2196f3', activity:'#9c27b0'};
+                list.innerHTML = data.map(a=>{
+                    const attendCount = a.attendees ? a.attendees.length : 0;
+                    const absentCount = a.absentees ? a.absentees.length : 0;
+                    const leaveCount = a.leave ? a.leave.length : 0;
+                    const attendNames = a.attendees ? a.attendees.map(u=>u.name).join('、') : '';
+                    const absentNames = a.absentees ? a.absentees.map(u=>u.name).join('、') : '';
+                    const leaveNames = a.leave ? a.leave.map(u=>u.name).join('、') : '';
+                    return `
+                    <div style="background:white;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);border-left:4px solid ${typeColor[a.type]||'#999'};">
+                        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+                            <div style="font-size:16px;font-weight:600;color:#333;">${a.title}</div>
+                            <span style="font-size:11px;padding:3px 8px;border-radius:10px;background:${typeColor[a.type]||'#999'};color:white;">${typeMap[a.type]||a.type}</span>
+                        </div>
+                        <div style="font-size:13px;color:#666;line-height:1.8;">
+                            <div>📅 ${a.date || '-'}</div>
+                            ${a.activity_title ? `<div>🎯 关联活动：${a.activity_title}</div>` : ''}
+                            ${a.remark ? `<div>📝 ${a.remark}</div>` : ''}
+                            ${a.extra_fields && Object.keys(a.extra_fields).length ? Object.entries(a.extra_fields).map(([k,v])=>`<div>📌 ${k}：${v||'-'}</div>`).join('') : ''}
+                        </div>
+                        ${attendCount ? `<div style="margin-top:10px;padding:8px 10px;background:#e8f5e9;border-radius:6px;">
+                            <div style="font-size:12px;color:#2e7d32;font-weight:600;margin-bottom:4px;">✅ 参加（${attendCount}人）</div>
+                            <div style="font-size:12px;color:#555;line-height:1.6;">${attendNames}</div>
+                        </div>` : ''}
+                        ${leaveCount ? `<div style="margin-top:8px;padding:8px 10px;background:#fff3e0;border-radius:6px;">
+                            <div style="font-size:12px;color:#e65100;font-weight:600;margin-bottom:4px;">🏖️ 请假（${leaveCount}人）</div>
+                            <div style="font-size:12px;color:#555;line-height:1.6;">${leaveNames}</div>
+                        </div>` : ''}
+                        ${absentCount ? `<div style="margin-top:8px;padding:8px 10px;background:#ffebee;border-radius:6px;">
+                            <div style="font-size:12px;color:#c62828;font-weight:600;margin-bottom:4px;">❌ 缺席（${absentCount}人）</div>
+                            <div style="font-size:12px;color:#555;line-height:1.6;">${absentNames}</div>
+                        </div>` : ''}
+                        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+                            <button class="btn btn-sm" style="background:#e3f2fd;color:#1976d2;" onclick="editAttendance('${a.id}')">✏️ 编辑</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteAttendance('${a.id}','${a.title}')">删除</button>
+                        </div>
+                    </div>`;
+                }).join('');
+            })
+            .catch(()=>{ document.getElementById('attendanceList').innerHTML='<div class="empty">加载失败</div>'; });
+        }
+
+        function loadAttendanceUsers() {
+            fetch('/api/users', { headers:{'Authorization':'Bearer '+token} })
+            .then(res=>res.json())
+            .then(data=>{
+                allUsersForAttendance = data;
+                renderAttendanceUserList();
+            });
+        }
+
+        function switchAttendanceTab(tab) {
+            currentAttendanceTab = tab;
+            document.querySelectorAll('.attendance-tab').forEach(btn=>{
+                if (btn.dataset.tab === tab) {
+                    btn.style.background = tab === 'attend' ? '#4caf50' : tab === 'leave' ? '#ff9800' : '#f44336';
+                    btn.style.color = 'white';
+                } else {
+                    btn.style.background = 'transparent';
+                    btn.style.color = '#666';
+                }
+            });
+            renderAttendanceUserList();
+        }
+
+        function renderAttendanceUserList() {
+            const list = document.getElementById('attendanceUserList');
+            const search = (document.getElementById('attendanceUserSearch')?.value || '').toLowerCase();
+            const deptMap = {};
+            allUsersForAttendance.forEach(u=>{
+                const dept = u.department || '未分配部门';
+                if (!deptMap[dept]) deptMap[dept] = [];
+                const match = !search || (u.real_name || u.username || '').toLowerCase().includes(search) || dept.toLowerCase().includes(search);
+                if (match) deptMap[dept].push(u);
+            });
+            let html = '';
+            Object.keys(deptMap).sort().forEach(dept=>{
+                const users = deptMap[dept];
+                if (!users.length) return;
+                html += '<div style="margin-bottom:12px;">';
+                html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;padding:4px 0;">';
+                html += '<span style="font-size:13px;font-weight:600;color:#333;">🏛️ ' + dept + '（' + users.length + '人）</span>';
+                html += '<button type="button" style="font-size:11px;padding:3px 8px;border:1px solid #ddd;background:white;border-radius:4px;cursor:pointer;color:#666;" onclick="selectDeptAll(this.dataset.dept)" data-dept="' + dept + '">全选本组</button>';
+                html += '</div>';
+                html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">';
+                users.forEach(u=>{
+                    const status = userAttendanceStatus[u.id] || 'absent';
+                    const isInTab = status === currentAttendanceTab;
+                    let bgColor = '#fafafa', borderColor = '#e0e0e0';
+                    if (isInTab) {
+                        if (currentAttendanceTab === 'attend') { bgColor = '#e8f5e9'; borderColor = '#4caf50'; }
+                        else if (currentAttendanceTab === 'leave') { bgColor = '#fff3e0'; borderColor = '#ff9800'; }
+                        else { bgColor = '#ffebee'; borderColor = '#f44336'; }
+                    }
+                    const initial = (u.real_name || u.username || '?').charAt(0);
+                    const name = u.real_name || u.username;
+                    html += '<div onclick="toggleUserStatus(\'' + u.id + '\')" style="padding:8px 10px;border:2px solid ' + borderColor + ';border-radius:8px;cursor:pointer;background:' + bgColor + ';display:flex;align-items:center;gap:6px;">';
+                    html += '<div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#667eea,#764ba2);color:white;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0;">' + initial + '</div>';
+                    html += '<span style="font-size:12px;color:#333;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + name + '</span>';
+                    html += '</div>';
+                });
+                html += '</div></div>';
+            });
+            if (!html) html = '<div style="color:#999;text-align:center;padding:20px;">没有找到匹配的人员</div>';
+            list.innerHTML = html;
+            const attendCount = Object.values(userAttendanceStatus).filter(s=>s==='attend').length;
+            const leaveCount = Object.values(userAttendanceStatus).filter(s=>s==='leave').length;
+            const absentCount = allUsersForAttendance.length - attendCount - leaveCount;
+            const statsEl = document.getElementById('attendanceUserStats');
+            if (statsEl) statsEl.innerHTML = '✅ 参加 ' + attendCount + '人 &nbsp;|&nbsp; 🏖️ 请假 ' + leaveCount + '人 &nbsp;|&nbsp; ❌ 缺席 ' + absentCount + '人';
+        }
+
+        function toggleUserStatus(userId) {
+            if (userAttendanceStatus[userId] === currentAttendanceTab) {
+                userAttendanceStatus[userId] = 'absent';
+            } else {
+                userAttendanceStatus[userId] = currentAttendanceTab;
+            }
+            renderAttendanceUserList();
+        }
+
+        function selectDeptAll(btn) {
+            const dept = btn.dataset.dept;
+            allUsersForAttendance.forEach(u=>{
+                if ((u.department || '未分配部门') === dept) {
+                    userAttendanceStatus[u.id] = currentAttendanceTab;
+                }
+            });
+            renderAttendanceUserList();
+        }
+
+        function openAttendanceModal() {
             fetch('/api/attendance', { headers:{'Authorization':'Bearer '+token} })
             .then(res=>res.json())
             .then(data=>{
@@ -1517,12 +1664,13 @@
             document.getElementById('activitySelectGroup').style.display = 'none';
             document.getElementById('attendanceDate').value = new Date().toISOString().slice(0,10);
             document.getElementById('attendanceRemark').value = '';
+            document.getElementById('attendanceUserSearch').value = '';
+            userAttendanceStatus = {};
+            currentAttendanceTab = 'attend';
+            switchAttendanceTab('attend');
             loadAttendanceUsers();
             loadActivitySelect();
             loadCustomFields('attendance').then(()=>renderCustomFields('attendance', {}));
-            setTimeout(()=>{
-                document.querySelectorAll('.attendance-user-checkbox').forEach(cb=>cb.checked=false);
-            }, 300);
             document.getElementById('attendanceModal').style.display = 'flex';
         }
 
@@ -1552,14 +1700,17 @@
                 document.getElementById('activitySelectGroup').style.display = a.type === 'activity' ? 'block' : 'none';
                 document.getElementById('attendanceDate').value = a.date || '';
                 document.getElementById('attendanceRemark').value = a.remark || '';
+                document.getElementById('attendanceUserSearch').value = '';
+                // 恢复人员状态
+                userAttendanceStatus = {};
+                (a.attendees || []).forEach(u=>userAttendanceStatus[u.id] = 'attend');
+                (a.leave || []).forEach(u=>userAttendanceStatus[u.id] = 'leave');
+                (a.absentees || []).forEach(u=>userAttendanceStatus[u.id] = 'absent');
+                currentAttendanceTab = 'attend';
+                switchAttendanceTab('attend');
                 loadAttendanceUsers();
                 loadActivitySelect();
                 loadCustomFields('attendance').then(()=>renderCustomFields('attendance', a.extra_fields || {}));
-                setTimeout(()=>{
-                    document.querySelectorAll('.attendance-user-checkbox').forEach(cb=>{
-                        cb.checked = a.attendees && a.attendees.some(x=>x.id===cb.value);
-                    });
-                }, 300);
                 document.getElementById('attendanceModal').style.display = 'flex';
             });
         }
@@ -1585,17 +1736,18 @@
             const type = document.getElementById('attendanceType').value;
             const activity_id = document.getElementById('attendanceActivity').value;
             const remark = document.getElementById('attendanceRemark').value.trim();
-            // 收集参加和缺席人员
+            // 从状态中收集三类人员
             const attendees = [];
             const absentees = [];
-            document.querySelectorAll('.attendance-user-checkbox').forEach(cb=>{
-                if (cb.checked) {
-                    attendees.push({id: cb.value, name: cb.dataset.name, department: cb.dataset.dept});
-                } else {
-                    absentees.push({id: cb.value, name: cb.dataset.name, department: cb.dataset.dept});
-                }
+            const leave = [];
+            allUsersForAttendance.forEach(u=>{
+                const status = userAttendanceStatus[u.id] || 'absent';
+                const userObj = {id: u.id, name: u.real_name || u.username, department: u.department || ''};
+                if (status === 'attend') attendees.push(userObj);
+                else if (status === 'leave') leave.push(userObj);
+                else absentees.push(userObj);
             });
-            const data = { title, type, activity_id, date, attendees, absentees, remark, extra_fields: getCustomFieldValues('attendance') };
+            const data = { title, type, activity_id, date, attendees, absentees, leave, remark, extra_fields: getCustomFieldValues('attendance') };
             const url = id ? '/api/attendance/' + id : '/api/attendance';
             const method = id ? 'PUT' : 'POST';
             fetch(url, { method, headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify(data) })
@@ -1642,6 +1794,10 @@
                     <div style="background:#e8f5e9;padding:12px;border-radius:8px;margin-bottom:12px;">
                         <div style="font-weight:600;color:#2e7d32;margin-bottom:8px;">✅ 参加人员（${a.attendees.length}人）</div>
                         ${a.attendees.length ? a.attendees.map(u=>`<span style="display:inline-block;background:white;padding:4px 10px;border-radius:15px;font-size:12px;margin:3px;">${u.name}${u.department?'（'+u.department+'）':''}</span>`).join('') : '<div style="color:#999;font-size:13px;">无</div>'}
+                    </div>
+                    <div style="background:#fff3e0;padding:12px;border-radius:8px;margin-bottom:12px;">
+                        <div style="font-weight:600;color:#e65100;margin-bottom:8px;">🏖️ 请假人员（${(a.leave||[]).length}人）</div>
+                        ${(a.leave||[]).length ? a.leave.map(u=>`<span style="display:inline-block;background:white;padding:4px 10px;border-radius:15px;font-size:12px;margin:3px;">${u.name}${u.department?'（'+u.department+'）':''}</span>`).join('') : '<div style="color:#999;font-size:13px;">无</div>'}
                     </div>
                     <div style="background:#ffebee;padding:12px;border-radius:8px;">
                         <div style="font-weight:600;color:#c62828;margin-bottom:8px;">❌ 缺席人员（${a.absentees.length}人）</div>
