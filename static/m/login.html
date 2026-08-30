@@ -158,6 +158,10 @@
                 <label>密码</label>
                 <input type="password" id="password" placeholder="请输入密码">
             </div>
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;font-size:13px;color:#666;">
+                <input type="checkbox" id="autoLogin" style="width:16px;height:16px;cursor:pointer;">
+                <label for="autoLogin" style="cursor:pointer;margin:0;">自动登录（7天内免输入）</label>
+            </div>
             <button class="btn-primary" onclick="doLogin()">登 录</button>
             <div class="error-msg" id="errorMsg"></div>
             <div class="links">
@@ -345,12 +349,42 @@
             fetch('/api/login', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username,password}) })
             .then(res => res.json().then(data => ({ok:res.ok, data})))
             .then(({ok,data}) => {
-                if (ok) { localStorage.setItem('token', data.token); localStorage.setItem('user', JSON.stringify(data)); window.location.href = '/m/'; }
+                if (ok) {
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data));
+                    // 自动登录：保存凭据
+                    if (document.getElementById('autoLogin').checked) {
+                        localStorage.setItem('auto_login_cred', btoa(username + ':' + password));
+                    } else {
+                        localStorage.removeItem('auto_login_cred');
+                    }
+                    window.location.href = '/m/';
+                }
                 else { errorMsg.textContent = data.detail || '登录失败'; errorMsg.style.display = 'block'; }
             })
             .catch(() => { errorMsg.textContent = '网络错误，请重试'; errorMsg.style.display = 'block'; });
         }
         document.getElementById('password').addEventListener('keypress', e => { if (e.key === 'Enter') doLogin(); });
+
+        // 页面加载时检查自动登录
+        (function() {
+            if (localStorage.getItem('token')) {
+                window.location.href = '/m/';
+                return;
+            }
+            const cred = localStorage.getItem('auto_login_cred');
+            if (cred) {
+                try {
+                    const [u, p] = atob(cred).split(':');
+                    document.getElementById('username').value = u;
+                    document.getElementById('password').value = p;
+                    document.getElementById('autoLogin').checked = true;
+                    doLogin();
+                } catch(e) {
+                    localStorage.removeItem('auto_login_cred');
+                }
+            }
+        })();
 
         // ========== 查询领取 ==========
         let currentBorrowMaterial = null;
