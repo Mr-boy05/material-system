@@ -490,11 +490,10 @@
             </div>
             <div class="form-group" id="activitySelectGroup" style="display:none;"><label>关联活动</label><select id="attendanceActivity"><option value="">不关联</option></select></div>
             <div class="form-group"><label>考勤日期 <span class="req">*</span></label><input type="date" id="attendanceDate"></div>
-            <div class="form-group"><label>人员考勤状态</label>
-                <!-- 标签页切换 -->
+            <div class="form-group"><label>人员考勤状态 <span style="font-size:11px;color:#999;">（未标记的默认参加，老师不参与考勤）</span></label>
+                <!-- 标签页切换：只有请假和缺席，其余默认参加 -->
                 <div style="display:flex;gap:4px;margin-bottom:10px;background:#f5f5f5;padding:4px;border-radius:8px;">
-                    <button type="button" class="attendance-tab active" data-tab="attend" onclick="switchAttendanceTab('attend')" style="flex:1;padding:8px;border:none;border-radius:6px;cursor:pointer;font-size:13px;background:#4caf50;color:white;">✅ 参加</button>
-                    <button type="button" class="attendance-tab" data-tab="leave" onclick="switchAttendanceTab('leave')" style="flex:1;padding:8px;border:none;border-radius:6px;cursor:pointer;font-size:13px;background:transparent;color:#666;">🏖️ 请假</button>
+                    <button type="button" class="attendance-tab active" data-tab="leave" onclick="switchAttendanceTab('leave')" style="flex:1;padding:8px;border:none;border-radius:6px;cursor:pointer;font-size:13px;background:#ff9800;color:white;">🏖️ 请假</button>
                     <button type="button" class="attendance-tab" data-tab="absent" onclick="switchAttendanceTab('absent')" style="flex:1;padding:8px;border:none;border-radius:6px;cursor:pointer;font-size:13px;background:transparent;color:#666;">❌ 缺席</button>
                 </div>
                 <!-- 搜索框 -->
@@ -1576,7 +1575,7 @@
 
         // ==================== 考勤记录 ====================
         let allUsersForAttendance = [];
-        let currentAttendanceTab = 'attend';
+        let currentAttendanceTab = 'leave';
         let userAttendanceStatus = {};
 
         function loadAttendance() {
@@ -1657,6 +1656,8 @@
             const search = (document.getElementById('attendanceUserSearch')?.value || '').toLowerCase();
             const deptMap = {};
             allUsersForAttendance.forEach(u=>{
+                // 老师不参与考勤
+                if (u.department === '老师') return;
                 const dept = u.department || '未分配部门';
                 if (!deptMap[dept]) deptMap[dept] = [];
                 const match = !search || (u.real_name || u.username || '').toLowerCase().includes(search) || dept.toLowerCase().includes(search);
@@ -1669,18 +1670,16 @@
                 html += '<div style="margin-bottom:12px;">';
                 html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;padding:4px 0;">';
                 html += '<span style="font-size:13px;font-weight:600;color:#333;">🏛️ ' + dept + '（' + users.length + '人）</span>';
-                html += '<button type="button" style="font-size:11px;padding:3px 8px;border:1px solid #ddd;background:white;border-radius:4px;cursor:pointer;color:#666;" onclick="selectDeptAll(this.dataset.dept)" data-dept="' + dept + '">全选本组</button>';
+                html += '<button type="button" style="font-size:11px;padding:3px 8px;border:1px solid #ddd;background:white;border-radius:4px;cursor:pointer;color:#666;" onclick="selectDeptAll(\'' + dept + '\')">全选本组</button>';
                 html += '</div>';
                 html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">';
                 users.forEach(u=>{
-                    const status = userAttendanceStatus[u.id] || 'absent';
+                    // 未标记的默认参加，只有请假和缺席需要标记
+                    const status = userAttendanceStatus[u.id] || 'attend';
                     const isInTab = status === currentAttendanceTab;
-                    let bgColor = '#fafafa', borderColor = '#e0e0e0';
-                    if (isInTab) {
-                        if (currentAttendanceTab === 'attend') { bgColor = '#e8f5e9'; borderColor = '#4caf50'; }
-                        else if (currentAttendanceTab === 'leave') { bgColor = '#fff3e0'; borderColor = '#ff9800'; }
-                        else { bgColor = '#ffebee'; borderColor = '#f44336'; }
-                    }
+                    let bgColor = '#e8f5e9', borderColor = '#4caf50'; // 默认参加（绿色）
+                    if (status === 'leave') { bgColor = '#fff3e0'; borderColor = '#ff9800'; }
+                    else if (status === 'absent') { bgColor = '#ffebee'; borderColor = '#f44336'; }
                     const initial = (u.real_name || u.username || '?').charAt(0);
                     const name = u.real_name || u.username;
                     html += '<div onclick="toggleUserStatus(\'' + u.id + '\')" style="padding:8px 10px;border:2px solid ' + borderColor + ';border-radius:8px;cursor:pointer;background:' + bgColor + ';display:flex;align-items:center;gap:6px;">';
@@ -1690,28 +1689,33 @@
                 });
                 html += '</div></div>';
             });
-            if (!html) html = '<div style="color:#999;text-align:center;padding:20px;">没有找到匹配的人员</div>';
+            if (!html) html = '<div style="color:#999;text-align:center;padding:20px;">没有找到匹配的人员（老师不参与考勤）</div>';
             list.innerHTML = html;
-            const attendCount = Object.values(userAttendanceStatus).filter(s=>s==='attend').length;
+            // 统计：未标记的默认参加
             const leaveCount = Object.values(userAttendanceStatus).filter(s=>s==='leave').length;
-            const absentCount = allUsersForAttendance.length - attendCount - leaveCount;
+            const absentCount = Object.values(userAttendanceStatus).filter(s=>s==='absent').length;
+            const totalUsers = allUsersForAttendance.filter(u=>u.department !== '老师').length;
+            const attendCount = totalUsers - leaveCount - absentCount;
             const statsEl = document.getElementById('attendanceUserStats');
-            if (statsEl) statsEl.innerHTML = '✅ 参加 ' + attendCount + '人 &nbsp;|&nbsp; 🏖️ 请假 ' + leaveCount + '人 &nbsp;|&nbsp; ❌ 缺席 ' + absentCount + '人';
+            if (statsEl) statsEl.innerHTML = '✅ 参加 ' + attendCount + '人 &nbsp;|&nbsp; 🏖️ 请假 ' + leaveCount + '人 &nbsp;|&nbsp; ❌ 缺席 ' + absentCount + '人 &nbsp;|&nbsp; 👨‍🏫 老师 ' + (allUsersForAttendance.length - totalUsers) + '人（不考勤）';
         }
 
         function toggleUserStatus(userId) {
+            // 如果当前状态就是当前标签，则取消标记（变回默认参加）
             if (userAttendanceStatus[userId] === currentAttendanceTab) {
-                userAttendanceStatus[userId] = 'absent';
+                delete userAttendanceStatus[userId];
             } else {
+                // 否则标记为当前标签（请假或缺席）
                 userAttendanceStatus[userId] = currentAttendanceTab;
             }
             renderAttendanceUserList();
         }
 
-        function selectDeptAll(btn) {
-            const dept = btn.dataset.dept;
+        function selectDeptAll(dept) {
             allUsersForAttendance.forEach(u=>{
                 if ((u.department || '未分配部门') === dept) {
+                    // 老师不参与考勤
+                    if (u.department === '老师') return;
                     userAttendanceStatus[u.id] = currentAttendanceTab;
                 }
             });
@@ -1773,8 +1777,8 @@
             document.getElementById('attendanceRemark').value = '';
             document.getElementById('attendanceUserSearch').value = '';
             userAttendanceStatus = {};
-            currentAttendanceTab = 'attend';
-            switchAttendanceTab('attend');
+            currentAttendanceTab = 'leave';
+            switchAttendanceTab('leave');
             loadAttendanceUsers();
             loadActivitySelect();
             loadCustomFields('attendance').then(()=>renderCustomFields('attendance', {}));
@@ -1808,13 +1812,12 @@
                 document.getElementById('attendanceDate').value = a.date || '';
                 document.getElementById('attendanceRemark').value = a.remark || '';
                 document.getElementById('attendanceUserSearch').value = '';
-                // 恢复人员状态
+                // 恢复人员状态：只有请假和缺席需要标记，其余默认参加
                 userAttendanceStatus = {};
-                (a.attendees || []).forEach(u=>userAttendanceStatus[u.id] = 'attend');
                 (a.leave || []).forEach(u=>userAttendanceStatus[u.id] = 'leave');
                 (a.absentees || []).forEach(u=>userAttendanceStatus[u.id] = 'absent');
-                currentAttendanceTab = 'attend';
-                switchAttendanceTab('attend');
+                currentAttendanceTab = 'leave';
+                switchAttendanceTab('leave');
                 loadAttendanceUsers();
                 loadActivitySelect();
                 loadCustomFields('attendance').then(()=>renderCustomFields('attendance', a.extra_fields || {}));
@@ -1843,12 +1846,14 @@
             const type = document.getElementById('attendanceType').value;
             const activity_id = document.getElementById('attendanceActivity').value;
             const remark = document.getElementById('attendanceRemark').value.trim();
-            // 从状态中收集三类人员
+            // 从状态中收集三类人员：未标记的默认参加，老师不参与考勤
             const attendees = [];
             const absentees = [];
             const leave = [];
             allUsersForAttendance.forEach(u=>{
-                const status = userAttendanceStatus[u.id] || 'absent';
+                // 老师不参与考勤
+                if (u.department === '老师') return;
+                const status = userAttendanceStatus[u.id] || 'attend'; // 未标记默认参加
                 const userObj = {id: u.id, name: u.real_name || u.username, department: u.department || ''};
                 if (status === 'attend') attendees.push(userObj);
                 else if (status === 'leave') leave.push(userObj);

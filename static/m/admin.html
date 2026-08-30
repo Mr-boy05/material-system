@@ -319,11 +319,10 @@
         <div class="form-group"><label>考勤类型</label><select id="attendanceType"><option value="meeting">例会考勤</option><option value="activity">活动考勤</option></select></div>
         <div class="form-group"><label>考勤日期 <span class="req">*</span></label><input type="date" id="attendanceDate"></div>
         <div class="form-group"><label>备注</label><textarea id="attendanceRemark" rows="2" style="width:100%;padding:10px;border:2px solid #e8e8e8;border-radius:8px;resize:vertical;"></textarea></div>
-        <div class="form-group"><label>人员考勤状态</label>
-            <!-- 标签页切换 -->
+        <div class="form-group"><label>人员考勤状态 <span style="font-size:11px;color:#999;">（未标记默认参加，老师不考勤）</span></label>
+            <!-- 标签页切换：只有请假和缺席，其余默认参加 -->
             <div style="display:flex;gap:4px;margin-bottom:10px;background:#f5f5f5;padding:4px;border-radius:8px;">
-                <button type="button" class="mob-att-tab" data-tab="attend" onclick="switchMobAttTab('attend')" style="flex:1;padding:8px;border:none;border-radius:6px;cursor:pointer;font-size:13px;background:#4caf50;color:white;">✅ 参加</button>
-                <button type="button" class="mob-att-tab" data-tab="leave" onclick="switchMobAttTab('leave')" style="flex:1;padding:8px;border:none;border-radius:6px;cursor:pointer;font-size:13px;background:transparent;color:#666;">🏖️ 请假</button>
+                <button type="button" class="mob-att-tab" data-tab="leave" onclick="switchMobAttTab('leave')" style="flex:1;padding:8px;border:none;border-radius:6px;cursor:pointer;font-size:13px;background:#ff9800;color:white;">🏖️ 请假</button>
                 <button type="button" class="mob-att-tab" data-tab="absent" onclick="switchMobAttTab('absent')" style="flex:1;padding:8px;border:none;border-radius:6px;cursor:pointer;font-size:13px;background:transparent;color:#666;">❌ 缺席</button>
             </div>
             <!-- 搜索框 -->
@@ -976,7 +975,7 @@ function deleteActivityMobile(id, title) {
 
 // ==================== 考勤记录 ====================
 let mobileAttendanceUsers = [];
-let currentMobAttTab = 'attend';
+let currentMobAttTab = 'leave';
 let mobUserStatus = {};
 
 function loadAttendanceMobile() {
@@ -1022,8 +1021,8 @@ function showAddAttendance() {
     document.getElementById('attendanceRemark').value = '';
     document.getElementById('mobAttSearch').value = '';
     mobUserStatus = {};
-    currentMobAttTab = 'attend';
-    switchMobAttTab('attend');
+    currentMobAttTab = 'leave';
+    switchMobAttTab('leave');
     loadMobAttendanceUsers();
     document.getElementById('attendanceModal').classList.add('show');
 }
@@ -1037,13 +1036,12 @@ function editAttendanceMobile(id) {
         document.getElementById('attendanceDate').value = a.date || '';
         document.getElementById('attendanceRemark').value = a.remark || '';
         document.getElementById('mobAttSearch').value = '';
-        // 恢复人员状态
+        // 恢复人员状态：只有请假和缺席需要标记，其余默认参加
         mobUserStatus = {};
-        (a.attendees || []).forEach(u => mobUserStatus[u.id] = 'attend');
         (a.leave || []).forEach(u => mobUserStatus[u.id] = 'leave');
         (a.absentees || []).forEach(u => mobUserStatus[u.id] = 'absent');
-        currentMobAttTab = 'attend';
-        switchMobAttTab('attend');
+        currentMobAttTab = 'leave';
+        switchMobAttTab('leave');
         loadMobAttendanceUsers();
         document.getElementById('attendanceModal').classList.add('show');
     });
@@ -1060,7 +1058,7 @@ function switchMobAttTab(tab) {
     currentMobAttTab = tab;
     document.querySelectorAll('.mob-att-tab').forEach(btn => {
         if (btn.dataset.tab === tab) {
-            btn.style.background = tab === 'attend' ? '#4caf50' : tab === 'leave' ? '#ff9800' : '#f44336';
+            btn.style.background = tab === 'leave' ? '#ff9800' : '#f44336';
             btn.style.color = 'white';
         } else {
             btn.style.background = 'transparent';
@@ -1075,6 +1073,8 @@ function renderMobAttUsers() {
     const search = (document.getElementById('mobAttSearch')?.value || '').toLowerCase();
     const deptMap = {};
     mobileAttendanceUsers.forEach(u => {
+        // 老师不参与考勤
+        if (u.department === '老师') return;
         const dept = u.department || '未分配部门';
         if (!deptMap[dept]) deptMap[dept] = [];
         const match = !search || (u.real_name || u.username || '').toLowerCase().includes(search) || dept.toLowerCase().includes(search);
@@ -1087,18 +1087,15 @@ function renderMobAttUsers() {
         html += '<div style="margin-bottom:12px;">';
         html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;padding:4px 0;">';
         html += '<span style="font-size:13px;font-weight:600;color:#333;">🏛️ ' + dept + '（' + users.length + '人）</span>';
-        html += '<button type="button" style="font-size:11px;padding:3px 8px;border:1px solid #ddd;background:white;border-radius:4px;cursor:pointer;color:#666;" onclick="selectMobDeptAll(this)" data-dept="' + dept + '">全选本组</button>';
+        html += '<button type="button" style="font-size:11px;padding:3px 8px;border:1px solid #ddd;background:white;border-radius:4px;cursor:pointer;color:#666;" onclick="selectMobDeptAll(\'' + dept + '\')">全选本组</button>';
         html += '</div>';
         html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">';
         users.forEach(u => {
-            const status = mobUserStatus[u.id] || 'absent';
-            const isInTab = status === currentMobAttTab;
-            let bgColor = '#fafafa', borderColor = '#e0e0e0';
-            if (isInTab) {
-                if (currentMobAttTab === 'attend') { bgColor = '#e8f5e9'; borderColor = '#4caf50'; }
-                else if (currentMobAttTab === 'leave') { bgColor = '#fff3e0'; borderColor = '#ff9800'; }
-                else { bgColor = '#ffebee'; borderColor = '#f44336'; }
-            }
+            // 未标记的默认参加（绿色）
+            const status = mobUserStatus[u.id] || 'attend';
+            let bgColor = '#e8f5e9', borderColor = '#4caf50';
+            if (status === 'leave') { bgColor = '#fff3e0'; borderColor = '#ff9800'; }
+            else if (status === 'absent') { bgColor = '#ffebee'; borderColor = '#f44336'; }
             const initial = (u.real_name || u.username || '?').charAt(0);
             const name = u.real_name || u.username;
             html += '<div onclick="toggleMobUserStatus(\'' + u.id + '\')" style="padding:8px 10px;border:2px solid ' + borderColor + ';border-radius:8px;cursor:pointer;background:' + bgColor + ';display:flex;align-items:center;gap:6px;">';
@@ -1108,29 +1105,34 @@ function renderMobAttUsers() {
         });
         html += '</div></div>';
     });
-    if (!html) html = '<div style="color:#999;text-align:center;padding:20px;">没有找到匹配的人员</div>';
+    if (!html) html = '<div style="color:#999;text-align:center;padding:20px;">没有找到匹配的人员（老师不参与考勤）</div>';
     list.innerHTML = html;
-    // 更新统计
-    const attendCount = Object.values(mobUserStatus).filter(s=>s==='attend').length;
+    // 更新统计：未标记的默认参加
     const leaveCount = Object.values(mobUserStatus).filter(s=>s==='leave').length;
-    const absentCount = mobileAttendanceUsers.length - attendCount - leaveCount;
+    const absentCount = Object.values(mobUserStatus).filter(s=>s==='absent').length;
+    const totalUsers = mobileAttendanceUsers.filter(u=>u.department !== '老师').length;
+    const attendCount = totalUsers - leaveCount - absentCount;
+    const teacherCount = mobileAttendanceUsers.length - totalUsers;
     const statsEl = document.getElementById('mobAttStats');
-    if (statsEl) statsEl.innerHTML = '✅ 参加 ' + attendCount + '人 &nbsp;|&nbsp; 🏖️ 请假 ' + leaveCount + '人 &nbsp;|&nbsp; ❌ 缺席 ' + absentCount + '人';
+    if (statsEl) statsEl.innerHTML = '✅ 参加 ' + attendCount + '人 | 🏖️ 请假 ' + leaveCount + '人 | ❌ 缺席 ' + absentCount + '人 | 👨‍🏫 老师 ' + teacherCount + '人';
 }
 
 function toggleMobUserStatus(userId) {
+    // 如果当前状态就是当前标签，则取消标记（变回默认参加）
     if (mobUserStatus[userId] === currentMobAttTab) {
-        mobUserStatus[userId] = 'absent';
+        delete mobUserStatus[userId];
     } else {
+        // 否则标记为当前标签（请假或缺席）
         mobUserStatus[userId] = currentMobAttTab;
     }
     renderMobAttUsers();
 }
 
-function selectMobDeptAll(btn) {
-    const dept = btn.dataset.dept;
+function selectMobDeptAll(dept) {
     mobileAttendanceUsers.forEach(u => {
         if ((u.department || '未分配部门') === dept) {
+            // 老师不参与考勤
+            if (u.department === '老师') return;
             mobUserStatus[u.id] = currentMobAttTab;
         }
     });
@@ -1147,7 +1149,9 @@ function submitAttendanceMobile() {
     const absentees = [];
     const leave = [];
     mobileAttendanceUsers.forEach(u => {
-        const status = mobUserStatus[u.id] || 'absent';
+        // 老师不参与考勤
+        if (u.department === '老师') return;
+        const status = mobUserStatus[u.id] || 'attend'; // 未标记默认参加
         const userObj = {id: u.id, name: u.real_name || u.username, department: u.department || ''};
         if (status === 'attend') attendees.push(userObj);
         else if (status === 'leave') leave.push(userObj);
@@ -1160,7 +1164,7 @@ function submitAttendanceMobile() {
         remark: document.getElementById('attendanceRemark').value.trim(),
         attendees,
         absentees,
-        leave: []
+        leave: leave
     };
     const url = id ? '/api/attendance/' + id : '/api/attendance';
     const method = id ? 'PUT' : 'POST';
