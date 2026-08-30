@@ -451,7 +451,6 @@
             <div class="form-group"><label>活动日期</label><input type="date" id="activityStartTime"></div>
             <div class="form-group"><label>活动地点</label><input type="text" id="activityLocation" placeholder="如：学校大礼堂"></div>
             <div class="form-group"><label>主办方</label><input type="text" id="activityOrganizer" placeholder="如：城治学生会文娱部"></div>
-            <div class="form-group"><label>活动描述</label><textarea id="activityDesc" rows="3" placeholder="活动简介、流程等" style="width:100%;padding:10px;border:2px solid #e8e8e8;border-radius:8px;resize:vertical;"></textarea></div>
             <div class="form-group"><label>活动文件夹（WPS云文档链接，大文件用这个）</label><input type="text" id="activityFolder" placeholder="粘贴WPS云文档分享链接"></div>
             <div class="form-group"><label>活动文件（小文件，单个≤50MB）</label>
                 <div class="upload-area" onclick="document.getElementById('activityFile').click()">点击上传文件</div>
@@ -1165,7 +1164,6 @@
                             ${dateStr ? `<div>📅 ${dateStr}</div>` : ''}
                             ${a.location ? `<div>📍 ${a.location}</div>` : ''}
                             ${a.organizer ? `<div>🏛️ ${a.organizer}</div>` : ''}
-                            ${a.description ? `<div style="margin-top:6px;color:#888;">${a.description}</div>` : ''}
                         </div>
                         ${a.folder_link ? `<div style="margin-top:10px;"><a href="${a.folder_link}" target="_blank" style="color:#667eea;font-size:13px;text-decoration:none;">📁 活动文件夹（WPS云文档）</a></div>` : ''}
                         ${files.length ? `<div style="margin-top:8px;font-size:12px;color:#888;">📎 ${files.length}个文件</div>` : ''}
@@ -1186,7 +1184,6 @@
             document.getElementById('activityStartTime').value = '';
             document.getElementById('activityLocation').value = '';
             document.getElementById('activityOrganizer').value = '';
-            document.getElementById('activityDesc').value = '';
             document.getElementById('activityFolder').value = '';
             activityFiles = [];
             document.getElementById('activityFileList').innerHTML = '';
@@ -1205,7 +1202,6 @@
                 document.getElementById('activityStartTime').value = a.start_time ? a.start_time.slice(0,10) : '';
                 document.getElementById('activityLocation').value = a.location || '';
                 document.getElementById('activityOrganizer').value = a.organizer || '';
-                document.getElementById('activityDesc').value = a.description || '';
                 document.getElementById('activityFolder').value = a.folder_link || '';
                 activityFiles = a.files ? JSON.parse(a.files) : [];
                 renderActivityFiles();
@@ -1269,7 +1265,6 @@
                 start_time: start_time || '',
                 location: document.getElementById('activityLocation').value.trim(),
                 organizer: document.getElementById('activityOrganizer').value.trim(),
-                description: document.getElementById('activityDesc').value.trim(),
                 folder_link: document.getElementById('activityFolder').value.trim(),
                 files: activityFiles
             };
@@ -1280,7 +1275,8 @@
             .then(({ok,data})=>{
                 if (ok) { showToast(id ? '活动更新成功' : '活动创建成功'); closeActivityModal(); loadActivities(); }
                 else showToast(data.detail || '保存失败');
-            });
+            })
+            .catch(err=>{ showToast('网络错误：' + err.message); });
         }
 
         function deleteActivity(id, title) {
