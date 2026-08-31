@@ -230,6 +230,17 @@
             <div class="form-group"><label>确认新密码 <span class="req">*</span></label><input type="password" id="confirmPwd" placeholder="再次输入新密码"></div>
             <button class="btn-primary" onclick="submitChangePwd()">确认修改</button>
         </div>
+        <div class="form-card">
+            <div style="font-weight:600;margin-bottom:14px;">📋 关于</div>
+            <div class="detail-row" onclick="openMobileChangelog()" style="cursor:pointer;">
+                <span class="label">更新日志</span>
+                <span class="value" style="color:#667eea;">查看 →</span>
+            </div>
+            <div class="detail-row">
+                <span class="label">当前版本</span>
+                <span class="value" id="profileVersion">v3.0.0</span>
+            </div>
+        </div>
         <div style="padding:0 16px;margin-top:16px;">
             <button onclick="logout()" style="width:100%;padding:14px;background:white;border:1.5px solid #ffcdd2;color:#c62828;border-radius:14px;font-size:15px;font-weight:600;cursor:pointer;">退出登录</button>
         </div>
@@ -256,7 +267,7 @@
 
     <!-- 底部版权 -->
     <div class="mobile-footer">
-        <div>城治学生会物资管理系统 <span class="version" id="mobileVersion" style="cursor:pointer;" onclick="openMobileChangelog()">v3.0.0</span></div>
+        <div>城治学生会物资管理系统 <span class="version" id="mobileVersion">v3.0.0</span></div>
         <div>© 2026 重庆超大城市数字化治理学院 版权所有</div>
     </div>
 
@@ -795,6 +806,9 @@
             document.getElementById('oldPwd').value = '';
             document.getElementById('newPwd').value = '';
             document.getElementById('confirmPwd').value = '';
+            fetch('/api/version').then(r=>r.json()).then(d=>{
+                document.getElementById('profileVersion').textContent = 'v' + d.version;
+            }).catch(()=>{});
         }
         function submitChangePwd() {
             const oldPwd = document.getElementById('oldPwd').value;
