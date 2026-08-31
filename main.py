@@ -18,7 +18,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "3.1.4"
+VERSION = "3.2.0"
 VERSION_DATE = "2026-08-31"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
@@ -255,6 +255,22 @@ def init_db():
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
     """)
+
+    # 活动规划表（部门未来活动的时间线展示）
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS activity_plans (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            department TEXT DEFAULT '',
+            plan_date TEXT NOT NULL,
+            location TEXT DEFAULT '',
+            description TEXT DEFAULT '',
+            status TEXT DEFAULT 'planned',
+            creator_id TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    c.execute("CREATE INDEX IF NOT EXISTS idx_activity_plans_date ON activity_plans(plan_date)")
 
     # 索引
     c.execute("CREATE INDEX IF NOT EXISTS idx_materials_qr ON materials(qr_code)")
@@ -2225,6 +2241,112 @@ async def upload_activity_file(file: UploadFile = File(...), user=Depends(get_cu
     # 返回可访问的URL
     file_url = f"/uploads/activities/{unique_name}"
     return {"success": True, "url": file_url, "filename": file.filename, "size": len(content)}
+
+# ==================== 活动规划（部门时间线） ====================
+class ActivityPlanCreate(BaseModel):
+    title: str
+    department: str = ""
+    plan_date: str = ""
+    location: str = ""
+    description: str = ""
+    status: str = "planned"
+
+class ActivityPlanUpdate(BaseModel):
+    title: Optional[str] = None
+    department: Optional[str] = None
+    plan_date: Optional[str] = None
+    location: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[str] = None
+
+@app.get("/api/activity-plans")
+def list_activity_plans(department: str = "", conn=Depends(get_db), user=Depends(get_current_user)):
+    cur = conn.cursor()
+    if department:
+        cur.execute("""
+            SELECT p.*, u.real_name as creator_name
+            FROM activity_plans p
+            LEFT JOIN users u ON p.creator_id = u.id
+            WHERE p.department = ?
+            ORDER BY p.plan_date ASC, p.created_at ASC
+        """, (department,))
+    else:
+        cur.execute("""
+            SELECT p.*, u.real_name as creator_name
+            FROM activity_plans p
+            LEFT JOIN users u ON p.creator_id = u.id
+            ORDER BY p.plan_date ASC, p.created_at ASC
+        """)
+    return [dict(r) for r in cur.fetchall()]
+
+@app.get("/api/activity-plans/departments")
+def list_plan_departments(conn=Depends(get_db), user=Depends(get_current_user)):
+    cur = conn.cursor()
+    cur.execute("SELECT DISTINCT department FROM users WHERE department != '' AND department IS NOT NULL ORDER BY department")
+    depts = [r["department"] for r in cur.fetchall()]
+    cur.execute("SELECT DISTINCT department FROM activity_plans WHERE department != '' AND department IS NOT NULL")
+    for r in cur.fetchall():
+        if r["department"] not in depts:
+            depts.append(r["department"])
+    return depts
+
+@app.post("/api/activity-plans")
+def create_activity_plan(req: ActivityPlanCreate, conn=Depends(get_db), user=Depends(get_current_user)):
+    if not req.title.strip():
+        raise HTTPException(status_code=400, detail="请输入活动名称")
+    if not req.plan_date.strip():
+        raise HTTPException(status_code=400, detail="请选择计划日期")
+    plan_id = str(uuid.uuid4())
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO activity_plans (id, title, department, plan_date, location, description, status, creator_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (plan_id, req.title.strip(), req.department.strip(), req.plan_date.strip(),
+          req.location.strip(), req.description.strip(), req.status, user["id"]))
+    conn.commit()
+    return {"success": True, "message": "活动规划已创建", "id": plan_id}
+
+@app.put("/api/activity-plans/{plan_id}")
+def update_activity_plan(plan_id: str, req: ActivityPlanUpdate, conn=Depends(get_db), user=Depends(get_current_user)):
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM activity_plans WHERE id=?", (plan_id,))
+    plan = cur.fetchone()
+    if not plan:
+        raise HTTPException(status_code=404, detail="活动规划不存在")
+    if user["role"] != "admin" and plan["creator_id"] != user["id"]:
+        raise HTTPException(status_code=403, detail="只能编辑自己创建的活动规划")
+    updates = []
+    params = []
+    if req.title is not None:
+        updates.append("title=?"); params.append(req.title.strip())
+    if req.department is not None:
+        updates.append("department=?"); params.append(req.department.strip())
+    if req.plan_date is not None:
+        updates.append("plan_date=?"); params.append(req.plan_date.strip())
+    if req.location is not None:
+        updates.append("location=?"); params.append(req.location.strip())
+    if req.description is not None:
+        updates.append("description=?"); params.append(req.description.strip())
+    if req.status is not None:
+        updates.append("status=?"); params.append(req.status)
+    if updates:
+        params.append(plan_id)
+        cur.execute(f"UPDATE activity_plans SET {', '.join(updates)} WHERE id=?", params)
+        conn.commit()
+    return {"success": True, "message": "活动规划已更新"}
+
+@app.delete("/api/activity-plans/{plan_id}")
+def delete_activity_plan(plan_id: str, conn=Depends(get_db), user=Depends(get_current_user)):
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM activity_plans WHERE id=?", (plan_id,))
+    plan = cur.fetchone()
+    if not plan:
+        raise HTTPException(status_code=404, detail="活动规划不存在")
+    if user["role"] != "admin" and plan["creator_id"] != user["id"]:
+        raise HTTPException(status_code=403, detail="只能删除自己创建的活动规划")
+    cur.execute("DELETE FROM activity_plans WHERE id=?", (plan_id,))
+    conn.commit()
+    return {"success": True, "message": "活动规划已删除"}
 
 # ==================== 考勤记录 ====================
 class AttendanceCreate(BaseModel):

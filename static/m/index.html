@@ -226,6 +226,58 @@
         <div id="mSkillList"><div style="text-align:center;padding:40px;color:#999;">加载中...</div></div>
     </div>
 
+    <!-- 活动规划页面 -->
+    <div class="page" id="page-activity-plan">
+        <div class="nav-bar"><div class="back" onclick="showPage('page-home')">←</div><div class="title">活动规划</div><div class="right" onclick="openMPlanModal()" style="cursor:pointer;font-size:15px;">+ 新增</div></div>
+        <style>
+            .mplan-dept-tabs{display:flex;gap:8px;overflow-x:auto;padding:12px 14px 2px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+            .mplan-dept-tabs::-webkit-scrollbar{display:none;}
+            .mplan-tab{flex-shrink:0;padding:6px 14px;border-radius:18px;background:#fff;border:1px solid #e5e7f0;font-size:13px;color:#666;cursor:pointer;}
+            .mplan-tab.active{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border-color:transparent;}
+            .mplan-timeline{position:relative;padding:10px 14px 20px;}
+            .mplan-timeline::before{content:'';position:absolute;left:26px;top:12px;bottom:12px;width:3px;background:linear-gradient(180deg,#667eea,#764ba2,#f093fb);border-radius:2px;}
+            .mplan-month{margin:14px 0 12px;padding-left:52px;}
+            .mplan-month .tag{display:inline-block;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;padding:4px 14px;border-radius:16px;font-size:12px;font-weight:600;}
+            .mplan-item{position:relative;margin-bottom:14px;padding-left:52px;}
+            .mplan-item .dot{position:absolute;left:19px;top:14px;width:15px;height:15px;border-radius:50%;background:#fff;border:4px solid #667eea;box-shadow:0 0 0 3px rgba(102,126,234,.15);}
+            .mplan-card{background:#fff;border-radius:14px;padding:13px 14px;box-shadow:0 2px 10px rgba(0,0,0,.05);border:1px solid #eef0f6;}
+            .mplan-card .t{display:flex;justify-content:space-between;align-items:center;gap:6px;}
+            .mplan-card .t .name{font-size:14px;font-weight:700;color:#1a1a2e;}
+            .mplan-badge{padding:2px 9px;border-radius:11px;font-size:11px;white-space:nowrap;}
+            .mplan-badge.b-planned{background:#fff3e0;color:#ef6c00;}
+            .mplan-badge.b-confirmed{background:#e3f2fd;color:#1976d2;}
+            .mplan-badge.b-done{background:#e8f5e9;color:#2e7d32;}
+            .mplan-card .dept{display:inline-block;margin-top:7px;padding:2px 9px;border-radius:6px;background:#f3e8ff;color:#7b1fa2;font-size:11px;font-weight:600;}
+            .mplan-card .meta{margin-top:7px;font-size:12px;color:#888;display:flex;flex-wrap:wrap;gap:8px;}
+            .mplan-card .desc{margin-top:7px;font-size:12px;color:#555;line-height:1.6;background:#fafbff;border-radius:8px;padding:7px 9px;}
+            .mplan-card .ops{margin-top:9px;display:flex;gap:8px;justify-content:flex-end;}
+            .mplan-card .ops button{padding:4px 13px;border-radius:7px;border:1px solid #e0e0e0;background:#fff;font-size:12px;cursor:pointer;color:#555;}
+            .mplan-card .ops .del{color:#e53935;border-color:#f5c6c6;}
+            .mplan-empty{text-align:center;color:#999;padding:60px 16px;font-size:13px;}
+        </style>
+        <div class="mplan-dept-tabs" id="mplanTabs"><div class="mplan-tab active" data-dept="" onclick="mplanFilter('')">全部</div></div>
+        <div id="mplanTimeline" class="mplan-timeline"><div style="text-align:center;padding:40px;color:#999;">加载中...</div></div>
+    </div>
+
+    <!-- 活动规划新增/编辑弹窗 -->
+    <div class="modal-mask" id="mPlanModal" onclick="if(event.target===this)closeMPlanModal()">
+        <div class="modal">
+            <div class="modal-title" id="mPlanModalTitle">新增活动规划</div>
+            <input type="hidden" id="mPlanId">
+            <div class="form-group"><label>活动名称 <span class="req">*</span></label><input type="text" id="mPlanTitle" placeholder="如：迎新晚会"></div>
+            <div class="form-group"><label>所属部门</label><select id="mPlanDept" style="padding:11px;border:1px solid #e5e7f0;border-radius:10px;width:100%;background:#fff;font-size:14px;"><option value="">请选择部门</option></select></div>
+            <div class="form-group"><label>计划日期 <span class="req">*</span></label><input type="date" id="mPlanDate" style="padding:11px;border:1px solid #e5e7f0;border-radius:10px;width:100%;background:#fff;font-size:14px;"></div>
+            <div class="form-group"><label>活动地点</label><input type="text" id="mPlanLocation" placeholder="如：学术报告厅"></div>
+            <div class="form-group"><label>状态</label><select id="mPlanStatus" style="padding:11px;border:1px solid #e5e7f0;border-radius:10px;width:100%;background:#fff;font-size:14px;"><option value="planned">规划中</option><option value="confirmed">已确定</option><option value="done">已完成</option></select></div>
+            <div class="form-group"><label>活动内容说明</label><textarea id="mPlanDesc" rows="3" style="width:100%;padding:11px;border:1px solid #e5e7f0;border-radius:10px;resize:vertical;font-size:14px;box-sizing:border-box;" placeholder="简单介绍活动的目的、内容、规模等"></textarea></div>
+            <div class="error-msg" id="mPlanError" style="display:none;margin:8px 0 0;color:#c62828;font-size:13px;"></div>
+            <div style="display:flex;gap:10px;margin-top:18px;">
+                <button class="btn-full ghost" style="flex:1;margin:0;" onclick="closeMPlanModal()">取消</button>
+                <button class="btn-primary" style="flex:1;margin:0;" onclick="submitMPlan()">保存</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 个人设置页面 -->
     <div class="page" id="page-profile">
         <div class="nav-bar"><div class="back" onclick="showPage('page-home')">←</div><div class="title">个人设置</div><div class="right"></div></div>
@@ -356,6 +408,7 @@
             const commonMenu = [
                 { icon:'↩️', label:'物资归还', desc:'归还借出物资', page:'page-return' },
                 { icon:'📚', label:'技能文档', desc:'模板/资料下载', page:'page-skills' },
+                { icon:'🗓️', label:'活动规划', desc:'部门活动时间线', page:'page-activity-plan' },
                 { icon:'📊', label:'数据大屏', desc:'可视化数据统计', url:'/dashboard' },
             ];
             // 管理员额外显示"管理后台"入口
@@ -437,6 +490,7 @@
             if (id==='page-records') loadRecords();
             if (id==='page-search') { document.getElementById('searchKeyword').value=''; doSearch(); }
             if (id==='page-skills') loadMSkills();
+            if (id==='page-activity-plan') loadMPlans();
             if (id==='page-profile') loadProfile();
         }
         function switchTab(id) { showPage(id); }
@@ -794,6 +848,132 @@
                 }).join('');
             })
             .catch(()=>{ list.innerHTML = '<div style="text-align:center;padding:40px;color:#999;">加载失败</div>'; });
+        }
+
+        // ---------- 手机端活动规划（时间线） ----------
+        const MPLAN_STATUS = { planned:{t:'规划中',c:'b-planned'}, confirmed:{t:'已确定',c:'b-confirmed'}, done:{t:'已完成',c:'b-done'} };
+        let mPlanAll = [];
+        let mPlanDepts = [];
+        let mPlanDeptFilter = '';
+
+        function mplanEsc(s){ return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+        function loadMPlans() {
+            // 加载部门tab
+            fetch('/api/activity-plans/departments', { headers:{'Authorization':'Bearer '+token} })
+            .then(res=>res.json())
+            .then(list=>{
+                mPlanDepts = list;
+                const tabsEl = document.getElementById('mplanTabs');
+                if (tabsEl) {
+                    tabsEl.innerHTML = '<div class="mplan-tab' + (mPlanDeptFilter===''?' active':'') + '" data-dept="" onclick="mplanFilter(\'\')">全部</div>' +
+                        list.map(d=>'<div class="mplan-tab' + (mPlanDeptFilter===d?' active':'') + '" data-dept="'+mplanEsc(d)+'" onclick="mplanFilter(\''+mplanEsc(d).replace(/'/g,"\\'")+'\')">'+mplanEsc(d)+'</div>').join('');
+                }
+                const deptSel = document.getElementById('mPlanDept');
+                if (deptSel) deptSel.innerHTML = '<option value="">请选择部门</option>' + list.map(d=>'<option value="'+mplanEsc(d)+'">'+mplanEsc(d)+'</option>').join('');
+            })
+            .catch(()=>{});
+            // 加载规划数据
+            const url = '/api/activity-plans' + (mPlanDeptFilter ? '?department=' + encodeURIComponent(mPlanDeptFilter) : '');
+            const listEl = document.getElementById('mplanTimeline');
+            fetch(url, { headers:{'Authorization':'Bearer '+token} })
+            .then(res=>{ if(res.status===401){ window.location.href='/m/login'; return []; } return res.json(); })
+            .then(data=>{
+                mPlanAll = data;
+                const curUser = JSON.parse(localStorage.getItem('user') || '{}');
+                renderMPlanTimeline(listEl, data, curUser);
+            })
+            .catch(()=>{ if(listEl) listEl.innerHTML = '<div style="text-align:center;padding:40px;color:#999;">加载失败</div>'; });
+        }
+
+        function mplanFilter(dept){
+            mPlanDeptFilter = dept;
+            loadMPlans();
+        }
+
+        function renderMPlanTimeline(el, list, curUser) {
+            if (!list.length) { el.innerHTML = '<div class="mplan-empty">📅 暂无活动规划，点击右上角"＋ 新增"开始规划吧</div>'; return; }
+            const months = {};
+            list.forEach(p => {
+                const m = (p.plan_date || '').substring(0,7);
+                if (!months[m]) months[m] = [];
+                months[m].push(p);
+            });
+            let html = '';
+            Object.keys(months).sort().forEach(m => {
+                const ym = m.split('-');
+                html += '<div class="mplan-month"><span class="tag">' + Number(ym[0]) + '年' + Number(ym[1]) + '月</span></div>';
+                months[m].sort((a,b)=>(a.plan_date||'').localeCompare(b.plan_date||'')).forEach(p => {
+                    const st = MPLAN_STATUS[p.status] || MPLAN_STATUS.planned;
+                    const canEdit = (curUser.role==='admin') || (p.creator_id===curUser.id);
+                    html += '<div class="mplan-item"><div class="dot"></div><div class="mplan-card">';
+                    html += '<div class="t"><span class="name">' + mplanEsc(p.title) + '</span><span class="mplan-badge ' + st.c + '">' + st.t + '</span></div>';
+                    if (p.department) html += '<div class="dept">🏢 ' + mplanEsc(p.department) + '</div>';
+                    html += '<div class="meta">';
+                    html += '<span>📅 ' + (p.plan_date || '') + '</span>';
+                    if (p.location) html += '<span>📍 ' + mplanEsc(p.location) + '</span>';
+                    if (p.creator_name) html += '<span>👤 ' + mplanEsc(p.creator_name) + '</span>';
+                    html += '</div>';
+                    if (p.description) html += '<div class="desc">' + mplanEsc(p.description) + '</div>';
+                    if (canEdit) {
+                        html += '<div class="ops"><button onclick="editMPlan(\'' + p.id + '\')">✏️ 编辑</button><button class="del" onclick="deleteMPlan(\'' + p.id + '\',\'' + mplanEsc(p.title).replace(/'/g,"\\'") + '\')">🗑️ 删除</button></div>';
+                    }
+                    html += '</div></div>';
+                });
+            });
+            el.innerHTML = html;
+        }
+
+        function openMPlanModal(plan){
+            document.getElementById('mPlanModalTitle').textContent = plan ? '编辑活动规划' : '新增活动规划';
+            document.getElementById('mPlanId').value = plan ? plan.id : '';
+            document.getElementById('mPlanTitle').value = plan ? plan.title : '';
+            document.getElementById('mPlanDept').value = plan ? (plan.department||'') : '';
+            document.getElementById('mPlanDate').value = plan ? (plan.plan_date||'') : '';
+            document.getElementById('mPlanLocation').value = plan ? (plan.location||'') : '';
+            document.getElementById('mPlanStatus').value = plan ? (plan.status||'planned') : 'planned';
+            document.getElementById('mPlanDesc').value = plan ? (plan.description||'') : '';
+            document.getElementById('mPlanError').style.display = 'none';
+            document.getElementById('mPlanModal').style.display = 'flex';
+        }
+        function closeMPlanModal(){ document.getElementById('mPlanModal').style.display = 'none'; }
+        function editMPlan(id){ const p = mPlanAll.find(x=>x.id===id); if (p) openMPlanModal(p); }
+        function submitMPlan(){
+            const id = document.getElementById('mPlanId').value;
+            const body = {
+                title: document.getElementById('mPlanTitle').value.trim(),
+                department: document.getElementById('mPlanDept').value,
+                plan_date: document.getElementById('mPlanDate').value,
+                location: document.getElementById('mPlanLocation').value.trim(),
+                status: document.getElementById('mPlanStatus').value,
+                description: document.getElementById('mPlanDesc').value.trim()
+            };
+            const errEl = document.getElementById('mPlanError');
+            errEl.style.display = 'none';
+            if (!body.title) { errEl.textContent = '请输入活动名称'; errEl.style.display='block'; return; }
+            if (!body.plan_date) { errEl.textContent = '请选择计划日期'; errEl.style.display='block'; return; }
+            const url = id ? '/api/activity-plans/' + id : '/api/activity-plans';
+            const method = id ? 'PUT' : 'POST';
+            fetch(url, { method:method, headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body: JSON.stringify(body) })
+            .then(res=>res.json().then(d=>({ok:res.ok, d})))
+            .then(({ok,d})=>{
+                if (ok) {
+                    showToast(d.message || '保存成功');
+                    closeMPlanModal();
+                    loadMPlans();
+                } else { errEl.textContent = d.detail || '保存失败'; errEl.style.display='block'; }
+            })
+            .catch(()=>{ errEl.textContent = '网络错误，请重试'; errEl.style.display='block'; });
+        }
+        function deleteMPlan(id, name){
+            if (!confirm('确定删除活动规划「' + name + '」吗？')) return;
+            fetch('/api/activity-plans/' + id, { method:'DELETE', headers:{'Authorization':'Bearer '+token} })
+            .then(res=>res.json().then(d=>({ok:res.ok, d})))
+            .then(({ok,d})=>{
+                if (ok) { showToast(d.message || '已删除'); loadMPlans(); }
+                else showToast(d.detail || '删除失败');
+            })
+            .catch(()=>showToast('删除失败'));
         }
 
         function downloadMSkill(id) {

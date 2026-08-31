@@ -202,6 +202,7 @@
             <div class="nav-item user-only" onclick="switchPage('page-materials',this)"><span class="icon">🔍</span>物资查询</div>
             <div class="nav-item user-only" onclick="switchPage('page-records',this)"><span class="icon">📋</span>我的记录</div>
             <div class="nav-item" onclick="switchPage('page-skills',this)"><span class="icon">📚</span>技能文档</div>
+            <div class="nav-item" onclick="switchPage('page-activity-plan',this)"><span class="icon">🗓️</span>活动规划</div>
             <div class="nav-item" onclick="goMobile()"><span class="icon">📱</span>手机端</div>
         </div>
         <div class="user-box">
@@ -387,6 +388,77 @@
                 <thead><tr><th>文件名</th><th>大小</th><th>上传人</th><th>上传时间</th><th>备注</th><th>操作</th></tr></thead>
                 <tbody id="skillTable"><tr><td colspan="6" class="empty">加载中...</td></tr></tbody>
             </table>
+        </div>
+
+        <!-- 活动规划 -->
+        <div class="page" id="page-activity-plan">
+            <style>
+                .plan-timeline{position:relative;padding:6px 0 10px;}
+                .plan-timeline::before{content:'';position:absolute;left:50%;top:0;bottom:0;width:3px;background:linear-gradient(180deg,#667eea,#764ba2,#f093fb);transform:translateX(-50%);border-radius:2px;}
+                .plan-month{text-align:center;margin:26px 0 16px;font-weight:700;color:#667eea;font-size:16px;position:relative;z-index:2;}
+                .plan-month .tag{display:inline-block;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;padding:5px 18px;border-radius:20px;font-size:13px;box-shadow:0 3px 10px rgba(102,126,234,.3);}
+                .plan-item{position:relative;width:50%;padding:0 44px 26px;box-sizing:border-box;}
+                .plan-item.left{left:0;text-align:right;}
+                .plan-item.right{left:50%;text-align:left;}
+                .plan-dot{position:absolute;top:10px;width:16px;height:16px;border-radius:50%;background:#fff;border:4px solid #667eea;box-shadow:0 0 0 4px rgba(102,126,234,.15),0 2px 6px rgba(0,0,0,.15);z-index:2;}
+                .plan-item.left .plan-dot{right:-8px;}
+                .plan-item.right .plan-dot{left:-8px;}
+                .plan-card{background:#fff;border-radius:14px;padding:16px 18px;box-shadow:0 2px 14px rgba(0,0,0,.06);border:1px solid #eef0f6;text-align:left;display:block;transition:transform .2s,box-shadow .2s;}
+                .plan-card:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(102,126,234,.14);}
+                .plan-card .p-top{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;}
+                .plan-card .p-title{font-size:15px;font-weight:700;color:#1a1a2e;}
+                .plan-card .p-badge{padding:2px 10px;border-radius:12px;font-size:12px;white-space:nowrap;}
+                .p-badge.b-planned{background:#fff3e0;color:#ef6c00;}
+                .p-badge.b-confirmed{background:#e3f2fd;color:#1976d2;}
+                .p-badge.b-done{background:#e8f5e9;color:#2e7d32;}
+                .plan-card .p-dept{display:inline-block;margin-top:8px;padding:2px 10px;border-radius:6px;background:#f3e8ff;color:#7b1fa2;font-size:12px;font-weight:600;}
+                .plan-card .p-meta{display:flex;align-items:center;gap:14px;margin-top:9px;font-size:13px;color:#666;flex-wrap:wrap;}
+                .plan-card .p-meta span{display:inline-flex;align-items:center;gap:4px;}
+                .plan-card .p-desc{margin-top:8px;font-size:13px;color:#555;line-height:1.6;background:#fafbff;border-radius:8px;padding:8px 10px;}
+                .plan-card .p-ops{margin-top:10px;display:flex;gap:8px;justify-content:flex-end;}
+                .plan-card .p-ops button{padding:4px 12px;border-radius:6px;border:1px solid #ddd;background:#fff;font-size:12px;cursor:pointer;}
+                .plan-card .p-ops button:hover{border-color:#667eea;color:#667eea;}
+                .plan-card .p-ops .del{color:#e53935;border-color:#f5c6c6;}
+                .plan-empty{text-align:center;color:#999;padding:60px 0;font-size:14px;}
+            </style>
+            <div class="page-title">🗓️ 活动规划</div>
+            <div style="font-size:13px;color:#888;margin-bottom:14px;">各部门未来活动规划一览，按计划时间以时间线展示。点击"＋"即可添加本部门的活动规划。</div>
+            <div class="toolbar">
+                <span style="color:#666;font-size:13px;" id="planCount">共 0 个活动规划</span>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <select id="planDeptFilter" onchange="loadActivityPlans()" style="padding:7px 10px;border:1px solid #ddd;border-radius:6px;background:#fff;min-width:130px;">
+                        <option value="">全部部门</option>
+                    </select>
+                    <button class="btn btn-primary" onclick="openPlanModal()">+ 新增活动规划</button>
+                </div>
+            </div>
+            <div id="planTimeline" class="plan-timeline"><div class="plan-empty">加载中...</div></div>
+        </div>
+    </div>
+
+    <!-- 新增/编辑活动规划弹窗 -->
+    <div class="modal-mask" id="planModal">
+        <div class="modal">
+            <h3 id="planModalTitle">新增活动规划</h3>
+            <input type="hidden" id="planId">
+            <div class="form-group"><label>活动名称 <span class="req">*</span></label><input type="text" id="planTitle" placeholder="如：迎新晚会"></div>
+            <div class="form-group"><label>所属部门</label>
+                <select id="planDept" style="padding:8px 12px;border:1px solid #ddd;border-radius:6px;width:100%;background:#fff;">
+                    <option value="">请选择部门</option>
+                </select>
+            </div>
+            <div class="form-group"><label>计划日期 <span class="req">*</span></label><input type="date" id="planDate"></div>
+            <div class="form-group"><label>活动地点</label><input type="text" id="planLocation" placeholder="如：学术报告厅"></div>
+            <div class="form-group"><label>状态</label>
+                <select id="planStatus" style="padding:8px 12px;border:1px solid #ddd;border-radius:6px;width:100%;background:#fff;">
+                    <option value="planned">规划中</option>
+                    <option value="confirmed">已确定</option>
+                    <option value="done">已完成</option>
+                </select>
+            </div>
+            <div class="form-group"><label>活动内容说明</label><textarea id="planDesc" rows="3" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:6px;resize:vertical;" placeholder="简单介绍活动的目的、内容、规模等"></textarea></div>
+            <div class="error-msg" id="planError" style="display:none;margin-top:0;"></div>
+            <div class="modal-actions"><button class="btn-cancel" onclick="closePlanModal()">取消</button><button class="btn-submit" onclick="submitPlan()">保存</button></div>
         </div>
     </div>
 
@@ -715,6 +787,7 @@
             if (id==='page-activities') loadActivities();
             if (id==='page-attendance') loadAttendance();
             if (id==='page-skills') loadSkills();
+            if (id==='page-activity-plan') loadActivityPlans();
         }
 
         function showToast(msg) { const t=document.getElementById('toast'); t.textContent=msg; t.style.display='block'; setTimeout(()=>t.style.display='none',2000); }
@@ -796,6 +869,140 @@
             .then(data=>{
                 if (data.success) { showToast('已删除'); loadSkills(); }
                 else showToast(data.detail || '删除失败');
+            })
+            .catch(()=>showToast('删除失败'));
+        }
+
+        // ---------- 活动规划（时间线） ----------
+        const PLAN_STATUS_MAP = { planned: {text:'规划中', cls:'b-planned'}, confirmed: {text:'已确定', cls:'b-confirmed'}, done: {text:'已完成', cls:'b-done'} };
+        let planAll = [];
+        let planDepts = [];
+
+        function loadActivityPlans() {
+            const curUser = JSON.parse(localStorage.getItem('user') || '{}');
+            const sel = document.getElementById('planDeptFilter');
+            const dept = sel ? sel.value : '';
+            const url = '/api/activity-plans' + (dept ? '?department=' + encodeURIComponent(dept) : '');
+            fetch(url, { headers: {'Authorization':'Bearer '+token} })
+            .then(res=>res.json())
+            .then(list=>{
+                planAll = list;
+                document.getElementById('planCount').textContent = '共 ' + list.length + ' 个活动规划';
+                renderPlanTimeline(list, curUser);
+            })
+            .catch(()=>{ document.getElementById('planTimeline').innerHTML = '<div class="plan-empty">加载失败，请重试</div>'; });
+        }
+
+        function renderPlanTimeline(list, curUser) {
+            const wrap = document.getElementById('planTimeline');
+            if (!list.length) { wrap.innerHTML = '<div class="plan-empty">📅 暂无活动规划，点击右上角"＋ 新增活动规划"开始规划吧</div>'; return; }
+            // 按月份分组
+            const months = {};
+            list.forEach(p => {
+                const m = (p.plan_date || '').substring(0, 7);
+                if (!months[m]) months[m] = [];
+                months[m].push(p);
+            });
+            const monthKeys = Object.keys(months).sort();
+            let html = '';
+            let globalIdx = 0;
+            monthKeys.forEach(m => {
+                const ym = m.split('-');
+                html += '<div class="plan-month"><span class="tag">' + Number(ym[0]) + ' 年 ' + Number(ym[1]) + ' 月</span></div>';
+                const items = months[m].sort((a,b)=> (a.plan_date||'').localeCompare(b.plan_date||''));
+                items.forEach(p => {
+                    const side = (globalIdx % 2 === 0) ? 'left' : 'right';
+                    globalIdx++;
+                    const st = PLAN_STATUS_MAP[p.status] || PLAN_STATUS_MAP.planned;
+                    const canEdit = (curUser.role === 'admin') || (p.creator_id === curUser.id);
+                    html += '<div class="plan-item ' + side + '">';
+                    html += '<div class="plan-dot"></div>';
+                    html += '<div class="plan-card">';
+                    html += '<div class="p-top"><span class="p-title">' + esc(p.title) + '</span><span class="p-badge ' + st.cls + '">' + st.text + '</span></div>';
+                    if (p.department) html += '<div class="p-dept">🏢 ' + esc(p.department) + '</div>';
+                    html += '<div class="p-meta">';
+                    html += '<span>📅 ' + (p.plan_date || '') + '</span>';
+                    if (p.location) html += '<span>📍 ' + esc(p.location) + '</span>';
+                    if (p.creator_name) html += '<span>👤 ' + esc(p.creator_name) + '</span>';
+                    html += '</div>';
+                    if (p.description) html += '<div class="p-desc">' + esc(p.description) + '</div>';
+                    if (canEdit) {
+                        html += '<div class="p-ops"><button onclick="editPlan(\'' + p.id + '\')">✏️ 编辑</button><button class="del" onclick="deletePlan(\'' + p.id + '\',\'' + escJs(p.title) + '\')">🗑️ 删除</button></div>';
+                    }
+                    html += '</div></div>';
+                });
+            });
+            wrap.innerHTML = html;
+        }
+
+        function esc(s){ return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+        function escJs(s){ return (s||'').toString().replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
+
+        function loadPlanDepartments() {
+            fetch('/api/activity-plans/departments', { headers: {'Authorization':'Bearer '+token} })
+            .then(res=>res.json())
+            .then(list=>{
+                planDepts = list;
+                // 填充弹窗部门下拉
+                const deptSel = document.getElementById('planDept');
+                deptSel.innerHTML = '<option value="">请选择部门</option>' + list.map(d=>'<option value="'+esc(d)+'">'+esc(d)+'</option>').join('');
+                // 填充筛选下拉
+                const filterSel = document.getElementById('planDeptFilter');
+                const curVal = filterSel.value;
+                filterSel.innerHTML = '<option value="">全部部门</option>' + list.map(d=>'<option value="'+esc(d)+'">'+esc(d)+'</option>').join('');
+                filterSel.value = curVal;
+            })
+            .catch(()=>{});
+        }
+
+        function openPlanModal(plan) {
+            document.getElementById('planModalTitle').textContent = plan ? '编辑活动规划' : '新增活动规划';
+            document.getElementById('planId').value = plan ? plan.id : '';
+            document.getElementById('planTitle').value = plan ? plan.title : '';
+            document.getElementById('planDept').value = plan ? (plan.department||'') : '';
+            document.getElementById('planDate').value = plan ? (plan.plan_date||'') : '';
+            document.getElementById('planLocation').value = plan ? (plan.location||'') : '';
+            document.getElementById('planStatus').value = plan ? (plan.status||'planned') : 'planned';
+            document.getElementById('planDesc').value = plan ? (plan.description||'') : '';
+            document.getElementById('planError').style.display = 'none';
+            document.getElementById('planModal').style.display = 'flex';
+        }
+        function closePlanModal(){ document.getElementById('planModal').style.display = 'none'; }
+        function editPlan(id){
+            const p = planAll.find(x=>x.id===id);
+            if (p) openPlanModal(p);
+        }
+        function submitPlan(){
+            const id = document.getElementById('planId').value;
+            const body = {
+                title: document.getElementById('planTitle').value.trim(),
+                department: document.getElementById('planDept').value,
+                plan_date: document.getElementById('planDate').value,
+                location: document.getElementById('planLocation').value.trim(),
+                status: document.getElementById('planStatus').value,
+                description: document.getElementById('planDesc').value.trim()
+            };
+            const errEl = document.getElementById('planError');
+            errEl.style.display = 'none';
+            if (!body.title) { errEl.textContent = '请输入活动名称'; errEl.style.display='block'; return; }
+            if (!body.plan_date) { errEl.textContent = '请选择计划日期'; errEl.style.display='block'; return; }
+            const url = id ? '/api/activity-plans/' + id : '/api/activity-plans';
+            const method = id ? 'PUT' : 'POST';
+            fetch(url, { method:method, headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body: JSON.stringify(body) })
+            .then(res=>res.json().then(d=>({ok:res.ok, d})))
+            .then(({ok,d})=>{
+                if (ok) { showToast(d.message || '保存成功'); closePlanModal(); loadPlanDepartments(); loadActivityPlans(); }
+                else { errEl.textContent = d.detail || '保存失败'; errEl.style.display='block'; }
+            })
+            .catch(()=>{ errEl.textContent = '网络错误，请重试'; errEl.style.display='block'; });
+        }
+        function deletePlan(id, name){
+            if (!confirm('确定删除活动规划「' + name + '」吗？')) return;
+            fetch('/api/activity-plans/' + id, { method:'DELETE', headers:{'Authorization':'Bearer '+token} })
+            .then(res=>res.json().then(d=>({ok:res.ok, d})))
+            .then(({ok,d})=>{
+                if (ok) { showToast(d.message || '已删除'); loadPlanDepartments(); loadActivityPlans(); }
+                else showToast(d.detail || '删除失败');
             })
             .catch(()=>showToast('删除失败'));
         }
@@ -1390,6 +1597,7 @@
             .catch(()=>{});
         }
         loadVersionInfo();
+        loadPlanDepartments();
 
         function openChangelog(){
             document.getElementById('changelogModal').style.display = 'flex';
