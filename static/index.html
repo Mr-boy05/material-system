@@ -408,6 +408,45 @@
         </div>
     </div>
 
+    <!-- 位置管理弹窗 -->
+    <div class="modal-mask" id="locationModal">
+        <div class="modal" style="max-width:560px;">
+            <h3 id="locationModalTitle">管理位置</h3>
+            <input type="hidden" id="locMaterialId">
+            <div id="locationList" style="margin-bottom:16px;">
+                <div class="empty">加载中...</div>
+            </div>
+            <div style="margin-bottom:16px;">
+                <button class="btn" style="background:#43a047;color:white;" onclick="showAddLocationRow()">+ 添加位置</button>
+            </div>
+            <div id="addLocationRow" style="display:none;margin-bottom:16px;padding:12px;background:#f5f5f5;border-radius:8px;">
+                <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                    <input type="text" id="newLocName" placeholder="位置名称" style="flex:1;min-width:150px;padding:8px 12px;border:1px solid #ddd;border-radius:6px;">
+                    <input type="number" id="newLocStock" placeholder="库存" value="0" min="0" style="width:100px;padding:8px 12px;border:1px solid #ddd;border-radius:6px;">
+                    <button class="btn btn-primary" onclick="createLocation()">添加</button>
+                    <button class="btn-cancel" onclick="hideAddLocationRow()">取消</button>
+                </div>
+            </div>
+            <div class="modal-actions"><button class="btn-cancel" onclick="closeLocationModal()">关闭</button></div>
+        </div>
+    </div>
+
+    <!-- 技能文档编辑弹窗 -->
+    <div class="modal-mask" id="skillEditModal">
+        <div class="modal" style="max-width:480px;">
+            <h3>编辑文档</h3>
+            <input type="hidden" id="editSkillId">
+            <div class="form-group"><label>文档标题</label><input type="text" id="editSkillTitle" placeholder="不填则保持不变"></div>
+            <div class="form-group"><label>备注说明</label><input type="text" id="editSkillDesc" placeholder="不填则保持不变"></div>
+            <div class="form-group"><label>更换文件（可选，不选则保持原文件）</label>
+                <input type="file" id="editSkillFile" style="padding:8px 0;">
+                <div id="editSkillFileName" style="font-size:12px;color:#999;margin-top:4px;">未选择文件（保持原文件）</div>
+            </div>
+            <div class="error-msg" id="skillEditError" style="display:none;margin-top:0;"></div>
+            <div class="modal-actions"><button class="btn-cancel" onclick="closeSkillEdit()">取消</button><button class="btn-submit" onclick="submitSkillEdit()">保存</button></div>
+        </div>
+    </div>
+
     <!-- 用户编辑弹窗 -->
     <div class="modal-mask" id="userModal">
         <div class="modal">
@@ -697,6 +736,7 @@
                     return;
                 }
                 tbody.innerHTML = list.map(f=>{
+                    const editBtn = isAdmin ? `<button class="btn" style="background:#ff9800;color:white;padding:4px 10px;font-size:12px;margin-right:4px;" onclick="openSkillEdit('${f.id}','${f.title.replace(/'/g,"\\'")}','${(f.description||'').replace(/'/g,"\\'")}')">编辑</button>` : '';
                     const delBtn = isAdmin ? `<button class="btn" style="background:#c62828;color:white;padding:4px 10px;font-size:12px;" onclick="deleteSkillFile('${f.id}','${f.title.replace(/'/g,"\\'")}')">删除</button>` : '';
                     return `<tr>
                         <td><strong>${f.title}</strong><div style="font-size:12px;color:#999;">${f.original_name}</div></td>
@@ -704,7 +744,7 @@
                         <td>${f.uploader || '-'}</td>
                         <td>${(f.created_at||'').replace('T',' ').substring(0,16)}</td>
                         <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${f.description||''}">${f.description||'-'}</td>
-                        <td><button class="btn btn-primary" style="padding:4px 10px;font-size:12px;" onclick="downloadSkillFile('${f.id}')">下载</button> ${delBtn}</td>
+                        <td><button class="btn btn-primary" style="padding:4px 10px;font-size:12px;" onclick="downloadSkillFile('${f.id}')">下载</button> ${editBtn} ${delBtn}</td>
                     </tr>`;
                 }).join('');
             })
@@ -722,6 +762,125 @@
             .then(data=>{
                 if (data.success) { showToast('已删除'); loadSkills(); }
                 else showToast(data.detail || '删除失败');
+            })
+            .catch(()=>showToast('删除失败'));
+        }
+
+        // ---------- 技能文档编辑 ----------
+        function openSkillEdit(fileId, title, desc) {
+            document.getElementById('editSkillId').value = fileId;
+            document.getElementById('editSkillTitle').value = title || '';
+            document.getElementById('editSkillDesc').value = desc || '';
+            document.getElementById('editSkillFile').value = '';
+            document.getElementById('editSkillFileName').textContent = '未选择文件（保持原文件）';
+            document.getElementById('skillEditError').style.display = 'none';
+            document.getElementById('skillEditModal').style.display = 'flex';
+        }
+        function closeSkillEdit() {
+            document.getElementById('skillEditModal').style.display = 'none';
+        }
+        function submitSkillEdit() {
+            const fileId = document.getElementById('editSkillId').value;
+            const title = document.getElementById('editSkillTitle').value.trim();
+            const desc = document.getElementById('editSkillDesc').value;
+            const fileInput = document.getElementById('editSkillFile');
+            const formData = new FormData();
+            if (title) formData.append('title', title);
+            formData.append('description', desc);
+            if (fileInput.files[0]) formData.append('file', fileInput.files[0]);
+            fetch('/api/skills/' + fileId, { method:'PUT', headers:{'Authorization':'Bearer '+token}, body:formData })
+            .then(res=>res.json().then(d=>({ok:res.ok, d})))
+            .then(({ok, d})=>{
+                if (ok && d.success) { showToast('保存成功'); closeSkillEdit(); loadSkills(); }
+                else { document.getElementById('skillEditError').textContent = d.detail || '保存失败'; document.getElementById('skillEditError').style.display = 'block'; }
+            })
+            .catch(()=>{ document.getElementById('skillEditError').textContent = '保存失败，请重试'; document.getElementById('skillEditError').style.display = 'block'; });
+        }
+
+        // ---------- 物资位置管理 ----------
+        let currentLocMaterialId = '';
+        function openLocationManager(materialId, materialName) {
+            currentLocMaterialId = materialId;
+            document.getElementById('locationModalTitle').textContent = '管理位置 - ' + materialName;
+            document.getElementById('locMaterialId').value = materialId;
+            document.getElementById('locationModal').style.display = 'flex';
+            hideAddLocationRow();
+            loadLocationList();
+        }
+        function closeLocationModal() {
+            document.getElementById('locationModal').style.display = 'none';
+        }
+        function loadLocationList() {
+            const list = document.getElementById('locationList');
+            list.innerHTML = '<div class="empty">加载中...</div>';
+            fetch('/api/materials', { headers:{'Authorization':'Bearer '+token} })
+            .then(res=>{ if(res.status===401){ window.location.href='/login'; return []; } return res.json(); })
+            .then(data=>{
+                const mat = data.find(m=>m.id===currentLocMaterialId);
+                if (!mat || !mat.locations || !mat.locations.length) {
+                    list.innerHTML = '<div class="empty">暂无位置，点击下方"添加位置"</div>';
+                    return;
+                }
+                list.innerHTML = mat.locations.map(loc=>`
+                    <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px;padding:10px;background:#fafafa;border-radius:8px;">
+                        <input type="text" id="loc_name_${loc.id}" value="${loc.location||''}" placeholder="位置名称" style="flex:1;min-width:150px;padding:8px 12px;border:1px solid #ddd;border-radius:6px;">
+                        <input type="number" id="loc_stock_${loc.id}" value="${loc.stock||0}" min="0" style="width:100px;padding:8px 12px;border:1px solid #ddd;border-radius:6px;" title="库存数量">
+                        <button class="btn btn-sm" style="background:#1976d2;color:white;" onclick="saveLocation('${loc.id}')">保存</button>
+                        <button class="btn btn-sm" style="background:#c62828;color:white;" onclick="deleteLocation('${loc.id}')">删除</button>
+                    </div>
+                `).join('');
+            })
+            .catch(()=>{ list.innerHTML = '<div class="empty">加载失败</div>'; });
+        }
+        function showAddLocationRow() {
+            document.getElementById('addLocationRow').style.display = 'block';
+            document.getElementById('newLocName').value = '';
+            document.getElementById('newLocStock').value = '0';
+        }
+        function hideAddLocationRow() {
+            document.getElementById('addLocationRow').style.display = 'none';
+        }
+        function createLocation() {
+            const name = document.getElementById('newLocName').value.trim();
+            const stock = parseInt(document.getElementById('newLocStock').value) || 0;
+            if (!name) { showToast('请输入位置名称'); return; }
+            if (stock < 0) { showToast('库存不能为负'); return; }
+            fetch('/api/materials/' + currentLocMaterialId + '/locations', {
+                method:'POST', headers:{'Authorization':'Bearer '+token, 'Content-Type':'application/json'},
+                body: JSON.stringify({location:name, stock:stock})
+            })
+            .then(res=>res.json().then(d=>({ok:res.ok, d})))
+            .then(({ok, d})=>{
+                if (ok && d.success) { showToast('添加成功'); hideAddLocationRow(); loadLocationList(); loadMaterials(); }
+                else showToast(d.detail || '添加失败');
+            })
+            .catch(()=>showToast('添加失败'));
+        }
+        function saveLocation(locId) {
+            const name = document.getElementById('loc_name_'+locId).value.trim();
+            const stock = parseInt(document.getElementById('loc_stock_'+locId).value) || 0;
+            if (!name) { showToast('位置名称不能为空'); return; }
+            if (stock < 0) { showToast('库存不能为负'); return; }
+            fetch('/api/materials/' + currentLocMaterialId + '/locations/' + locId, {
+                method:'PUT', headers:{'Authorization':'Bearer '+token, 'Content-Type':'application/json'},
+                body: JSON.stringify({location:name, stock:stock})
+            })
+            .then(res=>res.json().then(d=>({ok:res.ok, d})))
+            .then(({ok, d})=>{
+                if (ok && d.success) { showToast('保存成功'); loadMaterials(); }
+                else showToast(d.detail || '保存失败');
+            })
+            .catch(()=>showToast('保存失败'));
+        }
+        function deleteLocation(locId) {
+            if (!confirm('确定删除该位置吗？该位置的库存会从总库存中扣除。')) return;
+            fetch('/api/materials/' + currentLocMaterialId + '/locations/' + locId, {
+                method:'DELETE', headers:{'Authorization':'Bearer '+token}
+            })
+            .then(res=>res.json().then(d=>({ok:res.ok, d})))
+            .then(({ok, d})=>{
+                if (ok && d.success) { showToast('已删除'); loadLocationList(); loadMaterials(); }
+                else showToast(d.detail || '删除失败');
             })
             .catch(()=>showToast('删除失败'));
         }
@@ -804,7 +963,7 @@
                             <td>${firstRow ? `<code>${m.qr_code}</code>` : ''}</td>
                             <td>${firstRow ? m.total_stock : ''}</td>
                             <td><span class="stock-badge ${sc}">${loc.stock}</span></td>
-                            <td>${locTag}${loc.location || '-'}</td>
+                            <td>${isAdmin ? `<span style="cursor:pointer;color:#1976d2;" onclick="openLocationManager('${m.id}','${(m.name||'').replace(/'/g,"\\'")}')" title="点击管理位置">${locTag}${loc.location || '-'}</span>` : `${locTag}${loc.location || '-'}`}</td>
                             <td>${firstRow && isAdmin ? (m.operator||'-') : ''}</td>
                             <td>${firstRow ? actionBtns : ''}</td>
                         </tr>`);

@@ -1000,6 +1000,97 @@ def get_material_locations(cur, material_id):
     cur.execute("SELECT id, location, stock FROM material_locations WHERE material_id=? ORDER BY created_at", (material_id,))
     return [dict(r) for r in cur.fetchall()]
 
+# ---------- 物资位置管理（增删改） ----------
+class LocationRequest(BaseModel):
+    location: str
+    stock: int = 0
+
+@app.post("/api/materials/{material_id}/locations")
+def add_material_location(material_id: str, req: LocationRequest, conn=Depends(get_db), user=Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="仅管理员可操作")
+    if not req.location.strip():
+        raise HTTPException(status_code=400, detail="位置名称不能为空")
+    if req.stock < 0:
+        raise HTTPException(status_code=400, detail="库存不能为负数")
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT id, total_stock, available_stock FROM materials WHERE id=?", (material_id,))
+        mat = cur.fetchone()
+        if not mat:
+            raise HTTPException(status_code=404, detail="物资不存在")
+        loc_id = str(uuid.uuid4())
+        cur.execute("INSERT INTO material_locations (id, material_id, location, stock) VALUES (?, ?, ?, ?)",
+                    (loc_id, material_id, req.location.strip(), req.stock))
+        cur.execute("UPDATE materials SET total_stock=total_stock+?, available_stock=available_stock+? WHERE id=?",
+                    (req.stock, req.stock, material_id))
+        conn.commit()
+        return {"success": True, "message": "位置已添加", "id": loc_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"添加失败：{str(e)}")
+
+@app.put("/api/materials/{material_id}/locations/{loc_id}")
+def update_material_location(material_id: str, loc_id: str, req: LocationRequest, conn=Depends(get_db), user=Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="仅管理员可操作")
+    if not req.location.strip():
+        raise HTTPException(status_code=400, detail="位置名称不能为空")
+    if req.stock < 0:
+        raise HTTPException(status_code=400, detail="库存不能为负数")
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT id, stock FROM material_locations WHERE id=? AND material_id=?", (loc_id, material_id))
+        loc = cur.fetchone()
+        if not loc:
+            raise HTTPException(status_code=404, detail="位置不存在")
+        old_stock = loc["stock"]
+        diff = req.stock - old_stock
+        # 检查可用库存是否足够（减少库存时不能低于已借出量）
+        if diff < 0:
+            cur.execute("SELECT available_stock FROM materials WHERE id=?", (material_id,))
+            avail = cur.fetchone()["available_stock"]
+            if avail + diff < 0:
+                raise HTTPException(status_code=400, detail=f"库存不足：该位置最多可减少到 {old_stock + avail}")
+        cur.execute("UPDATE material_locations SET location=?, stock=? WHERE id=?",
+                    (req.location.strip(), req.stock, loc_id))
+        cur.execute("UPDATE materials SET total_stock=total_stock+?, available_stock=available_stock+? WHERE id=?",
+                    (diff, diff, material_id))
+        conn.commit()
+        return {"success": True, "message": "位置已更新"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"更新失败：{str(e)}")
+
+@app.delete("/api/materials/{material_id}/locations/{loc_id}")
+def delete_material_location(material_id: str, loc_id: str, conn=Depends(get_db), user=Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="仅管理员可操作")
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT id, stock FROM material_locations WHERE id=? AND material_id=?", (loc_id, material_id))
+        loc = cur.fetchone()
+        if not loc:
+            raise HTTPException(status_code=404, detail="位置不存在")
+        cur.execute("SELECT available_stock FROM materials WHERE id=?", (material_id,))
+        avail = cur.fetchone()["available_stock"]
+        if avail - loc["stock"] < 0:
+            raise HTTPException(status_code=400, detail="该位置有物资已被借出，无法删除")
+        cur.execute("DELETE FROM material_locations WHERE id=?", (loc_id,))
+        cur.execute("UPDATE materials SET total_stock=total_stock-?, available_stock=available_stock-? WHERE id=?",
+                    (loc["stock"], loc["stock"], material_id))
+        conn.commit()
+        return {"success": True, "message": "位置已删除"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"删除失败：{str(e)}")
+
 @app.get("/api/materials")
 def list_materials(conn=Depends(get_db), user=Depends(get_current_user)):
     cur = conn.cursor()
@@ -2265,6 +2356,53 @@ def delete_skill_file(file_id: str, conn=Depends(get_db), user=Depends(get_curre
     cur.execute("DELETE FROM skill_files WHERE id=?", (file_id,))
     conn.commit()
     return {"success": True, "message": "已删除"}
+
+@app.put("/api/skills/{file_id}")
+def update_skill_file(
+    file_id: str,
+    title: str = Form(None),
+    description: str = Form(None),
+    file: UploadFile = File(None),
+    conn=Depends(get_db),
+    user=Depends(get_current_user)
+):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="仅管理员可编辑文件")
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM skill_files WHERE id=?", (file_id,))
+    row = cur.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="文件不存在")
+    try:
+        updates = []
+        params = []
+        if title is not None and title.strip():
+            updates.append("title=?")
+            params.append(title.strip())
+        if description is not None:
+            updates.append("description=?")
+            params.append(description.strip())
+        if file and file.filename:
+            ext = os.path.splitext(file.filename)[1] or ""
+            new_stored = f"{uuid.uuid4().hex}{ext}"
+            new_path = os.path.join(SKILL_DIR, new_stored)
+            content = file.file.read()
+            with open(new_path, "wb") as f:
+                f.write(content)
+            # 删除旧文件
+            old_path = os.path.join(SKILL_DIR, row["stored_name"])
+            if os.path.exists(old_path):
+                os.remove(old_path)
+            updates.extend(["original_name=?", "stored_name=?", "file_size=?", "file_type=?"])
+            params.extend([file.filename, new_stored, len(content), ext.lower()])
+        if updates:
+            params.append(file_id)
+            cur.execute(f"UPDATE skill_files SET {', '.join(updates)} WHERE id=?", params)
+            conn.commit()
+        return {"success": True, "message": "已更新"}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"更新失败：{str(e)}")
 
 # ==================== 静态文件 ====================
 app.mount("/static", StaticFiles(directory="static"), name="static")
