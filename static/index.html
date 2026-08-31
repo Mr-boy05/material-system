@@ -56,7 +56,7 @@
         /* 右侧内容 */
         .main { flex:1; margin-left:220px; padding:24px 28px; min-width:0; }
         .page { display:none; }
-        .page.active { display:block; max-width:1400px; margin:0 auto; }
+        .page.active { display:block; }
         .page-title { font-size:20px; font-weight:700; color:#333; margin-bottom:18px; }
 
         /* 筛选栏 */
@@ -427,7 +427,7 @@
                     <button class="btn btn-primary" onclick="openUserModal()">+ 新增用户</button>
                 </div>
             </div>
-            <div id="userList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px;max-width:1400px;">
+            <div id="userList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:18px;">
                 <div class="empty" style="grid-column:1/-1;">加载中...</div>
             </div>
         </div>
@@ -439,7 +439,7 @@
                 <span style="color:#666;font-size:13px;" id="activityCount">共 0 场活动</span>
                 <button class="btn btn-primary" onclick="openActivityModal()">+ 新增活动</button>
             </div>
-            <div id="activityList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:18px;max-width:1400px;">
+            <div id="activityList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:18px;">
                 <div class="empty">加载中...</div>
             </div>
         </div>
@@ -451,7 +451,7 @@
                 <span style="color:#666;font-size:13px;" id="attendanceCount">共 0 条记录</span>
                 <button class="btn btn-primary" onclick="openAttendanceModal()">+ 新增考勤</button>
             </div>
-            <div id="attendanceList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(440px,1fr));gap:18px;max-width:1400px;">
+            <div id="attendanceList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:18px;">
                 <div class="empty">加载中...</div>
             </div>
         </div>
