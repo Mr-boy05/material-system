@@ -249,7 +249,7 @@
     </div>
 
     <script>
-        function doLogin() {
+        function doLogin(force) {
             const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value;
             const errorMsg = document.getElementById('errorMsg');
@@ -264,7 +264,7 @@
             fetch('/api/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password, device: 'pc' })
+                body: JSON.stringify({ username, password, device: 'pc', force: !!force })
             })
             .then(res => res.json().then(data => ({ ok: res.ok, data })))
             .then(({ ok, data }) => {
@@ -284,6 +284,13 @@
                     }
                     window.location.href = '/';
                 } else {
+                    // 设备数已满：提示是否强制登录
+                    if (data.detail && data.detail.indexOf('最多允许两台设备') >= 0) {
+                        if (confirm('该账号已在电脑端和手机端同时登录。\n\n点击【确定】将强制登录，并自动退出最早登录的设备；\n点击【取消】请先在其他设备上退出登录。')) {
+                            doLogin(true);
+                            return;
+                        }
+                    }
                     errorMsg.textContent = data.detail || '登录失败';
                     errorMsg.style.display = 'block';
                 }

@@ -1462,16 +1462,22 @@ function logout() {
     if (confirm('确定退出登录吗？')) {
         const t = localStorage.getItem('token');
         if (t) {
-            fetch('/api/logout', { method:'POST', headers:{'Authorization':'Bearer '+t} }).catch(()=>{});
+            // 等待服务器确认会话删除，避免旧会话残留导致换设备无法登录
+            fetch('/api/logout', { method:'POST', headers:{'Authorization':'Bearer '+t} })
+            .finally(() => { doCleanup(); });
+        } else {
+            doCleanup();
         }
-        localStorage.removeItem('admin_token');
-        localStorage.removeItem('admin_user');
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        localStorage.removeItem('auto_login_cred');
-        localStorage.setItem('just_logged_out', '1');
-        window.location.href = '/m/login';
     }
+}
+function doCleanup() {
+    localStorage.removeItem('admin_token');
+    localStorage.removeItem('admin_user');
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('auto_login_cred');
+    localStorage.setItem('just_logged_out', '1');
+    window.location.href = '/m/login';
 }
 
 // 版本号和更新日志

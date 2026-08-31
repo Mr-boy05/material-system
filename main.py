@@ -18,7 +18,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "3.1.3"
+VERSION = "3.1.4"
 VERSION_DATE = "2026-08-31"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
@@ -348,6 +348,7 @@ class LoginRequest(BaseModel):
     username: str
     password: str
     device: str = "pc"  # pc=电脑端, mobile=手机端（同类型设备互踢，不同类型可共存）
+    force: bool = False  # 强制登录：超出2台限制时踢掉最早登录的设备
 
 class ChangePasswordRequest(BaseModel):
     username: str
@@ -527,12 +528,18 @@ def login(req: LoginRequest, conn=Depends(get_db)):
     # 检测另一端设备是否已在线（用于前端提示）
     cur.execute("SELECT 1 FROM sessions WHERE user_id = ? AND device = ?", (user["id"], other_device))
     other_device_online = cur.fetchone() is not None
-    # 限制：电脑端和手机端都已在线时，第三台设备不允许登录
+    # 限制：电脑端和手机端都已在线时，第三台设备不允许登录（除非强制登录）
     if other_device_online:
         cur.execute("SELECT 1 FROM sessions WHERE user_id = ? AND device = ?", (user["id"], device))
         current_same_online = cur.fetchone() is not None
         if current_same_online:
-            raise HTTPException(status_code=400, detail="该账号已在电脑端和手机端同时登录，最多允许两台设备同时在线，请先在其他设备退出登录")
+            if not req.force:
+                raise HTTPException(status_code=400, detail="该账号已在电脑端和手机端同时登录，最多允许两台设备同时在线，请先在其他设备退出登录，或选择强制登录")
+            # 强制登录：踢掉该账号最早登录的会话（释放一个名额）
+            cur.execute("SELECT token FROM sessions WHERE user_id = ? ORDER BY created_at ASC, rowid ASC LIMIT 1", (user["id"],))
+            oldest = cur.fetchone()
+            if oldest:
+                cur.execute("DELETE FROM sessions WHERE token = ?", (oldest["token"],))
     # 同类型设备新登录踢掉旧的（每类设备最多 1 台）
     cur.execute("DELETE FROM sessions WHERE user_id = ? AND device = ?", (user["id"], device))
     cur.execute("INSERT INTO sessions (token, user_id, device) VALUES (?, ?, ?)", (access_token, user["id"], device))
