@@ -166,6 +166,11 @@
 <div class="page" id="page-materials">
     <div class="nav-bar"><div class="back" onclick="switchTabByName('dashboard')">←</div><div class="title">物资管理</div><div class="action" onclick="showAddMaterial()">+ 新增</div></div>
     <div class="search-bar"><input type="text" id="searchInput" placeholder="搜索物资名称、编号..." oninput="loadMaterials()"></div>
+    <div class="batch-bar" id="matBatchBar" style="display:none;padding:10px 16px;background:#fff3e0;display:none;align-items:center;gap:10px;">
+        <label style="font-size:13px;color:#e65100;display:flex;align-items:center;gap:6px;"><input type="checkbox" id="matSelectAll" onchange="toggleMatSelectAll(this)"> 全选</label>
+        <span id="matSelectedCount" style="font-size:13px;color:#666;">已选 0 项</span>
+        <button class="btn-sm danger" style="margin-left:auto;" onclick="batchDeleteMaterials()">批量删除</button>
+    </div>
     <div class="mat-list" id="matList"></div>
 </div>
 
@@ -181,6 +186,17 @@
         <div class="back" onclick="switchTabByName('dashboard')">←</div>
         <div class="title">人员管理</div>
         <div class="action" onclick="showAddUser()">+ 添加</div>
+    </div>
+    <div class="tool-bar" style="padding:10px 16px;">
+        <button class="tool-btn export" onclick="exportMobUsers()">📥 导出</button>
+        <button class="tool-btn template" onclick="downloadMobUserTemplate()">📋 模板</button>
+        <button class="tool-btn import" onclick="document.getElementById('mobUserImport').click()">📤 导入</button>
+        <input type="file" id="mobUserImport" accept=".xlsx,.xls" style="display:none" onchange="importMobUsers(this)">
+    </div>
+    <div class="batch-bar" id="userBatchBar" style="display:none;padding:10px 16px;background:#fff3e0;align-items:center;gap:10px;">
+        <label style="font-size:13px;color:#e65100;display:flex;align-items:center;gap:6px;"><input type="checkbox" id="userSelectAll" onchange="toggleUserSelectAll(this)"> 全选</label>
+        <span id="userSelectedCount" style="font-size:13px;color:#666;">已选 0 项</span>
+        <button class="btn-sm danger" style="margin-left:auto;" onclick="batchDeleteUsers()">批量删除</button>
     </div>
     <div id="userList"></div>
 </div>
@@ -277,7 +293,7 @@
 
 <!-- 底部版权 -->
 <div style="text-align:center;padding:16px;color:#bbb;font-size:11px;line-height:1.8;">
-    <div>城治学生会物资管理系统 <span id="adminVersion" style="color:#667eea;cursor:pointer;" onclick="openAdminChangelog()">v1.4.0</span></div>
+    <div>城治学生会物资管理系统 <span id="adminVersion" style="color:#667eea;cursor:pointer;" onclick="openAdminChangelog()">v3.0.0</span></div>
     <div>© 2026 重庆超大城市数字化治理学院</div>
 </div>
 
@@ -339,6 +355,39 @@
         </div>
         <button class="btn-full" onclick="submitAttendanceMobile()">确认保存</button>
         <button class="btn-full ghost" onclick="closeModal('attendanceModal')">取消</button>
+    </div>
+</div>
+
+<!-- 位置管理弹窗 -->
+<div class="modal-mask" id="mobLocationModal">
+    <div class="modal" style="max-height:80vh;overflow-y:auto;">
+        <div class="modal-title" id="mobLocTitle">管理位置</div>
+        <input type="hidden" id="mobLocMatId">
+        <div id="mobLocList" style="margin-bottom:12px;"><div style="text-align:center;color:#999;padding:20px;">加载中...</div></div>
+        <button class="btn-full" style="background:#43a047;" onclick="showMobAddLocRow()">+ 添加位置</button>
+        <div id="mobAddLocRow" style="display:none;margin:12px 0;padding:12px;background:#f5f5f5;border-radius:8px;">
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <input type="text" id="mobNewLocName" placeholder="位置名称" style="flex:1;min-width:120px;padding:10px;border:2px solid #e8e8e8;border-radius:8px;font-size:14px;">
+                <input type="number" id="mobNewLocStock" placeholder="库存" value="0" min="0" style="width:80px;padding:10px;border:2px solid #e8e8e8;border-radius:8px;font-size:14px;">
+                <button class="btn-sm primary" onclick="createMobLocation()">添加</button>
+                <button class="btn-sm ghost" onclick="hideMobAddLocRow()">取消</button>
+            </div>
+        </div>
+        <button class="btn-full ghost" onclick="closeModal('mobLocationModal')">关闭</button>
+    </div>
+</div>
+
+<!-- 编辑用户弹窗 -->
+<div class="modal-mask" id="editUserModal">
+    <div class="modal">
+        <div class="modal-title">编辑用户</div>
+        <input type="hidden" id="editUserId">
+        <div class="form-group"><label>用户名</label><input type="text" id="editUserUsername" readonly style="background:#f5f5f5;"></div>
+        <div class="form-group"><label>真实姓名</label><input type="text" id="editUserRealName"></div>
+        <div class="form-group"><label>手机号</label><input type="text" id="editUserPhone"></div>
+        <div class="form-group"><label>角色</label><select id="editUserRole"><option value="user">普通用户</option><option value="admin">管理员</option></select></div>
+        <button class="btn-full" onclick="submitEditMobUser()">保存</button>
+        <button class="btn-full ghost" onclick="closeModal('editUserModal')">取消</button>
     </div>
 </div>
 
@@ -448,22 +497,23 @@ async function loadMaterials() {
             const imgHtml = m.image 
                 ? `<img src="${m.image}" class="mat-img" onclick="viewMatImage('${m.image}','${m.name}')" style="cursor:pointer;">`
                 : `<div class="mat-img-ph" onclick="uploadMatImage('${m.id}')" style="cursor:pointer;" title="点击上传图片">📷</div>`;
-            // 多位置库存显示
+            // 多位置库存显示（可点击编辑）
             let locationsHtml = '';
             if (m.locations && m.locations.length > 0) {
-                locationsHtml = '<div class="location-list" style="margin-top:8px;padding-top:8px;border-top:1px solid #f0f0f0;">' +
+                locationsHtml = '<div class="location-list" style="margin-top:8px;padding-top:8px;border-top:1px solid #f0f0f0;cursor:pointer;" onclick="openMobLocationManager(\'' + m.id + '\',\'' + m.name.replace(/'/g,"\\'") + '\')" title="点击管理位置">' +
                     m.locations.map((loc, idx) => {
                         const locStockClass = loc.stock === 0 ? 'stock-out' : (loc.stock <= 5 ? 'stock-low' : 'stock-ok');
                         const locTag = m.locations.length > 1 ? `<span style="display:inline-block;background:#e3f2fd;color:#1976d2;padding:1px 5px;border-radius:3px;font-size:10px;margin-right:4px;">位置${idx+1}</span>` : '';
                         return `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;font-size:12px;">
-                            <span>${locTag}📍 ${loc.location || '未设置'}</span>
+                            <span style="color:#1976d2;">${locTag}📍 ${loc.location || '未设置'}</span>
                             <span class="stock-badge ${locStockClass}" style="font-size:11px;padding:2px 6px;">库存 ${loc.stock}</span>
                         </div>`;
-                    }).join('') + '</div>';
+                    }).join('') + '<div style="font-size:10px;color:#999;margin-top:4px;">👆 点击管理位置</div></div>';
             }
             return `
-            <div class="mat-item">
-                <div class="mat-item-header">
+            <div class="mat-item" style="position:relative;">
+                <div style="position:absolute;top:10px;left:10px;z-index:2;"><input type="checkbox" class="mat-check" value="${m.id}" onchange="updateMatSelected()"></div>
+                <div class="mat-item-header" style="padding-left:30px;">
                     ${imgHtml}
                     <div class="mat-item-info">
                         <div class="name">${m.name}</div>
@@ -485,6 +535,95 @@ async function loadMaterials() {
             </div>`;
         }).join('');
     } catch(e) { showToast('加载失败'); }
+}
+
+// ---------- 物资批量删除 ----------
+function toggleMatSelectAll(cb) {
+    document.querySelectorAll('.mat-check').forEach(c => c.checked = cb.checked);
+    updateMatSelected();
+}
+function updateMatSelected() {
+    const checked = document.querySelectorAll('.mat-check:checked');
+    const bar = document.getElementById('matBatchBar');
+    document.getElementById('matSelectedCount').textContent = '已选 ' + checked.length + ' 项';
+    bar.style.display = checked.length > 0 ? 'flex' : 'none';
+    const all = document.querySelectorAll('.mat-check');
+    document.getElementById('matSelectAll').checked = checked.length === all.length && all.length > 0;
+}
+async function batchDeleteMaterials() {
+    const ids = Array.from(document.querySelectorAll('.mat-check:checked')).map(c => c.value);
+    if (!ids.length) { showToast('请先选择物资'); return; }
+    if (!confirm('确定删除选中的 ' + ids.length + ' 项物资吗？')) return;
+    try {
+        const res = await api('/api/materials/batch-delete', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ids}) });
+        const data = await res.json();
+        if (res.ok && data.success) { showToast('已删除 ' + ids.length + ' 项'); loadMaterials(); loadDashboard(); }
+        else showToast(data.detail || '删除失败');
+    } catch(e) { showToast('删除失败'); }
+}
+
+// ---------- 物资位置管理（手机端） ----------
+let mobLocMatId = '';
+function openMobLocationManager(matId, matName) {
+    mobLocMatId = matId;
+    document.getElementById('mobLocTitle').textContent = '管理位置 - ' + matName;
+    document.getElementById('mobLocMatId').value = matId;
+    document.getElementById('mobLocationModal').classList.add('show');
+    hideMobAddLocRow();
+    loadMobLocationList();
+}
+async function loadMobLocationList() {
+    const list = document.getElementById('mobLocList');
+    try {
+        const res = await api('/api/materials');
+        const mats = await res.json();
+        const mat = mats.find(m => m.id === mobLocMatId);
+        if (!mat || !mat.locations || !mat.locations.length) {
+            list.innerHTML = '<div style="text-align:center;color:#999;padding:20px;">暂无位置，点击下方"添加位置"</div>';
+            return;
+        }
+        list.innerHTML = mat.locations.map(loc => `
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;padding:10px;background:#fafafa;border-radius:8px;">
+                <input type="text" id="mob_loc_name_${loc.id}" value="${loc.location||''}" placeholder="位置名称" style="flex:1;min-width:100px;padding:8px 10px;border:2px solid #e8e8e8;border-radius:6px;font-size:13px;">
+                <input type="number" id="mob_loc_stock_${loc.id}" value="${loc.stock||0}" min="0" style="width:70px;padding:8px 10px;border:2px solid #e8e8e8;border-radius:6px;font-size:13px;">
+                <button class="btn-sm primary" onclick="saveMobLocation('${loc.id}')">保存</button>
+                <button class="btn-sm danger" onclick="deleteMobLocation('${loc.id}')">删</button>
+            </div>
+        `).join('');
+    } catch(e) { list.innerHTML = '<div style="text-align:center;color:#999;padding:20px;">加载失败</div>'; }
+}
+function showMobAddLocRow() { document.getElementById('mobAddLocRow').style.display = 'block'; }
+function hideMobAddLocRow() { document.getElementById('mobAddLocRow').style.display = 'none'; }
+async function createMobLocation() {
+    const name = document.getElementById('mobNewLocName').value.trim();
+    const stock = parseInt(document.getElementById('mobNewLocStock').value) || 0;
+    if (!name) { showToast('请输入位置名称'); return; }
+    try {
+        const res = await api('/api/materials/' + mobLocMatId + '/locations', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({location:name, stock}) });
+        const data = await res.json();
+        if (res.ok && data.success) { showToast('添加成功'); hideMobAddLocRow(); loadMobLocationList(); loadMaterials(); }
+        else showToast(data.detail || '添加失败');
+    } catch(e) { showToast('添加失败'); }
+}
+async function saveMobLocation(locId) {
+    const name = document.getElementById('mob_loc_name_'+locId).value.trim();
+    const stock = parseInt(document.getElementById('mob_loc_stock_'+locId).value) || 0;
+    if (!name) { showToast('位置名称不能为空'); return; }
+    try {
+        const res = await api('/api/materials/' + mobLocMatId + '/locations/' + locId, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({location:name, stock}) });
+        const data = await res.json();
+        if (res.ok && data.success) { showToast('保存成功'); loadMaterials(); }
+        else showToast(data.detail || '保存失败');
+    } catch(e) { showToast('保存失败'); }
+}
+async function deleteMobLocation(locId) {
+    if (!confirm('确定删除该位置吗？')) return;
+    try {
+        const res = await api('/api/materials/' + mobLocMatId + '/locations/' + locId, { method:'DELETE' });
+        const data = await res.json();
+        if (res.ok && data.success) { showToast('已删除'); loadMobLocationList(); loadMaterials(); }
+        else showToast(data.detail || '删除失败');
+    } catch(e) { showToast('删除失败'); }
 }
 
 function viewQr(code) {
@@ -684,9 +823,21 @@ async function loadRecords() {
                     领取：${r.borrowed_at ? r.borrowed_at.replace('T',' ').substring(0,16) : '-'}<br>
                     ${r.returned_at ? '归还：' + r.returned_at.replace('T',' ').substring(0,16) : ''}
                 </div>
+                <div class="actions" style="margin-top:10px;text-align:right;">
+                    <button class="btn-sm danger" onclick="deleteMobRecord('${r.id}')">删除记录</button>
+                </div>
             </div>
         `).join('');
     } catch(e) { showToast('加载失败'); }
+}
+
+async function deleteMobRecord(id) {
+    if (!confirm('确定删除这条记录吗？')) return;
+    try {
+        const res = await api('/api/transactions/' + id, { method:'DELETE' });
+        if (res.ok) { showToast('已删除'); loadRecords(); }
+        else { const d = await res.json(); showToast(d.detail || '删除失败'); }
+    } catch(e) { showToast('删除失败'); }
 }
 
 // 用户
@@ -696,14 +847,20 @@ async function loadUsers() {
         const users = await res.json();
         const list = document.getElementById('userList');
         list.innerHTML = users.map(u => `
-            <div class="user-item">
-                <div class="info">
-                    <div class="name">${u.real_name || u.username}</div>
+            <div class="user-item" style="position:relative;">
+                <div style="position:absolute;top:14px;left:14px;z-index:2;"><input type="checkbox" class="user-check" value="${u.id}" onchange="updateUserSelected()"></div>
+                <div class="info" style="padding-left:30px;">
+                    <div class="name">${u.real_name || u.username} ${u.status === 'disabled' ? '<span style="font-size:11px;color:#999;">(已禁用)</span>' : ''}</div>
                     <div class="detail">@${u.username} · ${u.phone || '无电话'}</div>
                 </div>
-                <div style="display:flex;align-items:center;gap:10px;">
-                    <span class="role-tag ${u.role === 'admin' ? 'role-admin' : 'role-user'}">${u.role === 'admin' ? '管理员' : '用户'}</span>
-                    ${u.username !== 'admin' ? `<button class="btn-sm danger" onclick="deleteUser('${u.id}','${u.username}')">删除</button>` : ''}
+                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
+                    <span class="role-tag ${u.role === 'admin' ? 'role-admin' : 'role-user'}" style="cursor:pointer;" onclick="toggleMobUserRole('${u.id}','${u.role === 'admin' ? 'user' : 'admin'}','${u.username}')" title="点击切换角色">${u.role === 'admin' ? '管理员' : '用户'}</span>
+                    ${u.username !== 'admin' ? `
+                        <button class="btn-sm" style="background:#ff9800;color:white;" onclick="editMobUser('${u.id}')">编辑</button>
+                        <button class="btn-sm ghost" onclick="resetMobUserPwd('${u.id}','${u.username}')">重置密码</button>
+                        <button class="btn-sm ${u.status === 'disabled' ? 'primary' : 'ghost'}" onclick="toggleMobUserStatus('${u.id}')">${u.status === 'disabled' ? '启用' : '禁用'}</button>
+                        <button class="btn-sm danger" onclick="deleteUser('${u.id}','${u.username}')">删除</button>
+                    ` : ''}
                 </div>
             </div>
         `).join('');
@@ -749,6 +906,87 @@ async function deleteUser(id, username) {
         showToast(result.message || '已删除');
         loadUsers();
     } catch(e) { showToast('删除失败'); }
+}
+
+// ---------- 用户管理增强 ----------
+function editMobUser(id) {
+    fetch('/api/users', { headers:{'Authorization':'Bearer '+token} })
+    .then(r=>r.json()).then(users=>{
+        const u = users.find(x=>x.id===id);
+        if (!u) return;
+        document.getElementById('editUserId').value = u.id;
+        document.getElementById('editUserUsername').value = u.username;
+        document.getElementById('editUserRealName').value = u.real_name || '';
+        document.getElementById('editUserPhone').value = u.phone || '';
+        document.getElementById('editUserRole').value = u.role;
+        document.getElementById('editUserModal').classList.add('show');
+    });
+}
+async function submitEditMobUser() {
+    const id = document.getElementById('editUserId').value;
+    const data = {
+        real_name: document.getElementById('editUserRealName').value.trim(),
+        phone: document.getElementById('editUserPhone').value.trim(),
+        role: document.getElementById('editUserRole').value
+    };
+    try {
+        const res = await api('/api/users/' + id, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
+        if (res.ok) { showToast('保存成功'); closeModal('editUserModal'); loadUsers(); }
+        else { const d = await res.json(); showToast(d.detail || '保存失败'); }
+    } catch(e) { showToast('保存失败'); }
+}
+async function resetMobUserPwd(id, username) {
+    if (!confirm('确定将用户「' + username + '」的密码重置为 123456 吗？')) return;
+    try {
+        const res = await api('/api/reset-password', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username, new_password:'123456'}) });
+        const d = await res.json();
+        if (res.ok && d.success) showToast('密码已重置为 123456');
+        else showToast(d.detail || '重置失败');
+    } catch(e) { showToast('重置失败'); }
+}
+async function toggleMobUserRole(id, newRole, username) {
+    if (!confirm('确定将用户「' + username + '」切换为' + (newRole==='admin'?'管理员':'普通用户') + '吗？')) return;
+    try {
+        const res = await api('/api/users/' + id, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({role:newRole}) });
+        if (res.ok) { showToast('角色已切换'); loadUsers(); }
+        else { const d = await res.json(); showToast(d.detail || '切换失败'); }
+    } catch(e) { showToast('切换失败'); }
+}
+function toggleUserSelectAll(cb) {
+    document.querySelectorAll('.user-check').forEach(c=>c.checked=cb.checked);
+    updateUserSelected();
+}
+function updateUserSelected() {
+    const checked = document.querySelectorAll('.user-check:checked');
+    const bar = document.getElementById('userBatchBar');
+    document.getElementById('userSelectedCount').textContent = '已选 ' + checked.length + ' 项';
+    bar.style.display = checked.length > 0 ? 'flex' : 'none';
+}
+async function batchDeleteUsers() {
+    const ids = Array.from(document.querySelectorAll('.user-check:checked')).map(c=>c.value);
+    if (!ids.length) { showToast('请先选择用户'); return; }
+    if (!confirm('确定删除选中的 ' + ids.length + ' 个用户吗？')) return;
+    try {
+        const res = await api('/api/users/batch-delete', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ids}) });
+        const d = await res.json();
+        if (res.ok && d.success) { showToast('已删除 ' + ids.length + ' 个'); loadUsers(); }
+        else showToast(d.detail || '删除失败');
+    } catch(e) { showToast('删除失败'); }
+}
+function exportMobUsers() { window.open('/api/users/export?token=' + encodeURIComponent(token), '_blank'); }
+function downloadMobUserTemplate() { window.open('/api/users/template?token=' + encodeURIComponent(token), '_blank'); }
+function importMobUsers(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('file', file);
+    showToast('正在导入...');
+    fetch('/api/users/import', { method:'POST', headers:{'Authorization':'Bearer '+token}, body:formData })
+    .then(r=>r.json()).then(d=>{
+        if (d.success) { showToast('导入成功'); loadUsers(); }
+        else showToast(d.detail || '导入失败');
+    }).catch(()=>showToast('导入失败'));
+    input.value = '';
 }
 
 // 导出导入

@@ -18,8 +18,8 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "2.9.0"
-VERSION_DATE = "2026-08-30"
+VERSION = "3.0.0"
+VERSION_DATE = "2026-08-31"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
 def load_env():

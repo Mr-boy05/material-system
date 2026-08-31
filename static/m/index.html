@@ -197,9 +197,30 @@
         <div id="mSkillList"><div style="text-align:center;padding:40px;color:#999;">加载中...</div></div>
     </div>
 
+    <!-- 个人设置页面 -->
+    <div class="page" id="page-profile">
+        <div class="nav-bar"><div class="back" onclick="showPage('page-home')">←</div><div class="title">个人设置</div><div class="right"></div></div>
+        <div class="form-card">
+            <div style="text-align:center;margin-bottom:20px;">
+                <div style="font-size:48px;">👤</div>
+                <div style="font-size:18px;font-weight:600;margin-top:8px;" id="profileName">-</div>
+                <div style="font-size:13px;color:#999;margin-top:4px;" id="profileRole">-</div>
+            </div>
+            <div class="detail-row"><span class="label">用户名</span><span class="value" id="profileUsername">-</span></div>
+            <div class="detail-row"><span class="label">手机号</span><span class="value" id="profilePhone">-</span></div>
+        </div>
+        <div class="form-card">
+            <div style="font-weight:600;margin-bottom:14px;">🔑 修改密码</div>
+            <div class="form-group"><label>当前密码 <span class="req">*</span></label><input type="password" id="oldPwd" placeholder="请输入当前密码"></div>
+            <div class="form-group"><label>新密码 <span class="req">*</span></label><input type="password" id="newPwd" placeholder="至少6位"></div>
+            <div class="form-group"><label>确认新密码 <span class="req">*</span></label><input type="password" id="confirmPwd" placeholder="再次输入新密码"></div>
+            <button class="btn-primary" onclick="submitChangePwd()">确认修改</button>
+        </div>
+    </div>
+
     <!-- 底部版权 -->
     <div class="mobile-footer">
-        <div>城治学生会物资管理系统 <span class="version" id="mobileVersion" style="cursor:pointer;" onclick="openMobileChangelog()">v1.4.0</span></div>
+        <div>城治学生会物资管理系统 <span class="version" id="mobileVersion" style="cursor:pointer;" onclick="openMobileChangelog()">v3.0.0</span></div>
         <div>© 2026 重庆超大城市数字化治理学院 版权所有</div>
     </div>
 
@@ -254,6 +275,7 @@
                 { icon:'📋', label:'我的记录', desc:'领取归还历史', page:'page-records' },
                 { icon:'📚', label:'技能文档', desc:'模板/资料下载', page:'page-skills' },
                 { icon:'📊', label:'数据大屏', desc:'可视化数据统计', url:'/dashboard' },
+                { icon:'⚙️', label:'个人设置', desc:'修改密码', page:'page-profile' },
             ];
             // 管理员额外显示"管理后台"入口（根据本地缓存角色判断，无需重新登录）
             if (isAdmin) {
@@ -331,6 +353,7 @@
             if (id==='page-records') loadRecords();
             if (id==='page-search') { document.getElementById('searchKeyword').value=''; doSearch(); }
             if (id==='page-skills') loadMSkills();
+            if (id==='page-profile') loadProfile();
         }
 
         function uploadImg(input, previewId) {
@@ -501,7 +524,15 @@
                     <div class="detail-row"><span class="label">单位</span><span class="value">${m.unit}</span></div>
                     <div class="detail-row"><span class="label">总库存</span><span class="value">${m.total_stock} ${m.unit}</span></div>
                     <div class="detail-row"><span class="label">可领取</span><span class="value" style="color:#2e7d32;font-weight:700">${m.available_stock} ${m.unit}</span></div>
-                    <div class="detail-row"><span class="label">存放位置</span><span class="value">${m.location||'-'}</span></div>
+                    <div class="detail-row" style="flex-direction:column;align-items:flex-start;gap:6px;">
+                        <span class="label">存放位置</span>
+                        <span class="value" style="width:100%;">
+                            ${m.locations && m.locations.length ? m.locations.map((loc,idx)=>{
+                                const tag = m.locations.length>1 ? `<span style="display:inline-block;background:#e3f2fd;color:#1976d2;padding:1px 5px;border-radius:3px;font-size:10px;margin-right:4px;">位置${idx+1}</span>` : '';
+                                return `<div style="padding:3px 0;">${tag}📍 ${loc.location||'-'} <span style="color:#2e7d32;font-weight:600;">(${loc.stock}${m.unit})</span></div>`;
+                            }).join('') : (m.location||'-')}
+                        </span>
+                    </div>
                     ${editImgBtn}
                 `;
                 showPage('page-detail');
@@ -696,6 +727,37 @@
                 else showToast(d.detail || '保存失败');
             })
             .catch(()=>{ showLoading(false); showToast('保存失败'); });
+        }
+
+        // ---------- 个人设置 ----------
+        function loadProfile() {
+            document.getElementById('profileName').textContent = user.real_name || user.username || '-';
+            document.getElementById('profileRole').textContent = isAdmin ? '管理员' : '普通用户';
+            document.getElementById('profileUsername').textContent = user.username || '-';
+            document.getElementById('profilePhone').textContent = user.phone || '未设置';
+            document.getElementById('oldPwd').value = '';
+            document.getElementById('newPwd').value = '';
+            document.getElementById('confirmPwd').value = '';
+        }
+        function submitChangePwd() {
+            const oldPwd = document.getElementById('oldPwd').value;
+            const newPwd = document.getElementById('newPwd').value;
+            const confirmPwd = document.getElementById('confirmPwd').value;
+            if (!oldPwd) { showToast('请输入当前密码'); return; }
+            if (!newPwd || newPwd.length < 6) { showToast('新密码至少6位'); return; }
+            if (newPwd !== confirmPwd) { showToast('两次密码不一致'); return; }
+            showLoading(true);
+            fetch('/api/change-password', {
+                method:'POST', headers:{'Authorization':'Bearer '+token, 'Content-Type':'application/json'},
+                body: JSON.stringify({old_password:oldPwd, new_password:newPwd})
+            })
+            .then(res=>res.json().then(d=>({ok:res.ok, d})))
+            .then(({ok, d})=>{
+                showLoading(false);
+                if (ok && d.success) { showToast('密码修改成功'); document.getElementById('oldPwd').value=''; document.getElementById('newPwd').value=''; document.getElementById('confirmPwd').value=''; }
+                else showToast(d.detail || '修改失败');
+            })
+            .catch(()=>{ showLoading(false); showToast('修改失败'); });
         }
 
         // 图片放大查看
