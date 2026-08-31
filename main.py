@@ -18,7 +18,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "3.1.2"
+VERSION = "3.1.3"
 VERSION_DATE = "2026-08-31"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
@@ -521,12 +521,19 @@ def login(req: LoginRequest, conn=Depends(get_db)):
     if user["status"] == "disabled":
         raise HTTPException(status_code=400, detail="账号已被禁用，请联系管理员")
     access_token = create_access_token(data={"sub": user["id"], "jti": str(uuid.uuid4())})
-    # 多端登录：电脑端和手机端可同时在线（类QQ/微信），同类型设备新登录踢掉旧的
+    # 多端登录：电脑端和手机端可同时在线（类QQ/微信），最多允许 2 台设备同时在线
     device = "mobile" if req.device == "mobile" else "pc"
-    # 检测另一端设备是否已在线（用于前端提示"请不要同时登录"）
     other_device = "mobile" if device == "pc" else "pc"
+    # 检测另一端设备是否已在线（用于前端提示）
     cur.execute("SELECT 1 FROM sessions WHERE user_id = ? AND device = ?", (user["id"], other_device))
     other_device_online = cur.fetchone() is not None
+    # 限制：电脑端和手机端都已在线时，第三台设备不允许登录
+    if other_device_online:
+        cur.execute("SELECT 1 FROM sessions WHERE user_id = ? AND device = ?", (user["id"], device))
+        current_same_online = cur.fetchone() is not None
+        if current_same_online:
+            raise HTTPException(status_code=400, detail="该账号已在电脑端和手机端同时登录，最多允许两台设备同时在线，请先在其他设备退出登录")
+    # 同类型设备新登录踢掉旧的（每类设备最多 1 台）
     cur.execute("DELETE FROM sessions WHERE user_id = ? AND device = ?", (user["id"], device))
     cur.execute("INSERT INTO sessions (token, user_id, device) VALUES (?, ?, ?)", (access_token, user["id"], device))
     conn.commit()
