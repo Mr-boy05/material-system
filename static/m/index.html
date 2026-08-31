@@ -195,19 +195,7 @@
 
     <!-- 技能文档 -->
     <div class="page" id="page-skills">
-        <div class="nav-bar"><div class="back" onclick="showPage('page-home')">←</div><div class="title">技能文档</div><div class="right"></div></div>
-        <div class="form-card admin-only" style="margin-bottom:12px;">
-            <div style="font-weight:600;margin-bottom:10px;">📤 上传文档（管理员）</div>
-            <input type="text" id="mSkillTitle" placeholder="文档标题（不填则用文件名）" style="margin-bottom:8px;">
-            <input type="text" id="mSkillDesc" placeholder="备注说明（可选）" style="margin-bottom:8px;">
-            <input type="file" id="mSkillFile" style="display:none" onchange="onMSkillFileSelected(this)">
-            <div style="display:flex;gap:8px;align-items:center;">
-                <button class="btn-full ghost" style="flex:1;margin:0;" onclick="document.getElementById('mSkillFile').click()">选择文件</button>
-                <button class="btn-primary" style="flex:1;margin:0;" onclick="uploadMSkill()">上传</button>
-            </div>
-            <div id="mSkillFileName" style="font-size:12px;color:#999;margin-top:6px;">未选择文件</div>
-            <div style="font-size:11px;color:#bbb;margin-top:4px;">支持 PDF、Word、Excel、PPT、图片、压缩包等所有格式</div>
-        </div>
+        <div class="nav-bar"><div class="back" onclick="showPage('page-home')">←</div><div class="title">技能文档</div><div class="right admin-only" id="skillUploadBtn" onclick="openSkillUpload()" style="cursor:pointer;font-size:15px;">+ 上传</div></div>
         <div id="mSkillList"><div style="text-align:center;padding:40px;color:#999;">加载中...</div></div>
     </div>
 
@@ -297,6 +285,25 @@
         </div>
     </div>
 
+    <!-- 技能文档上传弹窗 -->
+    <div class="modal-mask" id="mSkillUploadModal" onclick="if(event.target===this)closeSkillUpload()">
+        <div class="modal">
+            <div class="modal-title">📤 上传文档</div>
+            <div class="form-group"><label>文档标题</label><input type="text" id="mSkillTitle" placeholder="不填则用文件名"></div>
+            <div class="form-group"><label>备注说明</label><input type="text" id="mSkillDesc" placeholder="可选"></div>
+            <div class="form-group"><label>选择文件 <span class="req">*</span></label>
+                <input type="file" id="mSkillFile" style="display:none" onchange="onMSkillFileSelected(this)">
+                <button class="btn-full ghost" style="margin:0;" onclick="document.getElementById('mSkillFile').click()">选择文件</button>
+                <div id="mSkillFileName" style="font-size:12px;color:#999;margin-top:6px;">未选择文件</div>
+                <div style="font-size:11px;color:#bbb;margin-top:4px;">支持 PDF、Word、Excel、PPT、图片、压缩包等所有格式</div>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:16px;">
+                <button class="btn-full ghost" style="flex:1;margin:0;" onclick="closeSkillUpload()">取消</button>
+                <button class="btn-primary" style="flex:1;margin:0;" onclick="uploadMSkill()">上传</button>
+            </div>
+        </div>
+    </div>
+
     <div class="toast" id="toast"></div>
     <div class="loading" id="loading">处理中...</div>
 
@@ -312,6 +319,10 @@
         if (!token) window.location.href = '/m/login';
         const user = JSON.parse(localStorage.getItem('user') || '{}');
         const isAdmin = user.role === 'admin';
+        // 非管理员隐藏所有 admin-only 元素
+        if (!isAdmin) {
+            document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
+        }
 
         // 先渲染菜单，确保一定能显示
         function buildMenu() {
@@ -685,6 +696,16 @@
             return (bytes/1048576).toFixed(1) + ' MB';
         }
 
+        function openSkillUpload() {
+            document.getElementById('mSkillTitle').value = '';
+            document.getElementById('mSkillDesc').value = '';
+            document.getElementById('mSkillFile').value = '';
+            document.getElementById('mSkillFileName').textContent = '未选择文件';
+            document.getElementById('mSkillUploadModal').classList.add('show');
+        }
+        function closeSkillUpload() {
+            document.getElementById('mSkillUploadModal').classList.remove('show');
+        }
         function onMSkillFileSelected(input) {
             const f = input.files[0];
             document.getElementById('mSkillFileName').textContent = f ? f.name + ' (' + mFormatSize(f.size) + ')' : '未选择文件';
@@ -705,10 +726,7 @@
                 showLoading(false);
                 if (ok && d.success) {
                     showToast('上传成功');
-                    document.getElementById('mSkillTitle').value='';
-                    document.getElementById('mSkillDesc').value='';
-                    input.value='';
-                    document.getElementById('mSkillFileName').textContent='未选择文件';
+                    closeSkillUpload();
                     loadMSkills();
                 } else {
                     showToast(d.detail || '上传失败');
