@@ -6,7 +6,7 @@
     <title>城治学生会物资管理系统</title>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-        body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif; background:linear-gradient(160deg,#e8edfb 0%,#f5f0ff 50%,#eef4fa 100%); min-height:100vh; color:#333; position:relative; overflow-x:hidden; }
+        body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif; background:#f0f2f5; min-height:100vh; color:#333; }
         .page { display:none; min-height:100vh; padding-bottom:30px; }
         .page.active { display:block; }
         .nav-bar { background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); color:white; padding:16px 18px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100; box-shadow:0 2px 12px rgba(102,126,234,0.3); }
@@ -132,63 +132,9 @@
             transition:left 0.5s ease;
         }
         .btn-primary:active::after { left:100%; }
-
-        /* ========== 沉浸光感主题（浅色精致版） ========== */
-        /* 背景光晕 */
-        .glow-orb { position:fixed; border-radius:50%; filter:blur(70px); pointer-events:none; z-index:0; }
-        .glow-orb.orb1 { width:340px; height:340px; background:linear-gradient(135deg,#a5b4fc,#c7d2fe); opacity:0.45; top:-80px; right:-60px; animation:mGlow1 14s ease-in-out infinite; }
-        .glow-orb.orb2 { width:300px; height:300px; background:linear-gradient(135deg,#fbc2eb,#a6c1ee); opacity:0.4; bottom:120px; left:-70px; animation:mGlow2 18s ease-in-out infinite; }
-        @keyframes mGlow1 { 0%,100%{transform:translate(0,0);} 50%{transform:translate(-40px,30px);} }
-        @keyframes mGlow2 { 0%,100%{transform:translate(0,0);} 50%{transform:translate(30px,-40px);} }
-
-        /* 页面层级 */
-        .page, .nav-bar, .search-bar, .bottom-nav { position:relative; z-index:1; }
-
-        /* 卡片光感 */
-        .stat-card, .menu-item, .form-card, .mat-item, .detail-card, .record-item {
-            background:rgba(255,255,255,0.92) !important;
-            backdrop-filter:blur(12px);
-            -webkit-backdrop-filter:blur(12px);
-            border:1px solid rgba(255,255,255,0.8);
-            box-shadow:0 4px 20px rgba(102,126,234,0.1) !important;
-        }
-        /* 底部导航光感 */
-        .bottom-nav {
-            background:rgba(255,255,255,0.9) !important;
-            backdrop-filter:blur(16px);
-            -webkit-backdrop-filter:blur(16px);
-            border-top:1px solid rgba(255,255,255,0.8);
-        }
-        /* 搜索栏光感 */
-        .search-bar {
-            background:rgba(255,255,255,0.9) !important;
-            backdrop-filter:blur(14px);
-            -webkit-backdrop-filter:blur(14px);
-        }
-        /* 弹窗光感 */
-        .modal {
-            background:rgba(255,255,255,0.95) !important;
-            backdrop-filter:blur(20px);
-            -webkit-backdrop-filter:blur(20px);
-        }
-        /* 主按钮渐变 */
-        .btn-primary {
-            background:linear-gradient(135deg,#667eea,#764ba2) !important;
-            box-shadow:0 4px 16px rgba(102,126,234,0.35) !important;
-        }
-        /* 首页标题光感 */
-        .home-hero { box-shadow:0 8px 32px rgba(102,126,234,0.3); }
-        .home-stats .stat-card { margin-top:-2px; }
-        /* 底部版权 */
-        .mobile-footer { color:#8b8bb0; }
-        .mobile-footer .version { color:#667eea; }
-        .menu-section-title { color:#666; }
     </style>
 </head>
 <body>
-    <!-- 沉浸光感背景光晕 -->
-    <div class="glow-orb orb1"></div>
-    <div class="glow-orb orb2"></div>
     <!-- 首页 -->
     <div class="page active" id="page-home">
         <div class="home-hero">
