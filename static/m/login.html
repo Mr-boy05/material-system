@@ -367,12 +367,8 @@
                     } else {
                         localStorage.removeItem('auto_login_cred');
                     }
-                    // 根据角色跳转：管理员→管理后台，普通用户→物资管理
-                    if (data.role === 'admin') {
-                        window.location.href = '/m/admin';
-                    } else {
-                        window.location.href = '/m/';
-                    }
+                    // 统一跳转到手机端首页，管理员可从首页"管理后台"入口进入
+                    window.location.href = '/m/';
                 }
                 else { errorMsg.textContent = data.detail || '登录失败'; errorMsg.style.display = 'block'; }
             })
@@ -383,17 +379,8 @@
         // 页面加载时检查自动登录
         (function() {
             if (localStorage.getItem('token')) {
-                // 根据已保存的用户角色跳转
-                try {
-                    const user = JSON.parse(localStorage.getItem('user') || '{}');
-                    if (user.role === 'admin') {
-                        window.location.href = '/m/admin';
-                    } else {
-                        window.location.href = '/m/';
-                    }
-                } catch(e) {
-                    window.location.href = '/m/';
-                }
+                // 统一跳转到手机端首页
+                window.location.href = '/m/';
                 return;
             }
             const cred = localStorage.getItem('auto_login_cred');

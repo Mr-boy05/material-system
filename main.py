@@ -39,7 +39,7 @@ def load_env():
 
 load_env()
 
-from fastapi import FastAPI, Depends, HTTPException, status, Header, UploadFile, File, Form
+from fastapi import FastAPI, Depends, HTTPException, status, Header, UploadFile, File, Form, Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, StreamingResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -159,7 +159,7 @@ def init_db():
     for m in existing_materials:
         # 检查是否已经迁移过
         c.execute("SELECT COUNT(*) FROM material_locations WHERE material_id=?", (m["id"],))
-        if c.fetchone()[0] == 0:
+        if tuple(c.fetchone())[0] == 0:
             loc_id = str(uuid.uuid4())
             c.execute("INSERT INTO material_locations (id, material_id, location, stock) VALUES (?, ?, ?, ?)",
                       (loc_id, m["id"], m["location"], m["total_stock"]))
@@ -275,7 +275,7 @@ def init_db():
 
     # 初始化管理员
     c.execute("SELECT COUNT(*) FROM users WHERE username = 'admin'")
-    if c.fetchone()[0] == 0:
+    if tuple(c.fetchone())[0] == 0:
         c.execute("""
             INSERT INTO users (id, username, password_hash, real_name, phone, role)
             VALUES (?, ?, ?, ?, ?, 'admin')
@@ -289,7 +289,7 @@ def init_db():
     ]
     for name, phone in test_users:
         c.execute("SELECT COUNT(*) FROM users WHERE username = ?", (name,))
-        if c.fetchone()[0] == 0:
+        if tuple(c.fetchone())[0] == 0:
             c.execute("""
                 INSERT INTO users (id, username, password_hash, real_name, phone, role)
                 VALUES (?, ?, ?, ?, ?, 'user')
@@ -297,7 +297,7 @@ def init_db():
 
     # 初始化测试物资
     c.execute("SELECT COUNT(*) FROM materials")
-    if c.fetchone()[0] == 0:
+    if tuple(c.fetchone())[0] == 0:
         samples = [
             (str(uuid.uuid4()), "笔记本电脑", "MAT-0001", "ThinkPad X1", "台", 5, 5, "办公室A柜", ""),
             (str(uuid.uuid4()), "投影仪", "MAT-0002", "爱普生 CB-X06", "台", 2, 2, "会议室B柜", ""),
@@ -429,17 +429,21 @@ def create_access_token(data: dict) -> str:
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
-def get_current_user(authorization: str = Header(...), conn=Depends(get_db)):
+def get_current_user(authorization: str = Header(None), token: str = Query(None), conn=Depends(get_db)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="登录已过期，请重新登录",
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        if not authorization.startswith("Bearer "):
+        # 优先从 Authorization header 获取，其次从 URL query 参数获取（用于下载/导出等浏览器直接打开的场景）
+        if authorization and authorization.startswith("Bearer "):
+            jwt_token = authorization[7:]
+        elif token:
+            jwt_token = token
+        else:
             raise credentials_exception
-        token = authorization[7:]
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(jwt_token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id: str = payload.get("sub")
         if user_id is None:
             raise credentials_exception
@@ -1277,7 +1281,7 @@ def create_material(req: MaterialCreate, conn=Depends(get_db), user=Depends(get_
             raise HTTPException(status_code=400, detail=f"编号 {qr_code} 已存在")
     else:
         cur.execute("SELECT COUNT(*) FROM materials")
-        count = cur.fetchone()[0]
+        count = tuple(cur.fetchone())[0]
         qr_code = f"CZ-{count + 1:05d}"
     operator = user.get("real_name", "") or user.get("username", "")
     cur.execute("""
@@ -1424,7 +1428,7 @@ def return_material(req: ReturnRequest, conn=Depends(get_db), user=Depends(get_c
             SELECT COALESCE(SUM(quantity), 0) FROM transactions
             WHERE material_id = ? AND user_id = ? AND status = 'active' AND type = 'borrow'
         """, (req.material_id, user["id"]))
-        total_borrowed = cur.fetchone()[0]
+        total_borrowed = tuple(cur.fetchone())[0]
         if total_borrowed <= 0:
             raise HTTPException(status_code=400, detail="你没有该物资的未归还记录")
         if req.quantity > total_borrowed:
@@ -1548,7 +1552,7 @@ def public_return(req: PublicReturnRequest, conn=Depends(get_db)):
             SELECT COALESCE(SUM(quantity), 0) FROM transactions
             WHERE material_id = ? AND user_id = ? AND status = 'active' AND type = 'borrow'
         """, (req.material_id, user["id"]))
-        total_borrowed = cur.fetchone()[0]
+        total_borrowed = tuple(cur.fetchone())[0]
         if total_borrowed <= 0:
             raise HTTPException(status_code=400, detail="你没有该物资的未归还记录")
         if req.quantity > total_borrowed:
@@ -1621,7 +1625,7 @@ def my_borrowed_of_material(material_id: str, conn=Depends(get_db), user=Depends
         SELECT COALESCE(SUM(quantity), 0) FROM transactions
         WHERE material_id = ? AND user_id = ? AND status = 'active' AND type = 'borrow'
     """, (material_id, user["id"]))
-    return {"borrowed_quantity": cur.fetchone()[0]}
+    return {"borrowed_quantity": tuple(cur.fetchone())[0]}
 
 # ---------- 管理员：所有记录 ----------
 @app.get("/api/transactions")
@@ -1717,7 +1721,7 @@ def delete_material(material_id: str, conn=Depends(get_db), user=Depends(get_cur
     cur = conn.cursor()
     # 检查是否有未归还的领用
     cur.execute("SELECT COALESCE(SUM(quantity),0) FROM transactions WHERE material_id=? AND status='active'", (material_id,))
-    if cur.fetchone()[0] > 0:
+    if tuple(cur.fetchone())[0] > 0:
         raise HTTPException(status_code=400, detail="该物资还有未归还的领用记录，无法删除")
     cur.execute("DELETE FROM materials WHERE id=?", (material_id,))
     cur.execute("DELETE FROM transactions WHERE material_id=?", (material_id,))
@@ -1737,7 +1741,7 @@ def batch_delete_materials(req: dict, conn=Depends(get_db), user=Depends(get_cur
     skipped = []
     for mid in ids:
         cur.execute("SELECT COALESCE(SUM(quantity),0) FROM transactions WHERE material_id=? AND status='active'", (mid,))
-        if cur.fetchone()[0] > 0:
+        if tuple(cur.fetchone())[0] > 0:
             skipped.append(mid)
             continue
         cur.execute("DELETE FROM materials WHERE id=?", (mid,))
@@ -1874,7 +1878,7 @@ def import_materials(file: UploadFile = File(...), conn=Depends(get_db), user=De
                     # 新增物资
                     material_id = str(uuid.uuid4())
                     cur.execute("SELECT COUNT(*) FROM materials")
-                    count = cur.fetchone()[0]
+                    count = tuple(cur.fetchone())[0]
                     qr_code = f"MAT-{count + 1:06d}"
                     cur.execute("""
                         INSERT INTO materials (id, name, qr_code, spec, unit, total_stock, available_stock, location, image, operator)
@@ -1940,12 +1944,12 @@ def stats_overview(conn=Depends(get_db), user=Depends(get_current_user)):
     location_dist = [dict(row) for row in cur.fetchall()]
 
     # 库存状态分布（充足/偏低/为零）
-    cur.execute("SELECT COUNT(*) FROM materials WHERE available_stock > 5")
-    stock_ok = cur.fetchone()[0]
-    cur.execute("SELECT COUNT(*) FROM materials WHERE available_stock > 0 AND available_stock <= 5")
-    stock_low = cur.fetchone()[0]
-    cur.execute("SELECT COUNT(*) FROM materials WHERE available_stock = 0")
-    stock_out = cur.fetchone()[0]
+    cur.execute("SELECT COUNT(*) as cnt FROM materials WHERE available_stock > 5")
+    stock_ok = cur.fetchone()["cnt"]
+    cur.execute("SELECT COUNT(*) as cnt FROM materials WHERE available_stock > 0 AND available_stock <= 5")
+    stock_low = cur.fetchone()["cnt"]
+    cur.execute("SELECT COUNT(*) as cnt FROM materials WHERE available_stock = 0")
+    stock_out = cur.fetchone()["cnt"]
 
     # 最近7天领取趋势
     trend = []
@@ -1955,7 +1959,7 @@ def stats_overview(conn=Depends(get_db), user=Depends(get_current_user)):
             SELECT COALESCE(SUM(quantity),0) as total FROM transactions
             WHERE type='borrow' AND DATE(borrowed_at) = ?
         """, (date,))
-        trend.append({"date": date[5:], "count": cur.fetchone()[0]})
+        trend.append({"date": date[5:], "count": cur.fetchone()["total"]})
 
     return {
         "material_count": material_count,

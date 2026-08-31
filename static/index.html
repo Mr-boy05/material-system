@@ -752,7 +752,7 @@
         }
 
         function downloadSkillFile(id) {
-            window.open('/api/skills/' + id + '/download', '_blank');
+            window.open('/api/skills/' + id + '/download?token=' + encodeURIComponent(token), '_blank');
         }
 
         function deleteSkillFile(id, name) {

@@ -683,7 +683,7 @@
         }
 
         function downloadMSkill(id) {
-            window.open('/api/skills/' + id + '/download', '_blank');
+            window.open('/api/skills/' + id + '/download?token=' + encodeURIComponent(token), '_blank');
         }
 
         function deleteMSkill(id, name) {
