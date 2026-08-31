@@ -7,7 +7,7 @@
     <style>
         * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
         body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif; background:#f0f2f5; min-height:100vh; color:#333; }
-        .page { display:none; min-height:100vh; padding-bottom:30px; }
+        .page { display:none; min-height:100vh; padding-bottom:100px; }
         .page.active { display:block; }
         .nav-bar { background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); color:white; padding:16px 18px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100; box-shadow:0 2px 12px rgba(102,126,234,0.3); }
         .nav-bar .back { font-size:24px; cursor:pointer; width:32px; font-weight:300; }
@@ -88,16 +88,16 @@
         .view-img-mask .view-img-name { color:#fff; font-size:15px; margin-top:16px; text-align:center; padding:0 20px; }
         .view-img-mask .view-img-close { margin-top:20px; padding:10px 30px; background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.3); color:#fff; border-radius:20px; font-size:14px; cursor:pointer; }
         /* 底部版权 */
-        .mobile-footer { text-align:center; padding:20px 16px 80px; color:#bbb; font-size:11px; line-height:1.8; }
+        .mobile-footer { text-align:center; padding:20px 16px 30px; color:rgba(255,255,255,0.4); font-size:11px; line-height:1.8; }
         .mobile-footer .version { color:#667eea; }
 
-        /* 底部导航栏 */
-        .bottom-nav { position:fixed; bottom:0; left:0; right:0; background:white; display:flex; justify-content:space-around; align-items:center; padding:8px 0 calc(8px + env(safe-area-inset-bottom)); box-shadow:0 -2px 12px rgba(0,0,0,0.06); z-index:100; border-top:1px solid #f0f0f0; }
-        .bottom-nav-item { flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; cursor:pointer; padding:4px 0; color:#999; transition:all 0.2s; -webkit-tap-highlight-color:transparent; }
+        /* 底部导航栏 - 悬浮样式 */
+        .bottom-nav { position:fixed; bottom:14px; left:14px; right:14px; background:rgba(255,255,255,0.88); display:flex; justify-content:space-around; align-items:center; padding:10px 0; box-shadow:0 8px 32px rgba(0,0,0,0.25); z-index:100; border-radius:20px; border:1px solid rgba(255,255,255,0.3); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); }
+        .bottom-nav-item { flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; cursor:pointer; padding:4px 0; color:#999; transition:all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); -webkit-tap-highlight-color:transparent; border-radius:12px; margin:0 4px; }
         .bottom-nav-item .nav-icon { font-size:22px; line-height:1; }
         .bottom-nav-item .nav-label { font-size:10px; font-weight:500; }
-        .bottom-nav-item.active { color:#667eea; }
-        .bottom-nav-item:active { transform:scale(0.92); }
+        .bottom-nav-item.active { color:#667eea; background:rgba(102,126,234,0.1); }
+        .bottom-nav-item:active { transform:scale(0.88) !important; }
 
         /* 物资列表项优化 */
         .mat-item .loc-text { font-size:12px; color:#666; margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -194,6 +194,46 @@
         .mobile-footer .version { color:rgba(255,255,255,0.6); }
         /* 菜单标题浅色 */
         .menu-section-title { color:rgba(255,255,255,0.7); }
+
+        /* ========== 手机端界面美化 ========== */
+        .menu-item .icon {
+            width:52px; height:52px;
+            display:flex; align-items:center; justify-content:center;
+            background:linear-gradient(135deg, rgba(102,126,234,0.15), rgba(118,75,162,0.15));
+            border-radius:16px;
+            margin:0 auto 8px;
+            font-size:28px;
+        }
+        .stat-card {
+            background:rgba(255,255,255,0.9) !important;
+            border-radius:16px;
+            padding:18px 10px;
+        }
+        .stat-card .num {
+            background:linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip:text;
+            -webkit-text-fill-color:transparent;
+            background-clip:text;
+        }
+        .nav-bar .back {
+            width:32px; height:32px;
+            display:flex; align-items:center; justify-content:center;
+            background:rgba(255,255,255,0.2);
+            border-radius:10px;
+            font-size:20px;
+        }
+        .nav-bar .right {
+            min-width:32px; min-height:32px;
+            display:flex; align-items:center; justify-content:center;
+            background:rgba(255,255,255,0.2);
+            border-radius:10px;
+            padding:0 8px;
+        }
+        .mat-item { border-radius:16px; padding:16px; }
+        .mat-item .img, .mat-item .img-ph { border-radius:14px; }
+        .record-item { border-radius:16px; padding:18px; }
+        .detail-card { border-radius:18px; padding:24px; }
+        .form-card { border-radius:18px; padding:24px 20px; }
     </style>
 </head>
 <body>
