@@ -27,7 +27,7 @@
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
-        body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; background:#f5f7fa; min-height:100vh; display:flex; }
+        body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; background:linear-gradient(135deg,#e8edfb 0%,#f5f0ff 45%,#eef4fa 100%); min-height:100vh; display:flex; position:relative; overflow-x:hidden; }
 
         /* 左侧导航 */
         .sidebar { width:220px; background:linear-gradient(180deg,#1a1a2e 0%,#16213e 100%); color:white; min-height:100vh; display:flex; flex-direction:column; position:fixed; left:0; top:0; }
@@ -171,9 +171,93 @@
         }
         .sidebar .nav-item:hover, .sidebar .dropdown-item:hover { transform:translateX(4px); }
         .sidebar .nav-item:active, .sidebar .dropdown-item:active { transform:scale(0.97); }
+
+        /* ========== 沉浸光感主题（浅色精致版） ========== */
+        /* 背景光晕 */
+        .glow-orb { position:fixed; border-radius:50%; filter:blur(90px); pointer-events:none; z-index:0; }
+        .glow-orb.orb1 { width:520px; height:520px; background:linear-gradient(135deg,#a5b4fc,#c7d2fe); opacity:0.45; top:-140px; right:-80px; animation:glowFloat1 16s ease-in-out infinite; }
+        .glow-orb.orb2 { width:440px; height:440px; background:linear-gradient(135deg,#fbc2eb,#a6c1ee); opacity:0.4; bottom:-120px; left:-60px; animation:glowFloat2 20s ease-in-out infinite; }
+        .glow-orb.orb3 { width:360px; height:360px; background:radial-gradient(circle,#c7f9cc,#b6c5f5); opacity:0.35; top:40%; left:55%; animation:glowFloat3 24s ease-in-out infinite; }
+        @keyframes glowFloat1 { 0%,100%{transform:translate(0,0);} 50%{transform:translate(-60px,50px);} }
+        @keyframes glowFloat2 { 0%,100%{transform:translate(0,0);} 50%{transform:translate(50px,-60px);} }
+        @keyframes glowFloat3 { 0%,100%{transform:translate(0,0);} 50%{transform:translate(-40px,-40px);} }
+
+        /* 内容层级 */
+        .sidebar, .main { position:relative; z-index:1; }
+
+        /* 卡片光感 */
+        .filter-bar, table, .form-card, .modal {
+            background:rgba(255,255,255,0.92) !important;
+            backdrop-filter:blur(14px);
+            -webkit-backdrop-filter:blur(14px);
+            border:1px solid rgba(255,255,255,0.8);
+            box-shadow:0 8px 32px rgba(102,126,234,0.12), 0 2px 8px rgba(0,0,0,0.04);
+        }
+        .modal { background:rgba(255,255,255,0.95) !important; }
+        th { background:linear-gradient(135deg,#f0f2ff,#faf9ff) !important; color:#5b5bd6 !important; }
+        tr:hover { background:rgba(102,126,234,0.06) !important; }
+
+        /* 页面标题渐变 */
+        .page-title {
+            font-size:22px;
+            background:linear-gradient(135deg,#667eea,#9a5bd6);
+            -webkit-background-clip:text;
+            background-clip:text;
+            -webkit-text-fill-color:transparent;
+            color:transparent;
+            margin-bottom:20px;
+            font-weight:700;
+        }
+
+        /* 侧边栏光感 */
+        .sidebar {
+            background:linear-gradient(180deg,#1a1a2e 0%,#16213e 100%) !important;
+            box-shadow:6px 0 30px rgba(102,126,234,0.15);
+        }
+
+        /* 统计卡片光感 */
+        .stat-card {
+            position:relative;
+            overflow:hidden;
+            box-shadow:0 8px 28px rgba(102,126,234,0.18) !important;
+            transition:all 0.4s cubic-bezier(0.34,1.56,0.64,1) !important;
+        }
+        .stat-card::before {
+            content:'';
+            position:absolute;
+            top:0; left:0; right:0; height:50%;
+            background:linear-gradient(135deg, rgba(255,255,255,0.25), transparent);
+            pointer-events:none;
+        }
+        .stat-card:hover {
+            transform:translateY(-5px) scale(1.02) !important;
+            box-shadow:0 16px 40px rgba(102,126,234,0.3) !important;
+        }
+
+        /* 用户/活动卡片光感 */
+        #userList > div:not(.empty), #activityList > div:not(.empty) {
+            background:rgba(255,255,255,0.92) !important;
+            backdrop-filter:blur(10px);
+            -webkit-backdrop-filter:blur(10px);
+            border:1px solid rgba(255,255,255,0.8);
+            box-shadow:0 4px 20px rgba(102,126,234,0.1);
+        }
+
+        /* 按钮光感强化 */
+        .btn-primary { background:linear-gradient(135deg,#667eea,#764ba2) !important; box-shadow:0 4px 14px rgba(102,126,234,0.35); }
+        .btn-primary:hover { box-shadow:0 8px 24px rgba(102,126,234,0.5) !important; }
+        .btn-danger { background:linear-gradient(135deg,#ef5350,#e53935) !important; box-shadow:0 4px 14px rgba(239,83,80,0.3); }
+
+        /* 底部版权 */
+        .footer { color:#8b8bb0; }
+        .footer .version { color:#667eea; }
     </style>
 </head>
 <body>
+    <!-- 沉浸光感背景光晕 -->
+    <div class="glow-orb orb1"></div>
+    <div class="glow-orb orb2"></div>
+    <div class="glow-orb orb3"></div>
     <!-- 左侧导航 -->
     <div class="sidebar">
         <div class="logo">
