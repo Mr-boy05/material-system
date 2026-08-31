@@ -106,60 +106,43 @@
         .stock-low { color:#ef6c00 !important; font-weight:600; }
         .stock-ok { color:#2e7d32 !important; font-weight:600; }
 
-        /* ========== 手机端沉浸光感主题 ========== */
+        /* ========== 手机端主题（浅色） ========== */
         body {
-            background:linear-gradient(160deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            background:#f0f2f5;
             min-height:100vh;
             position:relative;
-            overflow-x:hidden;
         }
-        /* 光晕背景 */
-        .glow-orb { position:fixed; border-radius:50%; filter:blur(60px); opacity:0.35; pointer-events:none; z-index:0; }
-        .glow-orb.orb1 { width:280px; height:280px; background:#667eea; top:-60px; right:-40px; animation:mFloat1 12s ease-in-out infinite; }
-        .glow-orb.orb2 { width:240px; height:240px; background:#764ba2; bottom:80px; left:-50px; animation:mFloat2 15s ease-in-out infinite; }
-        @keyframes mFloat1 { 0%,100%{transform:translate(0,0);} 50%{transform:translate(-40px,30px);} }
-        @keyframes mFloat2 { 0%,100%{transform:translate(0,0);} 50%{transform:translate(30px,-30px);} }
+        /* 光晕隐藏 */
+        .glow-orb { display:none; }
 
         /* 页面层级 */
         .page, .nav-bar, .bottom-nav, .search-bar { position:relative; z-index:1; }
 
-        /* 导航栏毛玻璃 */
+        /* 导航栏保持紫色渐变 */
         .nav-bar {
-            background:rgba(102,126,234,0.75) !important;
-            backdrop-filter:blur(20px);
-            -webkit-backdrop-filter:blur(20px);
+            background:linear-gradient(135deg,#667eea 0%,#764ba2 100%) !important;
         }
-        /* 首页hero毛玻璃 */
+        /* 首页hero保持紫色渐变 */
         .home-hero {
-            background:rgba(102,126,234,0.6) !important;
-            backdrop-filter:blur(16px);
-            -webkit-backdrop-filter:blur(16px);
+            background:linear-gradient(135deg,#667eea 0%,#764ba2 100%) !important;
         }
-        /* 搜索栏毛玻璃 */
+        /* 搜索栏白色 */
         .search-bar {
-            background:rgba(255,255,255,0.85) !important;
-            backdrop-filter:blur(16px);
-            -webkit-backdrop-filter:blur(16px);
+            background:white !important;
         }
-        /* 卡片毛玻璃 */
+        /* 卡片白色 */
         .stat-card, .menu-item, .form-card, .mat-item, .detail-card, .record-item {
-            background:rgba(255,255,255,0.88) !important;
-            backdrop-filter:blur(16px);
-            -webkit-backdrop-filter:blur(16px);
-            border:1px solid rgba(255,255,255,0.3);
+            background:white !important;
+            border:1px solid rgba(0,0,0,0.03);
         }
-        /* 底部导航毛玻璃 */
+        /* 底部导航白色 */
         .bottom-nav {
-            background:rgba(255,255,255,0.85) !important;
-            backdrop-filter:blur(20px);
-            -webkit-backdrop-filter:blur(20px);
-            border-top:1px solid rgba(255,255,255,0.2);
+            background:white !important;
+            border:1px solid rgba(0,0,0,0.05);
         }
-        /* 弹窗毛玻璃 */
+        /* 弹窗白色 */
         .modal {
-            background:rgba(255,255,255,0.92) !important;
-            backdrop-filter:blur(24px);
-            -webkit-backdrop-filter:blur(24px);
+            background:white !important;
         }
 
         /* ========== 手机端液态按钮效果 ========== */
@@ -189,11 +172,11 @@
         }
         .btn-primary:active::after { left:100%; }
 
-        /* 底部版权浅色 */
-        .mobile-footer { color:rgba(255,255,255,0.4); }
-        .mobile-footer .version { color:rgba(255,255,255,0.6); }
-        /* 菜单标题浅色 */
-        .menu-section-title { color:rgba(255,255,255,0.7); }
+        /* 底部版权 */
+        .mobile-footer { color:#bbb; }
+        .mobile-footer .version { color:#667eea; }
+        /* 菜单标题 */
+        .menu-section-title { color:#666; }
 
         /* ========== 手机端界面美化 ========== */
         .menu-item .icon {
