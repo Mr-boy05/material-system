@@ -18,7 +18,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "3.2.6"
+VERSION = "3.3.0"
 VERSION_DATE = "2026-08-31"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
@@ -2103,6 +2103,38 @@ def stats_overview(conn=Depends(get_db), user=Depends(get_current_user)):
         """, (date,))
         trend.append({"date": date[5:], "count": cur.fetchone()["total"]})
 
+    # ===== 全板块统计（活动/文档/考勤/用户） =====
+    # 活动规划
+    cur.execute("SELECT COUNT(*) as cnt FROM activity_plans")
+    plan_total = cur.fetchone()["cnt"]
+    cur.execute("SELECT COUNT(*) as cnt FROM activity_plans WHERE status='planned'")
+    plan_planned = cur.fetchone()["cnt"]
+    cur.execute("SELECT COUNT(*) as cnt FROM activity_plans WHERE status='confirmed'")
+    plan_confirmed = cur.fetchone()["cnt"]
+    cur.execute("SELECT COUNT(*) as cnt FROM activity_plans WHERE status='done'")
+    plan_done = cur.fetchone()["cnt"]
+    # 活动记录
+    cur.execute("SELECT COUNT(*) as cnt FROM activities")
+    activity_count = cur.fetchone()["cnt"]
+    # 技能文档
+    cur.execute("SELECT COUNT(*) as cnt FROM skill_files")
+    skill_count = cur.fetchone()["cnt"]
+    # 考勤
+    cur.execute("SELECT COUNT(*) as cnt FROM attendance")
+    attendance_count = cur.fetchone()["cnt"]
+    # 用户
+    cur.execute("SELECT COUNT(*) as cnt FROM users WHERE status='approved'")
+    user_active = cur.fetchone()["cnt"]
+    cur.execute("SELECT COUNT(*) as cnt FROM users WHERE role='admin'")
+    user_admin = cur.fetchone()["cnt"]
+    # 各部门人数分布
+    cur.execute("""
+        SELECT COALESCE(NULLIF(department,''),'未分配') as dept, COUNT(*) as cnt
+        FROM users WHERE status='approved'
+        GROUP BY department ORDER BY cnt DESC
+    """)
+    dept_dist = [dict(row) for row in cur.fetchall()]
+
     return {
         "material_count": material_count,
         "total_stock": total_stock,
@@ -2115,6 +2147,12 @@ def stats_overview(conn=Depends(get_db), user=Depends(get_current_user)):
         "location_dist": location_dist,
         "stock_status": {"ok": stock_ok, "low": stock_low, "out": stock_out},
         "borrow_trend": trend,
+        "activity_plans": {"total": plan_total, "planned": plan_planned, "confirmed": plan_confirmed, "done": plan_done},
+        "activity_count": activity_count,
+        "skill_count": skill_count,
+        "attendance_count": attendance_count,
+        "users": {"active": user_active, "admin": user_admin},
+        "dept_dist": dept_dist,
     }
 
 # ==================== 活动记录 ====================
@@ -2735,6 +2773,10 @@ def mobile_index():
 @app.get("/m/admin")
 def mobile_admin():
     return FileResponse("static/m/admin.html")
+
+@app.get("/m/dashboard")
+def mobile_dashboard():
+    return FileResponse("static/m/dashboard.html")
 
 @app.get("/m/login")
 def mobile_login():

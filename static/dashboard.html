@@ -1,631 +1,332 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>城治学生会综合管理系统 - 数据大屏</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: "Microsoft YaHei", -apple-system, sans-serif;
-            background: #0a1128;
-            background-image: 
-                radial-gradient(ellipse at top, rgba(30,60,140,0.4) 0%, transparent 50%),
-                radial-gradient(ellipse at bottom, rgba(20,80,120,0.3) 0%, transparent 50%);
-            min-height: 100vh;
-            color: #e3f2fd;
-            overflow-x: hidden;
-        }
-        /* 顶部标题栏 */
-        .header {
-            position: relative;
-            text-align: center;
-            padding: 18px 20px 15px;
-            background: linear-gradient(180deg, rgba(15,30,70,0.9) 0%, transparent 100%);
-            border-bottom: 1px solid rgba(100,181,246,0.2);
-        }
-        .header::before, .header::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            width: 30%;
-            height: 2px;
-            background: linear-gradient(90deg, transparent, #4fc3f7, transparent);
-        }
-        .header::before { left: 10%; }
-        .header::after { right: 10%; }
-        .header h1 {
-            font-size: 30px;
-            background: linear-gradient(90deg, #4fc3f7, #81d4fa, #4fc3f7);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            letter-spacing: 6px;
-            font-weight: 700;
-            text-shadow: 0 0 30px rgba(79,195,247,0.5);
-        }
-        .header .subtitle { font-size: 13px; color: #78909c; margin-top: 5px; letter-spacing: 2px; }
-        .header .time { position: absolute; right: 30px; top: 50%; transform: translateY(-50%); font-size: 14px; color: #90caf9; }
-        .header .back { position: absolute; left: 30px; top: 50%; transform: translateY(-50%); }
-        .header .back a { color: #90caf9; text-decoration: none; font-size: 14px; padding: 6px 14px; border: 1px solid rgba(100,181,246,0.3); border-radius: 4px; }
-        .header .back a:hover { background: rgba(100,181,246,0.1); }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>城治学生会 · 数据大屏</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+    background:#070d1f;
+    background-image:
+        radial-gradient(ellipse 90% 55% at 50% -10%, rgba(40,90,200,0.32) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 45% at 100% 110%, rgba(124,77,255,0.16) 0%, transparent 55%),
+        radial-gradient(ellipse 60% 45% at 0% 110%, rgba(0,200,180,0.12) 0%, transparent 55%);
+    color:#dbe7ff;
+    min-height:100vh;
+    overflow-x:hidden;
+}
+body::before {
+    content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+    background-image:
+        linear-gradient(rgba(80,140,255,0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(80,140,255,0.05) 1px, transparent 1px);
+    background-size:36px 36px;
+}
+.wrap { position:relative; z-index:1; padding:18px 22px 30px; max-width:1720px; margin:0 auto; }
 
-        /* 主容器 */
-        .container { padding: 18px; max-width: 1800px; margin: 0 auto; }
-        .row { display: grid; gap: 16px; margin-bottom: 16px; }
-        .row-6 { grid-template-columns: repeat(6, 1fr); }
-        .row-4 { grid-template-columns: repeat(4, 1fr); }
-        .row-3 { grid-template-columns: repeat(3, 1fr); }
-        .row-2 { grid-template-columns: repeat(2, 1fr); }
+/* 顶部 */
+.header { text-align:center; padding:6px 10px 14px; position:relative; }
+.header h1 {
+    font-size:30px; font-weight:800; letter-spacing:8px;
+    background:linear-gradient(90deg,#4fc3f7,#81d4fa,#b388ff,#4fc3f7);
+    background-size:200% auto;
+    -webkit-background-clip:text; background-clip:text;
+    -webkit-text-fill-color:transparent;
+    animation:shine 4s linear infinite;
+}
+@keyframes shine { to { background-position:200% center; } }
+.header .sub { font-size:12px; color:#5c73a8; letter-spacing:3px; margin-top:6px; }
+.header .time { position:absolute; right:10px; top:8px; font-size:13px; color:#4fc3f7; font-variant-numeric:tabular-nums; }
+.header .back { position:absolute; left:10px; top:8px; color:#8fb3ff; text-decoration:none; font-size:13px; padding:6px 14px; border:1px solid rgba(90,140,255,0.3); border-radius:8px; }
+.header .back:hover { background:rgba(90,140,255,0.12); }
+.header-line { width:60%; height:2px; margin:12px auto 0; background:linear-gradient(90deg,transparent,#4fc3f7,transparent); border-radius:2px; }
 
-        /* 统计卡片 */
-        .stat-card {
-            background: linear-gradient(135deg, rgba(20,40,90,0.6) 0%, rgba(15,30,70,0.4) 100%);
-            border: 1px solid rgba(100,181,246,0.25);
-            border-radius: 8px;
-            padding: 18px 15px;
-            position: relative;
-            overflow: hidden;
-            transition: all 0.3s;
-        }
-        .stat-card:hover {
-            border-color: rgba(79,195,247,0.6);
-            box-shadow: 0 4px 20px rgba(79,195,247,0.2);
-            transform: translateY(-2px);
-        }
-        .stat-card::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0;
-            width: 3px; height: 100%;
-            background: linear-gradient(180deg, #4fc3f7, #1976d2);
-        }
-        .stat-card .icon {
-            position: absolute;
-            right: 12px; top: 15px;
-            font-size: 32px;
-            opacity: 0.3;
-        }
-        .stat-number {
-            font-size: 36px;
-            font-weight: 700;
-            background: linear-gradient(135deg, #4fc3f7, #81d4fa);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            line-height: 1.1;
-        }
-        .stat-label { font-size: 13px; color: #90caf9; margin-top: 6px; }
-        .stat-trend { font-size: 11px; color: #66bb6a; margin-top: 4px; }
+/* KPI */
+.kpi-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:12px; margin-top:16px; }
+.kpi {
+    position:relative; border-radius:14px; padding:16px 14px; text-align:center;
+    background:linear-gradient(160deg, rgba(24,48,110,0.55), rgba(15,28,70,0.35));
+    border:1px solid rgba(90,140,255,0.22);
+    box-shadow:0 4px 20px rgba(0,0,0,0.25), inset 0 0 30px rgba(60,120,255,0.05);
+    overflow:hidden;
+}
+.kpi::after { content:''; position:absolute; top:0; left:0; right:0; height:1px;
+    background:linear-gradient(90deg,transparent,rgba(120,190,255,0.7),transparent); }
+.kpi .ico { font-size:24px; }
+.kpi .num { font-size:34px; font-weight:800; font-variant-numeric:tabular-nums; color:#e8f2ff; text-shadow:0 0 18px rgba(79,195,247,0.55); margin-top:2px; line-height:1.15; }
+.kpi .lbl { font-size:12px; color:#7d93c8; margin-top:5px; letter-spacing:1px; }
+.kpi.blue .num { color:#4fc3f7; text-shadow:0 0 18px rgba(79,195,247,0.6); }
+.kpi.green .num { color:#4ade80; text-shadow:0 0 18px rgba(74,222,128,0.5); }
+.kpi.purple .num { color:#b388ff; text-shadow:0 0 18px rgba(179,136,255,0.5); }
+.kpi.orange .num { color:#ffd166; text-shadow:0 0 18px rgba(255,209,102,0.5); }
+.kpi.pink .num { color:#f472b6; text-shadow:0 0 18px rgba(244,114,182,0.5); }
 
-        /* 图表卡片 */
-        .chart-card {
-            background: linear-gradient(135deg, rgba(20,40,90,0.5) 0%, rgba(15,30,70,0.3) 100%);
-            border: 1px solid rgba(100,181,246,0.2);
-            border-radius: 8px;
-            padding: 18px;
-            position: relative;
-        }
-        .chart-card .title {
-            font-size: 15px;
-            color: #90caf9;
-            margin-bottom: 15px;
-            padding-left: 12px;
-            border-left: 3px solid #4fc3f7;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .chart-card .title .badge {
-            font-size: 11px;
-            background: rgba(79,195,247,0.15);
-            color: #4fc3f7;
-            padding: 2px 8px;
-            border-radius: 10px;
-        }
-        .chart-container { position: relative; height: 280px; }
-        .chart-container-sm { position: relative; height: 240px; }
+/* 网格 */
+.grid { display:grid; gap:14px; margin-top:14px; }
+.g3 { grid-template-columns:repeat(3,1fr); }
+.g4 { grid-template-columns:repeat(4,1fr); }
+.g2 { grid-template-columns:repeat(2,1fr); }
+@media (max-width:1200px){ .kpi-grid{grid-template-columns:repeat(3,1fr);} .g3,.g4,.g2{grid-template-columns:repeat(2,1fr);} }
+@media (max-width:720px){ .kpi-grid{grid-template-columns:repeat(2,1fr);} .g3,.g4,.g2{grid-template-columns:1fr;} }
 
-        /* 列表卡片 */
-        .list-card {
-            background: linear-gradient(135deg, rgba(20,40,90,0.5) 0%, rgba(15,30,70,0.3) 100%);
-            border: 1px solid rgba(100,181,246,0.2);
-            border-radius: 8px;
-            padding: 18px;
-        }
-        .list-card .title {
-            font-size: 15px;
-            color: #90caf9;
-            margin-bottom: 15px;
-            padding-left: 12px;
-            border-left: 3px solid #4fc3f7;
-        }
-        .rank-item {
-            display: flex;
-            align-items: center;
-            padding: 10px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.06);
-        }
-        .rank-item:last-child { border-bottom: none; }
-        .rank-num {
-            width: 24px; height: 24px;
-            border-radius: 50%;
-            background: rgba(100,181,246,0.2);
-            color: #90caf9;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 12px;
-            font-weight: 600;
-            margin-right: 12px;
-            flex-shrink: 0;
-        }
-        .rank-item:nth-child(1) .rank-num { background: linear-gradient(135deg, #ffd54f, #ff8f00); color: #fff; }
-        .rank-item:nth-child(2) .rank-num { background: linear-gradient(135deg, #b0bec5, #78909c); color: #fff; }
-        .rank-item:nth-child(3) .rank-num { background: linear-gradient(135deg, #ffab91, #d84315); color: #fff; }
-        .rank-name { flex: 1; font-size: 13px; color: #bbdefb; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .rank-value { font-size: 14px; color: #4fc3f7; font-weight: 600; }
+.panel {
+    border-radius:16px; padding:16px 16px 18px;
+    background:linear-gradient(160deg, rgba(22,44,100,0.5), rgba(12,24,60,0.35));
+    border:1px solid rgba(90,140,255,0.2);
+    box-shadow:0 4px 22px rgba(0,0,0,0.22);
+    position:relative; overflow:hidden;
+}
+.panel::before { content:''; position:absolute; top:0; left:0; right:0; height:1px;
+    background:linear-gradient(90deg,transparent,rgba(120,190,255,0.6),transparent); }
+.panel-title { display:flex; align-items:center; gap:8px; font-size:15px; font-weight:700; color:#cfe2ff; letter-spacing:1px; margin-bottom:14px; }
+.panel-title .dot { width:8px; height:8px; border-radius:50%; background:#4fc3f7; box-shadow:0 0 10px #4fc3f7; }
+.panel-title .tag { margin-left:auto; font-size:11px; color:#5c73a8; font-weight:400; letter-spacing:0; }
 
-        /* 加载动画 */
-        .loading-overlay {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(10,17,40,0.9);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 9999;
-        }
-        .loading-spinner {
-            width: 50px; height: 50px;
-            border: 3px solid rgba(79,195,247,0.2);
-            border-top-color: #4fc3f7;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .loading-text { margin-top: 15px; color: #90caf9; font-size: 14px; }
+/* 环形 + 图例 */
+.ring-row { display:flex; align-items:center; gap:22px; }
+.ring-box { position:relative; width:150px; height:150px; flex-shrink:0; }
+.ring-box canvas { width:100%; height:100%; }
+.ring-center { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+.ring-center .v { font-size:28px; font-weight:800; color:#e8f2ff; text-shadow:0 0 14px rgba(79,195,247,0.5); }
+.ring-center .t { font-size:11px; color:#7d93c8; margin-top:2px; }
+.legend { flex:1; display:flex; flex-direction:column; gap:10px; }
+.legend .lg { display:flex; align-items:center; gap:10px; font-size:13px; color:#a9bdea; }
+.legend .lg .bar { flex:1; height:8px; border-radius:4px; background:rgba(255,255,255,0.07); overflow:hidden; }
+.legend .lg .bar i { display:block; height:100%; border-radius:4px; }
+.legend .lg .val { font-size:14px; font-weight:700; color:#e8f2ff; min-width:34px; text-align:right; }
 
-        /* 响应式 */
-        @media (max-width: 1400px) {
-            .row-6 { grid-template-columns: repeat(3, 1fr); }
-        }
-        @media (max-width: 1024px) {
-            .row-4 { grid-template-columns: repeat(2, 1fr); }
-            .row-3 { grid-template-columns: 1fr; }
-        }
-        @media (max-width: 768px) {
-            .header h1 { font-size: 18px; letter-spacing: 2px; }
-            .header .time, .header .back { position: static; transform: none; margin: 5px 0; }
-            .container { padding: 12px; }
-            .row { gap: 10px; margin-bottom: 10px; }
-            .row-6, .row-4, .row-3, .row-2 { grid-template-columns: repeat(2, 1fr); }
-            .stat-number { font-size: 24px; }
-            .stat-label { font-size: 12px; }
-            .chart-container { height: 200px; }
-            .chart-container-sm { height: 180px; }
-            .stat-card { padding: 12px 10px; }
-            .stat-card .icon { font-size: 24px; }
-            .chart-card, .list-card { padding: 12px; }
-            .chart-card .title, .list-card .title { font-size: 13px; margin-bottom: 10px; }
-        }
-        @media (max-width: 480px) {
-            .row-6, .row-4, .row-3, .row-2 { grid-template-columns: 1fr; }
-            .header h1 { font-size: 16px; letter-spacing: 1px; }
-            .stat-number { font-size: 28px; }
-        }
-    </style>
+.mini3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+.mini { text-align:center; padding:14px 8px; border-radius:12px; background:rgba(20,44,100,0.4); border:1px solid rgba(90,140,255,0.15); }
+.mini .n { font-size:24px; font-weight:800; color:#e8f2ff; text-shadow:0 0 12px rgba(120,180,255,0.4); }
+.mini .l { font-size:11px; color:#7d93c8; margin-top:4px; }
+
+.hbars { display:flex; flex-direction:column; gap:9px; }
+.hbar .row { display:flex; align-items:center; gap:10px; font-size:13px; }
+.hbar .name { width:80px; color:#a9bdea; flex-shrink:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.hbar .track { flex:1; height:9px; border-radius:5px; background:rgba(255,255,255,0.07); overflow:hidden; }
+.hbar .fill { height:100%; border-radius:5px; }
+.hbar .val { width:44px; text-align:right; font-weight:700; color:#e8f2ff; font-size:13px; }
+
+.bar-chart { width:100%; height:160px; }
+.bar-chart canvas { width:100%; height:100%; display:block; }
+
+.empty-tip { text-align:center; color:#5c73a8; font-size:12px; padding:14px 0; }
+.footer { text-align:center; color:#3d5177; font-size:11px; margin-top:26px; letter-spacing:1px; line-height:1.8; }
+</style>
 </head>
 <body>
-    <!-- 加载动画 -->
-    <div class="loading-overlay" id="loadingOverlay">
-        <div class="loading-spinner"></div>
-        <div class="loading-text">数据加载中...</div>
-    </div>
-
-    <!-- 顶部标题 -->
+<div class="wrap">
     <div class="header">
-        <div class="back"><a href="javascript:goBack()">← 返回系统</a></div>
-        <h1>城治学生会综合管理系统</h1>
-        <div class="subtitle">DATA VISUALIZATION DASHBOARD</div>
-        <div class="time" id="currentTime"></div>
+        <a class="back" href="/">← 返回</a>
+        <h1>城治学生会 · 数据大屏</h1>
+        <div class="sub">CHONGZHI STUDENT UNION · LIVE DATA</div>
+        <div class="time" id="clock">--</div>
+        <div class="header-line"></div>
     </div>
 
-    <div class="container">
-        <!-- 核心指标 -->
-        <div class="row row-6">
-            <div class="stat-card">
-                <div class="icon">📦</div>
-                <div class="stat-number" id="materialCount">0</div>
-                <div class="stat-label">物资种类</div>
-            </div>
-            <div class="stat-card">
-                <div class="icon">📊</div>
-                <div class="stat-number" id="totalStock">0</div>
-                <div class="stat-label">库存总量</div>
-            </div>
-            <div class="stat-card">
-                <div class="icon">✅</div>
-                <div class="stat-number" id="availableStock">0</div>
-                <div class="stat-label">可领取</div>
-            </div>
-            <div class="stat-card">
-                <div class="icon">🔄</div>
-                <div class="stat-number" id="borrowedStock">0</div>
-                <div class="stat-label">已借出</div>
-            </div>
-            <div class="stat-card">
-                <div class="icon">👥</div>
-                <div class="stat-number" id="userTotal">0</div>
-                <div class="stat-label">用户总数</div>
-            </div>
-            <div class="stat-card">
-                <div class="icon">📅</div>
-                <div class="stat-number" id="activityTotal">0</div>
-                <div class="stat-label">活动总数</div>
-            </div>
-        </div>
+    <!-- KPI -->
+    <div class="kpi-grid">
+        <div class="kpi blue"><div class="ico">📦</div><div class="num" id="kpiMat">-</div><div class="lbl">物资总数</div></div>
+        <div class="kpi green"><div class="ico">✅</div><div class="num" id="kpiAvail">-</div><div class="lbl">当前可领取</div></div>
+        <div class="kpi orange"><div class="ico">🔄</div><div class="num" id="kpiBorrow">-</div><div class="lbl">累计借出(次)</div></div>
+        <div class="kpi purple"><div class="ico">🗓️</div><div class="num" id="kpiPlan">-</div><div class="lbl">活动规划</div></div>
+        <div class="kpi pink"><div class="ico">📚</div><div class="num" id="kpiSkill">-</div><div class="lbl">技能文档</div></div>
+        <div class="kpi blue"><div class="ico">👥</div><div class="num" id="kpiMember">-</div><div class="lbl">活跃成员</div></div>
+    </div>
 
-        <!-- 图表区域 -->
-        <div class="row row-2">
-            <div class="chart-card">
-                <div class="title">📈 近7天领取趋势 <span class="badge">实时</span></div>
-                <div class="chart-container"><canvas id="trendChart"></canvas></div>
-            </div>
-            <div class="chart-card">
-                <div class="title">🥧 库存状态分布</div>
-                <div class="chart-container"><canvas id="stockChart"></canvas></div>
-            </div>
-        </div>
-
-        <div class="row row-3">
-            <div class="chart-card">
-                <div class="title">📍 存放位置库存TOP5</div>
-                <div class="chart-container-sm"><canvas id="locationChart"></canvas></div>
-            </div>
-            <div class="chart-card">
-                <div class="title">🏆 物资领取排行TOP5</div>
-                <div class="list-card" style="background:none;border:none;padding:0;">
-                    <div id="borrowRankList"></div>
+    <!-- 第二行：库存环形 + 借用 + 趋势 -->
+    <div class="grid g3">
+        <div class="panel">
+            <div class="panel-title"><span class="dot"></span>物资库存状态<span class="tag">按可领取数量</span></div>
+            <div class="ring-row">
+                <div class="ring-box"><canvas id="ringStock"></canvas>
+                    <div class="ring-center"><div class="v" id="ringStockV">-</div><div class="t">在库物资</div></div>
                 </div>
-            </div>
-            <div class="chart-card">
-                <div class="title">👤 部门人员分布</div>
-                <div class="chart-container-sm"><canvas id="deptChart"></canvas></div>
+                <div class="legend" id="stockLegend"></div>
             </div>
         </div>
-
-        <div class="row row-2">
-            <div class="chart-card">
-                <div class="title">📋 最近领用记录</div>
-                <div id="recentRecords" style="max-height:280px;overflow-y:auto;"></div>
+        <div class="panel">
+            <div class="panel-title"><span class="dot"></span>物资借用统计<span class="tag">累计</span></div>
+            <div class="mini3">
+                <div class="mini"><div class="n" id="miniBorrow">-</div><div class="l">借出次数</div></div>
+                <div class="mini"><div class="n" id="miniReturn">-</div><div class="l">已归还</div></div>
+                <div class="mini"><div class="n" id="miniRate">-</div><div class="l">归还率</div></div>
             </div>
-            <div class="chart-card">
-                <div class="title">⚠️ 库存预警</div>
-                <div id="warningList" style="max-height:280px;overflow-y:auto;"></div>
-            </div>
+        </div>
+        <div class="panel">
+            <div class="panel-title"><span class="dot"></span>近7天借用趋势</div>
+            <div class="bar-chart"><canvas id="barTrend"></canvas></div>
         </div>
     </div>
 
-    <script>
-        // 获取token（同时支持普通用户和管理员）
-        let token = localStorage.getItem('token') || localStorage.getItem('admin_token');
-        if (!token) {
-            window.location.href = '/m/login';
-        }
+    <!-- 第三行：活动 + 文档考勤 + 部门 + 位置 -->
+    <div class="grid g4">
+        <div class="panel">
+            <div class="panel-title"><span class="dot"></span>活动中心<span class="tag">规划→记录</span></div>
+            <div class="mini3">
+                <div class="mini"><div class="n" id="miniPlanPlanned">-</div><div class="l">规划中</div></div>
+                <div class="mini"><div class="n" id="miniPlanDone">-</div><div class="l">已完成</div></div>
+                <div class="mini"><div class="n" id="miniActivity">-</div><div class="l">活动记录</div></div>
+            </div>
+        </div>
+        <div class="panel">
+            <div class="panel-title"><span class="dot"></span>文档与考勤</div>
+            <div class="mini3">
+                <div class="mini"><div class="n" id="miniSkill">-</div><div class="l">技能文档</div></div>
+                <div class="mini"><div class="n" id="miniAttend">-</div><div class="l">考勤记录</div></div>
+                <div class="mini"><div class="n" id="miniMember">-</div><div class="l">活跃成员</div></div>
+            </div>
+        </div>
+        <div class="panel">
+            <div class="panel-title"><span class="dot"></span>各部门成员分布</div>
+            <div class="hbars" id="deptBars"></div>
+        </div>
+        <div class="panel">
+            <div class="panel-title"><span class="dot"></span>物资存放位置分布</div>
+            <div class="hbars" id="locBars"></div>
+        </div>
+    </div>
 
-        // 设备判断
-        var ua = navigator.userAgent.toLowerCase();
-        var isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile/i.test(ua)
-            || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
-            || window.innerWidth < 768;
+    <div class="footer">城治学生会综合管理系统 · 数据每 60 秒自动刷新 · © 2026 重庆超大城市数字化治理学院</div>
+</div>
 
-        function goBack() {
-            // 如果有上一页，返回上一页；否则根据设备返回对应首页
-            if (document.referrer && document.referrer !== window.location.href) {
-                window.history.back();
-            } else if (isMobile) {
-                window.location.href = '/m/';
-            } else {
-                window.location.href = '/';
-            }
-        }
+<script>
+var token = localStorage.getItem('token') || sessionStorage.getItem('token');
+if (!token) { location.href = '/login'; }
 
-        // 更新时间
-        function updateTime() {
-            document.getElementById('currentTime').textContent = new Date().toLocaleString('zh-CN');
-        }
-        updateTime();
-        setInterval(updateTime, 1000);
+function tick(){
+    var d = new Date();
+    var p = function(n){ return n<10?'0'+n:n; };
+    document.getElementById('clock').textContent =
+        d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'  '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
+}
+tick(); setInterval(tick, 1000);
 
-        let trendChart, stockChart, locationChart, deptChart;
-        let loadRetryCount = 0;
-        const MAX_RETRY = 3;
+function drawRing(canvas, parts, colors, total){
+    var ctx = canvas.getContext('2d');
+    var dpr = window.devicePixelRatio || 1;
+    var size = 150;
+    canvas.width = size*dpr; canvas.height = size*dpr;
+    ctx.scale(dpr, dpr);
+    var cx = size/2, cy = size/2, r = size/2 - 10;
+    ctx.clearRect(0,0,size,size);
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 14; ctx.stroke();
+    if (total <= 0) return;
+    var start = -Math.PI/2;
+    for (var i=0;i<parts.length;i++){
+        var angle = (parts[i]/total) * Math.PI * 2;
+        if (angle <= 0) continue;
+        ctx.beginPath(); ctx.arc(cx,cy,r,start,start+angle);
+        ctx.strokeStyle = colors[i]; ctx.lineWidth = 14; ctx.lineCap = 'round';
+        ctx.shadowColor = colors[i]; ctx.shadowBlur = 10;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        start += angle;
+    }
+}
 
-        // 带重试的fetch
-        function fetchWithRetry(url, options, retry = 0) {
-            return fetch(url, options)
-                .then(res => {
-                    if (res.status === 401) {
-                        window.location.href = '/m/login';
-                        return null;
-                    }
-                    return res.json();
-                })
-                .catch(err => {
-                    if (retry < MAX_RETRY) {
-                        console.log('加载失败，第' + (retry+1) + '次重试...');
-                        return new Promise(resolve => setTimeout(() => {
-                            fetchWithRetry(url, options, retry + 1).then(resolve);
-                        }, 1000));
-                    }
-                    console.error('加载失败，已重试' + MAX_RETRY + '次', err);
-                    return null;
-                });
-        }
+function drawBars(canvas, labels, values, color){
+    var ctx = canvas.getContext('2d');
+    var dpr = window.devicePixelRatio || 1;
+    var W = canvas.clientWidth, H = canvas.clientHeight;
+    canvas.width = W*dpr; canvas.height = H*dpr;
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0,0,W,H);
+    var max = Math.max.apply(null, values.concat([1]));
+    var padB = 18, padT = 8;
+    var bw = Math.min(40, (W / values.length) * 0.5);
+    var gap = (W - values.length*bw) / (values.length + 1);
+    ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, H-padB); ctx.lineTo(W, H-padB); ctx.stroke();
+    for (var i=0;i<values.length;i++){
+        var h = (values[i]/max)*(H-padB-padT);
+        var x = gap + i*(bw+gap);
+        var y = H - padB - h;
+        var g = ctx.createLinearGradient(0,y,0,H-padB);
+        g.addColorStop(0, color); g.addColorStop(1, 'rgba(70,110,255,0.25)');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(x,y,bw,h,3); else ctx.rect(x,y,bw,h);
+        ctx.fill();
+        if (h > 2){ ctx.fillStyle = color; ctx.shadowColor = color; ctx.shadowBlur = 10;
+            ctx.beginPath(); ctx.arc(x+bw/2, y, 2.6, 0, Math.PI*2); ctx.fill(); ctx.shadowBlur = 0; }
+        ctx.fillStyle = '#cfe2ff'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText(values[i], x+bw/2, y-5);
+        ctx.fillStyle = '#5c73a8'; ctx.font = '10px sans-serif';
+        ctx.fillText(labels[i], x+bw/2, H-4);
+    }
+}
 
-        // 加载统计数据
-        function loadStats() {
-            fetchWithRetry('/api/stats/overview', {
-                headers: { 'Authorization': 'Bearer ' + token }
-            }).then(data => {
-                if (!data) {
-                    document.getElementById('loadingOverlay').style.display = 'none';
-                    return;
-                }
-                // 核心指标
-                document.getElementById('materialCount').textContent = data.material_count || 0;
-                document.getElementById('totalStock').textContent = data.total_stock || 0;
-                document.getElementById('availableStock').textContent = data.available_stock || 0;
-                document.getElementById('borrowedStock').textContent = data.borrowed_stock || 0;
+function renderHBars(el, data, colors){
+    if (!data || !data.length){ el.innerHTML = '<div class="empty-tip">暂无数据</div>'; return; }
+    var max = Math.max.apply(null, data.map(function(d){return d.cnt;}));
+    var html = data.map(function(d, i){
+        var pct = max ? (d.cnt/max*100) : 0;
+        var c = colors[i % colors.length];
+        return '<div class="hbar"><div class="row"><span class="name">'+d.name+'</span>'+
+            '<div class="track"><div class="fill" style="width:'+Math.max(pct,3)+'%;background:linear-gradient(90deg,'+c+','+c+'88);box-shadow:0 0 8px '+c+'66;"></div></div>'+
+            '<span class="val">'+d.cnt+'</span></div></div>';
+    }).join('');
+    el.innerHTML = html;
+}
 
-                // 趋势图
-                const trendCtx = document.getElementById('trendChart').getContext('2d');
-                if (trendChart) trendChart.destroy();
-                trendChart = new Chart(trendCtx, {
-                    type: 'line',
-                    data: {
-                        labels: (data.borrow_trend || []).map(t => t.date),
-                        datasets: [{
-                            label: '领取数量',
-                            data: (data.borrow_trend || []).map(t => t.count),
-                            borderColor: '#4fc3f7',
-                            backgroundColor: 'rgba(79,195,247,0.15)',
-                            fill: true,
-                            tension: 0.4,
-                            pointBackgroundColor: '#4fc3f7',
-                            pointRadius: 5,
-                            pointHoverRadius: 7,
-                            borderWidth: 2
-                        }]
-                    },
-                    options: {
-                        responsive: true, maintainAspectRatio: false,
-                        plugins: { legend: { labels: { color: '#90caf9' } } },
-                        scales: {
-                            x: { ticks: { color: '#78909c' }, grid: { color: 'rgba(255,255,255,0.05)' } },
-                            y: { ticks: { color: '#78909c' }, grid: { color: 'rgba(255,255,255,0.05)' }, beginAtZero: true }
-                        }
-                    }
-                });
+function fmt(arr){ return arr.map(function(x){ return {name:x.loc||'未分类', cnt:x.cnt}; }); }
 
-                // 库存状态饼图
-                const stockCtx = document.getElementById('stockChart').getContext('2d');
-                if (stockChart) stockChart.destroy();
-                stockChart = new Chart(stockCtx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: ['可领取', '已借出', '库存为零'],
-                        datasets: [{
-                            data: [data.available_stock || 0, data.borrowed_stock || 0, data.out_of_stock || 0],
-                            backgroundColor: ['#66bb6a', '#ffa726', '#ef5350'],
-                            borderWidth: 0
-                        }]
-                    },
-                    options: {
-                        responsive: true, maintainAspectRatio: false,
-                        plugins: {
-                            legend: { position: 'right', labels: { color: '#90caf9', padding: 15 } }
-                        }
-                    }
-                });
+function loadData(){
+    fetch('/api/stats/overview', { headers:{'Authorization':'Bearer '+token} })
+    .then(function(res){ return res.json(); })
+    .then(function(d){
+        document.getElementById('kpiMat').textContent = d.material_count;
+        document.getElementById('kpiAvail').textContent = d.available_stock;
+        document.getElementById('kpiBorrow').textContent = d.borrow_count;
+        document.getElementById('kpiPlan').textContent = d.activity_plans.total;
+        document.getElementById('kpiSkill').textContent = d.skill_count;
+        document.getElementById('kpiMember').textContent = d.users.active;
 
-                // 位置库存柱状图
-                const locationCtx = document.getElementById('locationChart').getContext('2d');
-                if (locationChart) locationChart.destroy();
-                const locData = (data.location_stats || []).slice(0, 5);
-                locationChart = new Chart(locationCtx, {
-                    type: 'bar',
-                    data: {
-                        labels: locData.map(l => l.location),
-                        datasets: [{
-                            label: '库存数量',
-                            data: locData.map(l => l.stock),
-                            backgroundColor: 'rgba(79,195,247,0.6)',
-                            borderColor: '#4fc3f7',
-                            borderWidth: 1,
-                            borderRadius: 4
-                        }]
-                    },
-                    options: {
-                        responsive: true, maintainAspectRatio: false,
-                        indexAxis: 'y',
-                        plugins: { legend: { display: false } },
-                        scales: {
-                            x: { ticks: { color: '#78909c' }, grid: { color: 'rgba(255,255,255,0.05)' } },
-                            y: { ticks: { color: '#90caf9' }, grid: { display: false } }
-                        }
-                    }
-                });
+        var ss = d.stock_status;
+        var stockParts = [ss.ok, ss.low, ss.out];
+        var stockColors = ['#4ade80', '#ffd166', '#ff6b6b'];
+        drawRing(document.getElementById('ringStock'), stockParts, stockColors, d.material_count);
+        document.getElementById('ringStockV').textContent = d.material_count;
+        document.getElementById('stockLegend').innerHTML = [
+            ['充足', ss.ok, '#4ade80'],
+            ['偏低', ss.low, '#ffd166'],
+            ['为零', ss.out, '#ff6b6b']
+        ].map(function(o){
+            var pct = d.material_count ? (o[1]/d.material_count*100) : 0;
+            return '<div class="lg"><span style="width:10px;height:10px;border-radius:3px;background:'+o[2]+';box-shadow:0 0 6px '+o[2]+';"></span><span style="width:44px;">'+o[0]+'</span>'+
+                '<div class="bar"><i style="width:'+Math.max(pct,2)+'%;background:'+o[2]+';"></i></div><span class="val">'+o[1]+'</span></div>';
+        }).join('');
 
-                loadRetryCount = 0;
-                document.getElementById('loadingOverlay').style.display = 'none';
-            });
-        }
+        document.getElementById('miniBorrow').textContent = d.borrow_count;
+        document.getElementById('miniReturn').textContent = d.return_count;
+        var rate = d.borrow_count ? Math.round(d.return_count/d.borrow_count*100) : 0;
+        document.getElementById('miniRate').textContent = rate+'%';
 
-        // 加载用户统计
-        function loadUserStats() {
-            fetchWithRetry('/api/users', {
-                headers: { 'Authorization': 'Bearer ' + token }
-            }).then(users => {
-                if (!users) return;
-                document.getElementById('userTotal').textContent = users.length;
-                const depts = {};
-                users.forEach(u => {
-                    const d = u.department || '未分配';
-                    depts[d] = (depts[d] || 0) + 1;
-                });
-                const deptCtx = document.getElementById('deptChart').getContext('2d');
-                if (deptChart) deptChart.destroy();
-                deptChart = new Chart(deptCtx, {
-                    type: 'polarArea',
-                    data: {
-                        labels: Object.keys(depts),
-                        datasets: [{
-                            data: Object.values(depts),
-                            backgroundColor: [
-                                'rgba(79,195,247,0.6)',
-                                'rgba(102,187,106,0.6)',
-                                'rgba(255,167,38,0.6)',
-                                'rgba(239,83,80,0.6)',
-                                'rgba(171,71,188,0.6)',
-                                'rgba(38,166,154,0.6)'
-                            ],
-                            borderWidth: 0
-                        }]
-                    },
-                    options: {
-                        responsive: true, maintainAspectRatio: false,
-                        plugins: { legend: { position: 'right', labels: { color: '#90caf9', font: { size: 11 } } } }
-                    }
-                });
-            });
-        }
+        document.getElementById('miniPlanPlanned').textContent = d.activity_plans.planned + d.activity_plans.confirmed;
+        document.getElementById('miniPlanDone').textContent = d.activity_plans.done;
+        document.getElementById('miniActivity').textContent = d.activity_count;
+        document.getElementById('miniSkill').textContent = d.skill_count;
+        document.getElementById('miniAttend').textContent = d.attendance_count;
+        document.getElementById('miniMember').textContent = d.users.active;
 
-        // 加载活动统计
-        function loadActivityStats() {
-            fetchWithRetry('/api/activities', {
-                headers: { 'Authorization': 'Bearer ' + token }
-            }).then(activities => {
-                if (!activities) return;
-                document.getElementById('activityTotal').textContent = activities.length;
-            });
-        }
+        var labels = d.borrow_trend.map(function(t){ return t.date.slice(5); });
+        var vals = d.borrow_trend.map(function(t){ return t.count; });
+        drawBars(document.getElementById('barTrend'), labels, vals, '#4fc3f7');
 
-        // 加载物资领取排行
-        function loadBorrowRank() {
-            fetchWithRetry('/api/materials', {
-                headers: { 'Authorization': 'Bearer ' + token }
-            }).then(materials => {
-                if (!materials) return;
-                const sorted = materials.sort((a, b) => (b.borrow_count || 0) - (a.borrow_count || 0)).slice(0, 5);
-                const html = sorted.map((m, i) => `
-                    <div class="rank-item">
-                        <div class="rank-num">${i+1}</div>
-                        <div class="rank-name">${m.name}</div>
-                        <div class="rank-value">${m.borrow_count || 0}次</div>
-                    </div>
-                `).join('');
-                document.getElementById('borrowRankList').innerHTML = html || '<div style="text-align:center;color:#78909c;padding:20px;">暂无数据</div>';
-            });
-        }
+        var depts = (d.dept_dist||[]).map(function(x){ return {name:x.dept, cnt:x.cnt}; });
+        renderHBars(document.getElementById('deptBars'), depts, ['#4fc3f7','#7c4dff','#4ade80','#ffd166','#ff6b6b','#f472b6']);
 
-        // 加载最近领用记录
-        function loadRecentRecords() {
-            fetchWithRetry('/api/transactions?limit=8', {
-                headers: { 'Authorization': 'Bearer ' + token }
-            }).then(records => {
-                if (!records) return;
-                const html = records.map(r => `
-                    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
-                        <div>
-                            <div style="font-size:13px;color:#bbdefb;">${r.material_name}</div>
-                            <div style="font-size:11px;color:#78909c;margin-top:2px;">${r.user_name || '未知'} · ${r.type === 'borrow' ? '领取' : '归还'}</div>
-                        </div>
-                        <div style="text-align:right;">
-                            <div style="font-size:13px;color:${r.type === 'borrow' ? '#ffa726' : '#66bb6a'};font-weight:600;">${r.type === 'borrow' ? '领取' : '归还'} ${r.quantity}</div>
-                            <div style="font-size:11px;color:#78909c;margin-top:2px;">${(r.created_at || '').slice(0, 16)}</div>
-                        </div>
-                    </div>
-                `).join('');
-                document.getElementById('recentRecords').innerHTML = html || '<div style="text-align:center;color:#78909c;padding:20px;">暂无记录</div>';
-            }).catch(() => {
-                // 如果API不存在，用备用方式
-                fetchWithRetry('/api/my-transactions', {
-                    headers: { 'Authorization': 'Bearer ' + token }
-                }).then(records => {
-                    if (!records) return;
-                    const html = records.slice(0, 8).map(r => `
-                        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
-                            <div>
-                                <div style="font-size:13px;color:#bbdefb;">${r.material_name || '物资'}</div>
-                                <div style="font-size:11px;color:#78909c;margin-top:2px;">${r.type === 'borrow' ? '领取' : '归还'}</div>
-                            </div>
-                            <div style="text-align:right;">
-                                <div style="font-size:13px;color:${r.type === 'borrow' ? '#ffa726' : '#66bb6a'};font-weight:600;">${r.type === 'borrow' ? '领取' : '归还'} ${r.quantity || 1}</div>
-                                <div style="font-size:11px;color:#78909c;margin-top:2px;">${(r.created_at || '').slice(0, 16)}</div>
-                            </div>
-                        </div>
-                    `).join('');
-                    document.getElementById('recentRecords').innerHTML = html || '<div style="text-align:center;color:#78909c;padding:20px;">暂无记录</div>';
-                });
-            });
-        }
-
-        // 加载库存预警
-        function loadWarningList() {
-            fetchWithRetry('/api/materials', {
-                headers: { 'Authorization': 'Bearer ' + token }
-            }).then(materials => {
-                if (!materials) return;
-                const warnings = materials.filter(m => (m.available_stock || 0) <= 5).slice(0, 8);
-                const html = warnings.map(m => `
-                    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
-                        <div style="font-size:13px;color:#bbdefb;">${m.name}</div>
-                        <div style="font-size:13px;color:${m.available_stock === 0 ? '#ef5350' : '#ffa726'};font-weight:600;">
-                            ${m.available_stock === 0 ? '库存为零' : '仅剩' + m.available_stock}
-                        </div>
-                    </div>
-                `).join('');
-                document.getElementById('warningList').innerHTML = html || '<div style="text-align:center;color:#66bb6a;padding:20px;">✅ 所有物资库存充足</div>';
-            });
-        }
-
-        // 初始化加载
-        function initDashboard() {
-            loadStats();
-            loadUserStats();
-            loadActivityStats();
-            loadBorrowRank();
-            loadRecentRecords();
-            loadWarningList();
-        }
-
-        // 等待Chart.js加载完成后初始化
-        if (typeof Chart !== 'undefined') {
-            initDashboard();
-        } else {
-            let chartWaitCount = 0;
-            const chartWaitInterval = setInterval(() => {
-                chartWaitCount++;
-                if (typeof Chart !== 'undefined') {
-                    clearInterval(chartWaitInterval);
-                    initDashboard();
-                } else if (chartWaitCount > 20) {
-                    clearInterval(chartWaitInterval);
-                    document.getElementById('loadingOverlay').style.display = 'none';
-                    alert('图表库加载失败，请刷新页面重试');
-                }
-            }, 200);
-        }
-
-        // 每30秒自动刷新
-        setInterval(() => {
-            loadStats();
-            loadBorrowRank();
-            loadRecentRecords();
-            loadWarningList();
-        }, 30000);
-    </script>
+        var locs = fmt(d.location_dist||[]).slice(0,6);
+        renderHBars(document.getElementById('locBars'), locs, ['#7c4dff','#4fc3f7','#f472b6','#ffd166','#4ade80','#ff8a65']);
+    })
+    .catch(function(){ /* 保持占位 */ });
+}
+loadData();
+setInterval(loadData, 60000);
+</script>
 </body>
 </html>

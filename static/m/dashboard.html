@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>城治学生会 · 数据大屏</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html,body { height:100%; }
+body {
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+    background:#070d1f;
+    background-image:
+        radial-gradient(ellipse 90% 50% at 50% -10%, rgba(40,90,200,0.35) 0%, transparent 60%),
+        radial-gradient(ellipse 70% 40% at 90% 110%, rgba(124,77,255,0.18) 0%, transparent 60%),
+        radial-gradient(ellipse 70% 40% at 0% 100%, rgba(0,200,180,0.12) 0%, transparent 55%);
+    color:#dbe7ff;
+    min-height:100vh;
+    overflow-x:hidden;
+    padding-bottom:40px;
+}
+/* 背景网格 */
+body::before {
+    content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+    background-image:
+        linear-gradient(rgba(80,140,255,0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(80,140,255,0.05) 1px, transparent 1px);
+    background-size:36px 36px;
+}
+.container { position:relative; z-index:1; padding:16px 14px 30px; max-width:560px; margin:0 auto; }
+
+/* 顶部标题 */
+.header {
+    text-align:center; padding:20px 10px 14px; position:relative;
+}
+.header h1 {
+    font-size:22px; font-weight:800; letter-spacing:4px;
+    background:linear-gradient(90deg,#4fc3f7,#81d4fa,#b388ff,#4fc3f7);
+    background-size:200% auto;
+    -webkit-background-clip:text; background-clip:text;
+    -webkit-text-fill-color:transparent;
+    animation:shine 4s linear infinite;
+}
+@keyframes shine { to { background-position:200% center; } }
+.header .sub { font-size:11px; color:#5c73a8; letter-spacing:2px; margin-top:6px; }
+.header .time { font-size:12px; color:#4fc3f7; margin-top:8px; font-variant-numeric:tabular-nums; }
+.header .back {
+    position:absolute; left:6px; top:16px; width:36px; height:36px; line-height:36px;
+    text-align:center; font-size:20px; color:#8fb3ff; cursor:pointer;
+    border:1px solid rgba(90,140,255,0.3); border-radius:10px; background:rgba(20,40,90,0.4);
+}
+.header .back:active { background:rgba(90,140,255,0.2); }
+.header-line { width:70%; height:2px; margin:10px auto 0; background:linear-gradient(90deg,transparent,#4fc3f7,transparent); border-radius:2px; }
+
+/* 核心指标 */
+.kpi-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px; }
+.kpi {
+    position:relative; border-radius:14px; padding:14px 12px 13px; text-align:center;
+    background:linear-gradient(160deg, rgba(24,48,110,0.55), rgba(15,28,70,0.35));
+    border:1px solid rgba(90,140,255,0.22);
+    box-shadow:0 4px 20px rgba(0,0,0,0.25), inset 0 0 30px rgba(60,120,255,0.05);
+    overflow:hidden;
+}
+.kpi::after { content:''; position:absolute; top:0; left:0; right:0; height:1px;
+    background:linear-gradient(90deg,transparent,rgba(120,190,255,0.7),transparent); }
+.kpi .ico { font-size:22px; }
+.kpi .num {
+    font-size:30px; font-weight:800; font-variant-numeric:tabular-nums;
+    color:#e8f2ff; text-shadow:0 0 18px rgba(79,195,247,0.55);
+    margin-top:2px; line-height:1.15;
+}
+.kpi .lbl { font-size:11px; color:#7d93c8; margin-top:4px; letter-spacing:1px; }
+.kpi.blue .num { color:#4fc3f7; text-shadow:0 0 18px rgba(79,195,247,0.6); }
+.kpi.green .num { color:#4ade80; text-shadow:0 0 18px rgba(74,222,128,0.5); }
+.kpi.purple .num { color:#b388ff; text-shadow:0 0 18px rgba(179,136,255,0.5); }
+.kpi.orange .num { color:#ffd166; text-shadow:0 0 18px rgba(255,209,102,0.5); }
+
+/* 板块卡片 */
+.panel {
+    margin-top:12px; border-radius:16px; padding:16px 14px;
+    background:linear-gradient(160deg, rgba(22,44,100,0.5), rgba(12,24,60,0.35));
+    border:1px solid rgba(90,140,255,0.2);
+    box-shadow:0 4px 22px rgba(0,0,0,0.22);
+    position:relative; overflow:hidden;
+}
+.panel::before { content:''; position:absolute; top:0; left:0; right:0; height:1px;
+    background:linear-gradient(90deg,transparent,rgba(120,190,255,0.6),transparent); }
+.panel-title {
+    display:flex; align-items:center; gap:8px;
+    font-size:14px; font-weight:700; color:#cfe2ff; letter-spacing:1px; margin-bottom:12px;
+}
+.panel-title .dot { width:8px; height:8px; border-radius:50%; background:#4fc3f7;
+    box-shadow:0 0 10px #4fc3f7; }
+.panel-title .tag { margin-left:auto; font-size:10px; color:#5c73a8; font-weight:400; letter-spacing:0; }
+
+/* 环形图 + 图例 */
+.ring-row { display:flex; align-items:center; gap:14px; }
+.ring-box { position:relative; width:118px; height:118px; flex-shrink:0; }
+.ring-box canvas { width:100%; height:100%; }
+.ring-center { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+.ring-center .v { font-size:22px; font-weight:800; color:#e8f2ff; text-shadow:0 0 14px rgba(79,195,247,0.5); }
+.ring-center .t { font-size:10px; color:#7d93c8; margin-top:1px; }
+.legend { flex:1; display:flex; flex-direction:column; gap:8px; }
+.legend .lg { display:flex; align-items:center; gap:8px; font-size:12px; color:#a9bdea; }
+.legend .lg .bar { flex:1; height:6px; border-radius:3px; background:rgba(255,255,255,0.07); overflow:hidden; }
+.legend .lg .bar i { display:block; height:100%; border-radius:3px; }
+.legend .lg .val { font-size:12px; font-weight:700; color:#e8f2ff; min-width:30px; text-align:right; }
+
+/* 三列小统计 */
+.mini3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; }
+.mini {
+    text-align:center; padding:10px 6px; border-radius:12px;
+    background:rgba(20,44,100,0.4); border:1px solid rgba(90,140,255,0.15);
+}
+.mini .n { font-size:19px; font-weight:800; color:#e8f2ff; text-shadow:0 0 12px rgba(120,180,255,0.4); }
+.mini .l { font-size:10px; color:#7d93c8; margin-top:3px; }
+
+/* 横向条形（部门/位置分布） */
+.hbars { display:flex; flex-direction:column; gap:9px; }
+.hbar .row { display:flex; align-items:center; gap:8px; font-size:12px; }
+.hbar .name { width:64px; color:#a9bdea; flex-shrink:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.hbar .track { flex:1; height:8px; border-radius:4px; background:rgba(255,255,255,0.07); overflow:hidden; }
+.hbar .fill { height:100%; border-radius:4px;
+    background:linear-gradient(90deg,#4fc3f7,#7c4dff); box-shadow:0 0 8px rgba(79,195,247,0.4); }
+.hbar .val { width:40px; text-align:right; font-weight:700; color:#e8f2ff; font-size:12px; }
+
+/* 柱状图 */
+.bar-chart { width:100%; height:130px; position:relative; }
+.bar-chart canvas { width:100%; height:100%; display:block; }
+
+/* 空状态 */
+.empty-tip { text-align:center; color:#5c73a8; font-size:12px; padding:12px 0; }
+
+.footer { text-align:center; color:#3d5177; font-size:10px; margin-top:24px; letter-spacing:1px; line-height:1.8; }
+</style>
+</head>
+<body>
+<div class="container">
+    <!-- 顶部 -->
+    <div class="header">
+        <div class="back" onclick="history.back()">←</div>
+        <h1>城治数据大屏</h1>
+        <div class="sub">CHONGZHI STUDENT UNION · LIVE DATA</div>
+        <div class="time" id="clock">--</div>
+        <div class="header-line"></div>
+    </div>
+
+    <!-- 核心指标 -->
+    <div class="kpi-grid">
+        <div class="kpi blue"><div class="ico">📦</div><div class="num" id="kpiMat">-</div><div class="lbl">物资总数</div></div>
+        <div class="kpi green"><div class="ico">✅</div><div class="num" id="kpiAvail">-</div><div class="lbl">当前可领取</div></div>
+        <div class="kpi purple"><div class="ico">🔄</div><div class="num" id="kpiBorrow">-</div><div class="lbl">累计借出(次)</div></div>
+        <div class="kpi orange"><div class="ico">🗓️</div><div class="num" id="kpiPlan">-</div><div class="lbl">活动规划(个)</div></div>
+    </div>
+
+    <!-- 物资库存状态 -->
+    <div class="panel">
+        <div class="panel-title"><span class="dot"></span>物资库存状态<span class="tag">按可领取数量</span></div>
+        <div class="ring-row">
+            <div class="ring-box"><canvas id="ringStock"></canvas>
+                <div class="ring-center"><div class="v" id="ringStockV">-</div><div class="t">在库物资</div></div>
+            </div>
+            <div class="legend" id="stockLegend"></div>
+        </div>
+    </div>
+
+    <!-- 借用统计 -->
+    <div class="panel">
+        <div class="panel-title"><span class="dot"></span>物资借用统计<span class="tag">近30天</span></div>
+        <div class="mini3">
+            <div class="mini"><div class="n" id="miniBorrow">-</div><div class="l">借出次数</div></div>
+            <div class="mini"><div class="n" id="miniReturn">-</div><div class="l">已归还次数</div></div>
+            <div class="mini"><div class="n" id="miniRate">-</div><div class="l">归还率</div></div>
+        </div>
+    </div>
+
+    <!-- 活动板块 -->
+    <div class="panel">
+        <div class="panel-title"><span class="dot"></span>活动中心<span class="tag">规划 → 记录</span></div>
+        <div class="mini3">
+            <div class="mini"><div class="n" id="miniPlanPlanned">-</div><div class="l">规划中</div></div>
+            <div class="mini"><div class="n" id="miniPlanDone">-</div><div class="l">已完成</div></div>
+            <div class="mini"><div class="n" id="miniActivity">-</div><div class="l">活动记录</div></div>
+        </div>
+    </div>
+
+    <!-- 文档 & 考勤 -->
+    <div class="panel">
+        <div class="panel-title"><span class="dot"></span>文档与考勤</div>
+        <div class="mini3">
+            <div class="mini"><div class="n" id="miniSkill">-</div><div class="l">技能文档</div></div>
+            <div class="mini"><div class="n" id="miniAttend">-</div><div class="l">考勤记录</div></div>
+            <div class="mini"><div class="n" id="miniMember">-</div><div class="l">活跃成员</div></div>
+        </div>
+    </div>
+
+    <!-- 近7天借用趋势 -->
+    <div class="panel">
+        <div class="panel-title"><span class="dot"></span>近7天借用趋势</div>
+        <div class="bar-chart"><canvas id="barTrend"></canvas></div>
+    </div>
+
+    <!-- 部门分布 -->
+    <div class="panel">
+        <div class="panel-title"><span class="dot"></span>各部门成员分布</div>
+        <div class="hbars" id="deptBars"></div>
+    </div>
+
+    <!-- 物资位置分布 -->
+    <div class="panel">
+        <div class="panel-title"><span class="dot"></span>物资存放位置分布</div>
+        <div class="hbars" id="locBars"></div>
+    </div>
+
+    <div class="footer">城治学生会综合管理系统 · 数据实时刷新<br>© 2026 重庆超大城市数字化治理学院</div>
+</div>
+
+<script>
+var token = localStorage.getItem('token');
+if (!token) { location.href = '/m/login'; }
+
+// 时钟
+function tick(){
+    var d = new Date();
+    var p = function(n){ return n<10?'0'+n:n; };
+    document.getElementById('clock').textContent =
+        d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'  '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
+}
+tick(); setInterval(tick, 1000);
+
+// 环形图
+function drawRing(canvas, parts, colors, total){
+    var ctx = canvas.getContext('2d');
+    var dpr = window.devicePixelRatio || 1;
+    var size = 118;
+    canvas.width = size*dpr; canvas.height = size*dpr;
+    ctx.scale(dpr, dpr);
+    var cx = size/2, cy = size/2, r = size/2 - 8;
+    ctx.clearRect(0,0,size,size);
+    // 背景环
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 12; ctx.stroke();
+    // 数据环
+    if (total <= 0) return;
+    var start = -Math.PI/2;
+    for (var i=0;i<parts.length;i++){
+        var angle = (parts[i]/total) * Math.PI * 2;
+        if (angle <= 0) continue;
+        ctx.beginPath(); ctx.arc(cx,cy,r,start,start+angle);
+        ctx.strokeStyle = colors[i]; ctx.lineWidth = 12; ctx.lineCap = 'round';
+        ctx.shadowColor = colors[i]; ctx.shadowBlur = 8;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        start += angle;
+    }
+}
+
+// 柱状图
+function drawBars(canvas, labels, values, color){
+    var ctx = canvas.getContext('2d');
+    var dpr = window.devicePixelRatio || 1;
+    var W = canvas.clientWidth, H = canvas.clientHeight;
+    canvas.width = W*dpr; canvas.height = H*dpr;
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0,0,W,H);
+    var max = Math.max.apply(null, values.concat([1]));
+    var padB = 16, padT = 6;
+    var bw = Math.min(26, (W / values.length) * 0.5);
+    var gap = (W - values.length*bw) / (values.length + 1);
+    // 基线
+    ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, H-padB); ctx.lineTo(W, H-padB); ctx.stroke();
+    for (var i=0;i<values.length;i++){
+        var h = (values[i]/max)*(H-padB-padT);
+        var x = gap + i*(bw+gap);
+        var y = H - padB - h;
+        // 柱体渐变
+        var g = ctx.createLinearGradient(0,y,0,H-padB);
+        g.addColorStop(0, color); g.addColorStop(1, 'rgba(70,110,255,0.25)');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(x,y,bw,h,3); else ctx.rect(x,y,bw,h);
+        ctx.fill();
+        // 顶部光点
+        if (h > 2){ ctx.fillStyle = color; ctx.shadowColor = color; ctx.shadowBlur = 8;
+            ctx.beginPath(); ctx.arc(x+bw/2, y, 2.2, 0, Math.PI*2); ctx.fill(); ctx.shadowBlur = 0; }
+        // 数值
+        ctx.fillStyle = '#cfe2ff'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText(values[i], x+bw/2, y-4);
+        // 标签
+        ctx.fillStyle = '#5c73a8'; ctx.font = '9px sans-serif';
+        ctx.fillText(labels[i], x+bw/2, H-4);
+    }
+}
+
+// 横向条形
+function renderHBars(el, data, colors){
+    if (!data || !data.length){ el.innerHTML = '<div class="empty-tip">暂无数据</div>'; return; }
+    var max = Math.max.apply(null, data.map(function(d){return d.cnt;}));
+    var html = data.map(function(d, i){
+        var pct = max ? (d.cnt/max*100) : 0;
+        var c = colors[i % colors.length];
+        return '<div class="hbar"><div class="row"><span class="name">'+d.name+'</span>'+
+            '<div class="track"><div class="fill" style="width:'+Math.max(pct,3)+'%;background:linear-gradient(90deg,'+c+','+c+'88);box-shadow:0 0 8px '+c+'66;"></div></div>'+
+            '<span class="val">'+d.cnt+'</span></div></div>';
+    }).join('');
+    el.innerHTML = html;
+}
+
+function fmt(arr){ return arr.map(function(x){ return {name:x.loc||'未分类', cnt:x.cnt}; }); }
+
+function loadData(){
+    fetch('/api/stats/overview', { headers:{'Authorization':'Bearer '+token} })
+    .then(function(res){ return res.json(); })
+    .then(function(d){
+        // KPI
+        document.getElementById('kpiMat').textContent = d.material_count;
+        document.getElementById('kpiAvail').textContent = d.available_stock;
+        document.getElementById('kpiBorrow').textContent = d.borrow_count;
+        document.getElementById('kpiPlan').textContent = d.activity_plans.total;
+
+        // 库存环形
+        var ss = d.stock_status;
+        var stockParts = [ss.ok, ss.low, ss.out];
+        var stockColors = ['#4ade80', '#ffd166', '#ff6b6b'];
+        drawRing(document.getElementById('ringStock'), stockParts, stockColors, d.material_count);
+        document.getElementById('ringStockV').textContent = d.material_count;
+        document.getElementById('stockLegend').innerHTML = [
+            ['充足', ss.ok, '#4ade80'],
+            ['偏低', ss.low, '#ffd166'],
+            ['为零', ss.out, '#ff6b6b']
+        ].map(function(o){
+            var pct = d.material_count ? (o[1]/d.material_count*100) : 0;
+            return '<div class="lg"><span style="width:8px;height:8px;border-radius:2px;background:'+o[2]+';box-shadow:0 0 6px '+o[2]+';"></span><span style="width:44px;">'+o[0]+'</span>'+
+                '<div class="bar"><i style="width:'+Math.max(pct,2)+'%;background:'+o[2]+';"></i></div><span class="val">'+o[1]+'</span></div>';
+        }).join('');
+
+        // 借用统计
+        document.getElementById('miniBorrow').textContent = d.borrow_count;
+        document.getElementById('miniReturn').textContent = d.return_count;
+        var rate = d.borrow_count ? Math.round(d.return_count/d.borrow_count*100) : 0;
+        document.getElementById('miniRate').textContent = rate+'%';
+
+        // 活动
+        document.getElementById('miniPlanPlanned').textContent = d.activity_plans.planned + d.activity_plans.confirmed;
+        document.getElementById('miniPlanDone').textContent = d.activity_plans.done;
+        document.getElementById('miniActivity').textContent = d.activity_count;
+
+        // 文档/考勤/成员
+        document.getElementById('miniSkill').textContent = d.skill_count;
+        document.getElementById('miniAttend').textContent = d.attendance_count;
+        document.getElementById('miniMember').textContent = d.users.active;
+
+        // 趋势柱状图
+        var labels = d.borrow_trend.map(function(t){ return t.date.slice(5); });
+        var vals = d.borrow_trend.map(function(t){ return t.count; });
+        drawBars(document.getElementById('barTrend'), labels, vals, '#4fc3f7');
+
+        // 部门分布
+        var depts = (d.dept_dist||[]).map(function(x){ return {name:x.dept, cnt:x.cnt}; });
+        renderHBars(document.getElementById('deptBars'), depts, ['#4fc3f7','#7c4dff','#4ade80','#ffd166','#ff6b6b','#f472b6']);
+
+        // 位置分布（取前6）
+        var locs = fmt(d.location_dist||[]).slice(0,6);
+        renderHBars(document.getElementById('locBars'), locs, ['#7c4dff','#4fc3f7','#f472b6','#ffd166','#4ade80','#ff8a65']);
+    })
+    .catch(function(){ /* 静默，保持占位 */ });
+}
+loadData();
+// 60 秒自动刷新
+setInterval(loadData, 60000);
+</script>
+</body>
+</html>

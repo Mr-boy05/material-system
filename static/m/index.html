@@ -303,6 +303,13 @@
             <button class="btn-primary" onclick="submitChangePwd()">确认修改</button>
         </div>
         <div class="form-card">
+            <div style="font-weight:600;margin-bottom:14px;">📊 数据大屏</div>
+            <div class="detail-row" onclick="window.location.href='/m/dashboard'" style="cursor:pointer;">
+                <span class="label">📈 数据大屏</span>
+                <span class="value" style="color:#667eea;">进入 →</span>
+            </div>
+        </div>
+        <div class="form-card">
             <div style="font-weight:600;margin-bottom:14px;">📋 关于</div>
             <div class="detail-row" onclick="openMobileChangelog()" style="cursor:pointer;">
                 <span class="label">更新日志</span>
@@ -414,6 +421,7 @@
                 { icon:'↩️', label:'物资归还', desc:'归还借出物资', page:'page-return' },
                 { icon:'📚', label:'技能文档', desc:'模板/资料下载', page:'page-skills' },
                 { icon:'🗓️', label:'活动', desc:'规划/时间线', page:'page-activity-plan' },
+                { icon:'📊', label:'数据大屏', desc:'可视化数据总览', url:'/m/dashboard' },
             ];
             // 管理员额外显示"管理后台"入口
             if (isAdmin) {
