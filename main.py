@@ -229,6 +229,22 @@ def init_db():
         )
     """)
 
+    # 技能文档表（管理员上传模板/技能文档，全员可下载）
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS skill_files (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            original_name TEXT NOT NULL,
+            stored_name TEXT NOT NULL,
+            file_size INTEGER DEFAULT 0,
+            file_type TEXT DEFAULT '',
+            description TEXT DEFAULT '',
+            uploader TEXT DEFAULT '',
+            uploader_id TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
     # 索引
     c.execute("CREATE INDEX IF NOT EXISTS idx_materials_qr ON materials(qr_code)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_transactions_material ON transactions(material_id)")
@@ -2173,6 +2189,82 @@ def delete_custom_field(target: str, field_name: str, conn=Depends(get_db), user
                             (json.dumps(extra, ensure_ascii=False), row[0]))
     conn.commit()
     return {"success": True, "message": "字段已删除", "fields": fields}
+
+# ==================== 技能文档（模板/技能文件，管理员上传，全员下载） ====================
+SKILL_DIR = os.path.join(os.path.dirname(DATABASE_FILE), "skills")
+os.makedirs(SKILL_DIR, exist_ok=True)
+
+@app.post("/api/skills/upload")
+def upload_skill_file(
+    file: UploadFile = File(...),
+    title: str = Form(""),
+    description: str = Form(""),
+    conn=Depends(get_db),
+    user=Depends(get_current_user)
+):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="仅管理员可上传文件")
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="未选择文件")
+    ext = os.path.splitext(file.filename)[1] or ""
+    stored_name = f"{uuid.uuid4().hex}{ext}"
+    filepath = os.path.join(SKILL_DIR, stored_name)
+    content = file.file.read()
+    with open(filepath, "wb") as f:
+        f.write(content)
+    file_id = str(uuid.uuid4())
+    display_title = title.strip() if title.strip() else os.path.splitext(file.filename)[0]
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO skill_files (id, title, original_name, stored_name, file_size, file_type, description, uploader, uploader_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (file_id, display_title, file.filename, stored_name, len(content), ext.lower(), description.strip(),
+          user.get("real_name", "") or user.get("username", ""), user["id"]))
+    conn.commit()
+    return {"success": True, "message": "上传成功", "id": file_id, "title": display_title}
+
+@app.get("/api/skills")
+def list_skill_files(conn=Depends(get_db), user=Depends(get_current_user)):
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT id, title, original_name, file_size, file_type, description, uploader, created_at
+        FROM skill_files ORDER BY created_at DESC
+    """)
+    return [dict(r) for r in cur.fetchall()]
+
+@app.get("/api/skills/{file_id}/download")
+def download_skill_file(file_id: str, conn=Depends(get_db), user=Depends(get_current_user)):
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM skill_files WHERE id=?", (file_id,))
+    row = cur.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="文件不存在")
+    filepath = os.path.join(SKILL_DIR, row["stored_name"])
+    if not os.path.exists(filepath):
+        raise HTTPException(status_code=404, detail="文件已丢失")
+    from urllib.parse import quote
+    filename = quote(row["original_name"])
+    return FileResponse(
+        filepath,
+        media_type="application/octet-stream",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{filename}"}
+    )
+
+@app.delete("/api/skills/{file_id}")
+def delete_skill_file(file_id: str, conn=Depends(get_db), user=Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="仅管理员可删除文件")
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM skill_files WHERE id=?", (file_id,))
+    row = cur.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="文件不存在")
+    filepath = os.path.join(SKILL_DIR, row["stored_name"])
+    if os.path.exists(filepath):
+        os.remove(filepath)
+    cur.execute("DELETE FROM skill_files WHERE id=?", (file_id,))
+    conn.commit()
+    return {"success": True, "message": "已删除"}
 
 # ==================== 静态文件 ====================
 app.mount("/static", StaticFiles(directory="static"), name="static")
