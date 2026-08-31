@@ -285,8 +285,8 @@
             <div style="font-size:12px;color:#7b1fa2;line-height:1.6;background:#fff8e1;padding:9px 11px;border-radius:10px;margin-bottom:12px;">确认后：该规划标记为"已完成"，并在【活动记录】中自动生成记录，时间取规划原始计划日期。可修改信息后再确认。</div>
             <input type="hidden" id="mCompletePlanId">
             <div class="form-group"><label>活动名称 <span class="req">*</span></label><input type="text" id="mCompletePlanTitle" placeholder="活动名称"></div>
-            <div class="form-group"><label>活动日期（沿用规划日期）</label><input type="text" id="mCompletePlanDate" disabled style="padding:11px;border:1px solid #e5e7f0;border-radius:10px;width:100%;background:#f5f5f5;font-size:14px;box-sizing:border-box;"></div>
-            <div class="form-group"><label>所属部门</label><input type="text" id="mCompletePlanDept" disabled style="padding:11px;border:1px solid #e5e7f0;border-radius:10px;width:100%;background:#f5f5f5;font-size:14px;box-sizing:border-box;"></div>
+            <div class="form-group"><label>活动日期 <span class="req">*</span></label><input type="date" id="mCompletePlanDate" style="padding:11px;border:1px solid #e5e7f0;border-radius:10px;width:100%;font-size:14px;box-sizing:border-box;"></div>
+            <div class="form-group"><label>所属部门</label><select id="mCompletePlanDept" style="padding:11px;border:1px solid #e5e7f0;border-radius:10px;width:100%;background:#fff;font-size:14px;box-sizing:border-box;"><option value="">请选择部门</option><option value="办公室">办公室</option><option value="学习部">学习部</option><option value="体育部">体育部</option><option value="文娱部">文娱部</option><option value="志工部">志工部</option><option value="宣传部">宣传部</option><option value="马列部">马列部</option><option value="组织部">组织部</option><option value="权益部">权益部</option><option value="社团部">社团部</option><option value="主席团">主席团</option><option value="副书记">副书记</option><option value="老师">老师</option></select></div>
             <div class="form-group"><label>活动地点</label><input type="text" id="mCompletePlanLocation" placeholder="如：学术报告厅"></div>
             <div class="form-group"><label>活动内容说明</label><textarea id="mCompletePlanDesc" rows="3" style="width:100%;padding:11px;border:1px solid #e5e7f0;border-radius:10px;resize:vertical;font-size:14px;box-sizing:border-box;"></textarea></div>
             <div class="error-msg" id="mCompletePlanError" style="display:none;margin:8px 0 0;color:#c62828;font-size:13px;"></div>
@@ -992,7 +992,7 @@
             .catch(()=>{ errEl.textContent = '网络错误，请重试'; errEl.style.display='block'; });
         }
         function deleteMPlan(id, name){
-            if (!confirm('确定删除活动规划「' + name + '」吗？')) return;
+            if (!confirm('确定删除活动规划「' + name + '」吗？\n（若该规划已生成活动记录，对应记录也会一并删除）')) return;
             fetch('/api/activity-plans/' + id, { method:'DELETE', headers:{'Authorization':'Bearer '+token} })
             .then(res=>res.json().then(d=>({ok:res.ok, d})))
             .then(({ok,d})=>{
@@ -1008,7 +1008,13 @@
             document.getElementById('mCompletePlanId').value = id;
             document.getElementById('mCompletePlanTitle').value = p.title || '';
             document.getElementById('mCompletePlanDate').value = p.plan_date || '';
-            document.getElementById('mCompletePlanDept').value = p.department || '';
+            const deptSel = document.getElementById('mCompletePlanDept');
+            if (p.department && ![...deptSel.options].some(o=>o.value===p.department)) {
+                const op = document.createElement('option');
+                op.value = p.department; op.textContent = p.department;
+                deptSel.appendChild(op);
+            }
+            deptSel.value = p.department || '';
             document.getElementById('mCompletePlanLocation').value = p.location || '';
             document.getElementById('mCompletePlanDesc').value = p.description || '';
             document.getElementById('mCompletePlanError').style.display = 'none';
@@ -1019,12 +1025,15 @@
             const pid = document.getElementById('mCompletePlanId').value;
             const body = {
                 title: document.getElementById('mCompletePlanTitle').value.trim(),
+                plan_date: document.getElementById('mCompletePlanDate').value,
+                department: document.getElementById('mCompletePlanDept').value,
                 location: document.getElementById('mCompletePlanLocation').value.trim(),
                 description: document.getElementById('mCompletePlanDesc').value.trim()
             };
             const errEl = document.getElementById('mCompletePlanError');
             errEl.style.display = 'none';
             if (!body.title) { errEl.textContent = '请输入活动名称'; errEl.style.display='block'; return; }
+            if (!body.plan_date) { errEl.textContent = '请选择活动日期'; errEl.style.display='block'; return; }
             fetch('/api/activity-plans/' + pid + '/complete', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body: JSON.stringify(body) })
             .then(res=>res.json().then(d=>({ok:res.ok, d})))
             .then(({ok,d})=>{

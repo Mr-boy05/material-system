@@ -472,8 +472,8 @@
             <div style="font-size:13px;color:#7b1fa2;margin-bottom:14px;background:#fff8e1;padding:8px 12px;border-radius:8px;line-height:1.6;">确认后：① 该活动规划标记为"已完成"；② 自动在【活动记录】中生成一条记录，时间取规划的原始计划日期。请核对下方信息，如有误可修改后再确认。</div>
             <input type="hidden" id="completePlanId">
             <div class="form-group"><label>活动名称 <span class="req">*</span></label><input type="text" id="completePlanTitle" placeholder="活动名称"></div>
-            <div class="form-group"><label>活动日期（沿用规划日期）</label><input type="text" id="completePlanDate" disabled style="background:#f5f5f5;padding:8px 12px;border:1px solid #ddd;border-radius:6px;width:100%;box-sizing:border-box;"></div>
-            <div class="form-group"><label>所属部门</label><input type="text" id="completePlanDept" disabled style="background:#f5f5f5;padding:8px 12px;border:1px solid #ddd;border-radius:6px;width:100%;box-sizing:border-box;"></div>
+            <div class="form-group"><label>活动日期 <span class="req">*</span></label><input type="date" id="completePlanDate" placeholder="活动日期"></div>
+            <div class="form-group"><label>所属部门</label><select id="completePlanDept" style="padding:8px 12px;border:1px solid #ddd;border-radius:6px;width:100%;background:#fff;"><option value="">请选择部门</option><option value="办公室">办公室</option><option value="学习部">学习部</option><option value="体育部">体育部</option><option value="文娱部">文娱部</option><option value="志工部">志工部</option><option value="宣传部">宣传部</option><option value="马列部">马列部</option><option value="组织部">组织部</option><option value="权益部">权益部</option><option value="社团部">社团部</option><option value="主席团">主席团</option><option value="副书记">副书记</option><option value="老师">老师</option></select></div>
             <div class="form-group"><label>活动地点</label><input type="text" id="completePlanLocation" placeholder="如：学术报告厅"></div>
             <div class="form-group"><label>活动内容说明</label><textarea id="completePlanDesc" rows="3" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:6px;resize:vertical;" placeholder="活动内容说明"></textarea></div>
             <div class="error-msg" id="completePlanError" style="display:none;margin-top:0;"></div>
@@ -1060,7 +1060,13 @@
             document.getElementById('completePlanId').value = id;
             document.getElementById('completePlanTitle').value = p.title || '';
             document.getElementById('completePlanDate').value = p.plan_date || '';
-            document.getElementById('completePlanDept').value = p.department || '';
+            const deptSel = document.getElementById('completePlanDept');
+            if (p.department && ![...deptSel.options].some(o=>o.value===p.department)) {
+                const op = document.createElement('option');
+                op.value = p.department; op.textContent = p.department;
+                deptSel.appendChild(op);
+            }
+            deptSel.value = p.department || '';
             document.getElementById('completePlanLocation').value = p.location || '';
             document.getElementById('completePlanDesc').value = p.description || '';
             document.getElementById('completePlanError').style.display = 'none';
@@ -1071,12 +1077,15 @@
             const pid = document.getElementById('completePlanId').value;
             const body = {
                 title: document.getElementById('completePlanTitle').value.trim(),
+                plan_date: document.getElementById('completePlanDate').value,
+                department: document.getElementById('completePlanDept').value,
                 location: document.getElementById('completePlanLocation').value.trim(),
                 description: document.getElementById('completePlanDesc').value.trim()
             };
             const errEl = document.getElementById('completePlanError');
             errEl.style.display = 'none';
             if (!body.title) { errEl.textContent = '请输入活动名称'; errEl.style.display='block'; return; }
+            if (!body.plan_date) { errEl.textContent = '请选择活动日期'; errEl.style.display='block'; return; }
             fetch('/api/activity-plans/' + pid + '/complete', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body: JSON.stringify(body) })
             .then(res=>res.json().then(d=>({ok:res.ok, d})))
             .then(({ok,d})=>{
@@ -2248,7 +2257,7 @@
         }
 
         function deleteActivity(id, title) {
-            if (!confirm('确定删除活动「' + title + '」吗？')) return;
+            if (!confirm('确定删除活动「' + title + '」吗？\n（若该活动由活动规划同步而来，对应的活动规划也会一并删除）')) return;
             fetch('/api/activities/' + id, { method:'DELETE', headers:{'Authorization':'Bearer '+token} })
             .then(res=>res.json())
             .then(data=>{

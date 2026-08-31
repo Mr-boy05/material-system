@@ -18,7 +18,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "3.2.2"
+VERSION = "3.2.3"
 VERSION_DATE = "2026-08-31"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
@@ -304,6 +304,9 @@ def init_db():
     add_column_if_not_exists("attendance", "leave", "TEXT DEFAULT '[]'")
     # 活动规划是否已同步到活动记录（0=未同步 1=已同步）
     add_column_if_not_exists("activity_plans", "synced", "INTEGER DEFAULT 0")
+    # 双向关联：规划同步生成的活动记录ID / 活动记录来源规划ID（用于联动删除）
+    add_column_if_not_exists("activity_plans", "activity_id", "TEXT DEFAULT ''")
+    add_column_if_not_exists("activities", "plan_id", "TEXT DEFAULT ''")
 
     # 初始化管理员
     c.execute("SELECT COUNT(*) FROM users WHERE username = 'admin'")
@@ -2219,9 +2222,15 @@ def delete_activity(activity_id: str, conn=Depends(get_db), user=Depends(get_cur
     if user["role"] != "admin":
         raise HTTPException(status_code=403, detail="只有管理员可以删除活动")
     cur = conn.cursor()
+    # 联动删除：如果该活动记录来源于某个活动规划，同步删除对应规划
+    cur.execute("SELECT plan_id FROM activities WHERE id=?", (activity_id,))
+    row = cur.fetchone()
+    linked_plan_id = (row["plan_id"] if row and row["plan_id"] else "")
     cur.execute("DELETE FROM activities WHERE id=?", (activity_id,))
+    if linked_plan_id:
+        cur.execute("DELETE FROM activity_plans WHERE id=?", (linked_plan_id,))
     conn.commit()
-    return {"success": True, "message": "活动已删除"}
+    return {"success": True, "message": "活动已删除（已同步删除对应活动规划）" if linked_plan_id else "活动已删除"}
 
 # 活动文件上传（小文件，限制50MB）
 @app.post("/api/activities/upload")
@@ -2352,16 +2361,22 @@ def delete_activity_plan(plan_id: str, conn=Depends(get_db), user=Depends(get_cu
         raise HTTPException(status_code=404, detail="活动规划不存在")
     if user["role"] != "admin" and plan["creator_id"] != user["id"]:
         raise HTTPException(status_code=403, detail="只能删除自己创建的活动规划")
+    # 联动删除：如果该规划已同步生成活动记录，同步删除对应记录
+    linked_act_id = dict(plan).get("activity_id", "")
     cur.execute("DELETE FROM activity_plans WHERE id=?", (plan_id,))
+    if linked_act_id:
+        cur.execute("DELETE FROM activities WHERE id=?", (linked_act_id,))
     conn.commit()
-    return {"success": True, "message": "活动规划已删除"}
+    return {"success": True, "message": "活动规划已删除（已同步删除对应活动记录）" if linked_act_id else "活动规划已删除"}
 
 class ActivityPlanComplete(BaseModel):
     title: Optional[str] = None
     location: Optional[str] = None
     description: Optional[str] = None
+    plan_date: Optional[str] = None
+    department: Optional[str] = None
 
-# 活动规划标记完成并同步到活动记录（时间为规划的原始计划日期）
+# 活动规划标记完成并同步到活动记录（时间为规划的原始计划日期，可人为修改）
 @app.post("/api/activity-plans/{plan_id}/complete")
 def complete_activity_plan(plan_id: str, req: ActivityPlanComplete, conn=Depends(get_db), user=Depends(get_current_user)):
     cur = conn.cursor()
@@ -2369,21 +2384,24 @@ def complete_activity_plan(plan_id: str, req: ActivityPlanComplete, conn=Depends
     plan = cur.fetchone()
     if not plan:
         raise HTTPException(status_code=404, detail="活动规划不存在")
-    if plan["status"] == "done" and plan.get("synced"):
+    if plan["status"] == "done" and dict(plan).get("synced", 0):
         raise HTTPException(status_code=400, detail="该活动已完成并已同步到活动记录，请勿重复操作")
     # 确认框可修改的信息（未填写则沿用规划原值）
     title = (req.title or "").strip() or plan["title"]
     location = (req.location.strip() if req.location is not None else (plan["location"] or "")).strip()
     description = (req.description.strip() if req.description is not None else (plan["description"] or "")).strip()
-    # 1. 更新规划状态为已完成，并保存修改后的信息
-    cur.execute("UPDATE activity_plans SET status='done', title=?, location=?, description=?, synced=1 WHERE id=?",
-                (title, location, description, plan_id))
-    # 2. 生成活动记录，时间为规划本身的计划日期
+    plan_date = (req.plan_date or "").strip() or plan["plan_date"]
+    department = (req.department or "").strip() or (plan["department"] or "")
+    # 1. 更新规划状态为已完成，保存修改后的信息，记录关联的活动记录ID
     act_id = str(uuid.uuid4())
+    cur.execute("""UPDATE activity_plans SET status='done', title=?, location=?, description=?,
+                   plan_date=?, department=?, synced=1, activity_id=? WHERE id=?""",
+                (title, location, description, plan_date, department, act_id, plan_id))
+    # 2. 生成活动记录，时间为规划本身的计划日期
     cur.execute("""
-        INSERT INTO activities (id, title, start_time, location, organizer, description, status, creator_id)
-        VALUES (?, ?, ?, ?, ?, ?, 'completed', ?)
-    """, (act_id, title, plan["plan_date"], location, plan["department"] or "", description, plan["creator_id"]))
+        INSERT INTO activities (id, title, start_time, location, organizer, description, status, creator_id, plan_id)
+        VALUES (?, ?, ?, ?, ?, ?, 'completed', ?, ?)
+    """, (act_id, title, plan_date, location, department, description, plan["creator_id"], plan_id))
     conn.commit()
     return {"success": True, "message": "活动已标记完成，并已生成活动记录", "activity_id": act_id}
 
