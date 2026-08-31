@@ -282,6 +282,8 @@
                     if (data.other_device_online) {
                         showOtherDeviceTip(data.other_device === 'pc' ? '电脑端' : '手机端');
                     }
+                    // 记录本次会话已登录（关闭浏览器重开需重新登录）
+                    sessionStorage.setItem('session_logged_in', '1');
                     window.location.href = '/';
                 } else {
                     // 设备数已满：提示是否强制登录
@@ -303,14 +305,9 @@
 
         // 页面加载时检查自动登录
         (function() {
-            // 如果已经登录，直接跳转
-            if (localStorage.getItem('token')) {
-                window.location.href = '/';
-                return;
-            }
-            // 检查是否有保存的自动登录凭据
+            // 有保存的自动登录凭据 → 自动填充账号密码，用户手动点击登录后进入
             const cred = localStorage.getItem('auto_login_cred');
-            const justLoggedOut = localStorage.getItem('just_logged_out') === '1';
+            localStorage.removeItem('just_logged_out');
             if (cred) {
                 try {
                     const raw = atob(cred);
@@ -320,17 +317,9 @@
                     document.getElementById('username').value = u;
                     document.getElementById('password').value = p;
                     document.getElementById('autoLogin').checked = true;
-                    // 刚退出登录时不自动登录，只填充，方便切换账号
-                    if (!justLoggedOut) {
-                        setTimeout(doLogin, 100);
-                    } else {
-                        localStorage.removeItem('just_logged_out');
-                    }
                 } catch(e) {
                     localStorage.removeItem('auto_login_cred');
                 }
-            } else {
-                localStorage.removeItem('just_logged_out');
             }
         })();
 

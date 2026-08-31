@@ -400,8 +400,9 @@
 let token = localStorage.getItem('token') || localStorage.getItem('admin_token');
 let currentUser = JSON.parse(localStorage.getItem('user') || localStorage.getItem('admin_user') || '{}');
 
-// 检查登录
-if (!token || currentUser.role !== 'admin') {
+// 检查登录：需 token + 本次会话已登录（关闭浏览器重开需重新登录）
+const sessionLoggedIn = sessionStorage.getItem('session_logged_in') === '1';
+if (!token || currentUser.role !== 'admin' || !sessionLoggedIn) {
     window.location.href = '/m/login';
 }
 
@@ -1476,6 +1477,7 @@ function doCleanup() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     localStorage.removeItem('auto_login_cred');
+    sessionStorage.removeItem('session_logged_in');
     localStorage.setItem('just_logged_out', '1');
     window.location.href = '/m/login';
 }

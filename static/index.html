@@ -758,7 +758,10 @@
 
     <script>
         let token = localStorage.getItem('token');
-        if (!token) window.location.href = '/login';
+        // 仅当"本次会话已登录"（当前浏览器会话内登录过）才进入系统；
+        // 关闭浏览器重新打开视为新会话，一律回到登录界面，由用户手动登录
+        const sessionLoggedIn = sessionStorage.getItem('session_logged_in') === '1';
+        if (!token || !sessionLoggedIn) window.location.href = '/login';
         const user = JSON.parse(localStorage.getItem('user') || '{}');
         const isAdmin = user.role === 'admin';
         document.getElementById('userName').textContent = user.real_name || '用户';
@@ -1670,6 +1673,7 @@
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             localStorage.removeItem('force_desktop');
+            sessionStorage.removeItem('session_logged_in');
             // 标记刚退出，登录页不自动登录，只填充账号
             localStorage.setItem('just_logged_out', '1');
             window.location.href='/login';
