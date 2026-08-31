@@ -916,6 +916,7 @@
             else { loadActivities(); }
         }
 
+        let planRetryCount = 0;
         function loadActivityPlans() {
             const curUser = JSON.parse(localStorage.getItem('user') || '{}');
             const sel = document.getElementById('planDeptFilter');
@@ -924,11 +925,18 @@
             fetch(url, { headers: {'Authorization':'Bearer '+token} })
             .then(res=>res.json())
             .then(list=>{
+                if (!Array.isArray(list)) throw new Error('bad response');
+                planRetryCount = 0;
                 planAll = list;
                 document.getElementById('planCount').textContent = '共 ' + list.length + ' 个活动规划';
                 renderPlanTimeline(list, curUser);
             })
-            .catch(()=>{ document.getElementById('planTimeline').innerHTML = '<div class="plan-empty">加载失败，请重试</div>'; });
+            .catch(()=>{
+                // 首次失败自动重试一次，避免偶发问题导致页面空白
+                if (planRetryCount < 1) { planRetryCount++; setTimeout(loadActivityPlans, 600); return; }
+                planRetryCount = 0;
+                document.getElementById('planTimeline').innerHTML = '<div class="plan-empty">加载失败，请重试</div>';
+            });
         }
 
         function renderPlanTimeline(list, curUser) {

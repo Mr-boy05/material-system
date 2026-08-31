@@ -874,6 +874,7 @@
         let mPlanAll = [];
         let mPlanDepts = [];
         let mPlanDeptFilter = '';
+        let mPlanRetryCount = 0;
 
         function mplanEsc(s){ return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
@@ -898,11 +899,18 @@
             fetch(url, { headers:{'Authorization':'Bearer '+token} })
             .then(res=>{ if(res.status===401){ window.location.href='/m/login'; return []; } return res.json(); })
             .then(data=>{
+                if (!Array.isArray(data)) throw new Error('bad response');
+                mPlanRetryCount = 0;
                 mPlanAll = data;
                 const curUser = JSON.parse(localStorage.getItem('user') || '{}');
                 renderMPlanTimeline(listEl, data, curUser);
             })
-            .catch(()=>{ if(listEl) listEl.innerHTML = '<div style="text-align:center;padding:40px;color:#999;">加载失败</div>'; });
+            .catch(()=>{
+                // 首次失败自动重试一次，避免偶发问题导致页面空白
+                if (mPlanRetryCount < 1) { mPlanRetryCount++; setTimeout(loadMPlans, 600); return; }
+                mPlanRetryCount = 0;
+                if(listEl) listEl.innerHTML = '<div style="text-align:center;padding:40px;color:#999;">加载失败</div>';
+            });
         }
 
         function mplanFilter(dept){
