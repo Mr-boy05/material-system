@@ -18,7 +18,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "3.2.0"
+VERSION = "3.2.1"
 VERSION_DATE = "2026-08-31"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
@@ -2281,9 +2281,15 @@ def list_activity_plans(department: str = "", conn=Depends(get_db), user=Depends
 
 @app.get("/api/activity-plans/departments")
 def list_plan_departments(conn=Depends(get_db), user=Depends(get_current_user)):
+    # 人员信息中提供的全部部门（与用户管理的部门列表一致）
+    DEPARTMENTS = ["办公室", "学习部", "体育部", "文娱部", "志工部", "宣传部", "马列部",
+                   "组织部", "权益部", "社团部", "主席团", "副书记", "老师"]
     cur = conn.cursor()
-    cur.execute("SELECT DISTINCT department FROM users WHERE department != '' AND department IS NOT NULL ORDER BY department")
-    depts = [r["department"] for r in cur.fetchall()]
+    cur.execute("SELECT DISTINCT department FROM users WHERE department != '' AND department IS NOT NULL")
+    depts = list(DEPARTMENTS)
+    for r in cur.fetchall():
+        if r["department"] not in depts:
+            depts.append(r["department"])
     cur.execute("SELECT DISTINCT department FROM activity_plans WHERE department != '' AND department IS NOT NULL")
     for r in cur.fetchall():
         if r["department"] not in depts:

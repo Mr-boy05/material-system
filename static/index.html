@@ -187,7 +187,6 @@
             <div class="nav-item admin-only" onclick="location.href='/dashboard'"><span class="icon">📊</span>数据大屏</div>
             <div class="nav-item admin-only" onclick="switchPage('page-users',this)"><span class="icon">👥</span>人员管理</div>
             <div class="nav-item admin-only" onclick="switchPage('page-attendance',this)"><span class="icon">✅</span>考勤记录</div>
-            <div class="nav-item admin-only" onclick="switchPage('page-activities',this)"><span class="icon">📅</span>活动记录</div>
             <div class="nav-item nav-dropdown admin-only" onclick="toggleDropdown(this)">
                 <span class="icon">📦</span>物资管理 <span class="dropdown-arrow">▼</span>
             </div>
@@ -202,7 +201,7 @@
             <div class="nav-item user-only" onclick="switchPage('page-materials',this)"><span class="icon">🔍</span>物资查询</div>
             <div class="nav-item user-only" onclick="switchPage('page-records',this)"><span class="icon">📋</span>我的记录</div>
             <div class="nav-item" onclick="switchPage('page-skills',this)"><span class="icon">📚</span>技能文档</div>
-            <div class="nav-item" onclick="switchPage('page-activity-plan',this)"><span class="icon">🗓️</span>活动规划</div>
+            <div class="nav-item" onclick="switchPage('page-activity-center',this)"><span class="icon">🎭</span>活动中心</div>
             <div class="nav-item" onclick="goMobile()"><span class="icon">📱</span>手机端</div>
         </div>
         <div class="user-box">
@@ -342,18 +341,6 @@
             </div>
         </div>
 
-        <!-- 活动记录 -->
-        <div class="page" id="page-activities">
-            <div class="page-title">活动记录</div>
-            <div class="toolbar">
-                <span style="color:#666;font-size:13px;" id="activityCount">共 0 场活动</span>
-                <button class="btn btn-primary" onclick="openActivityModal()">+ 新增活动</button>
-            </div>
-            <div id="activityList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(350px,1fr));gap:16px;">
-                <div class="empty">加载中...</div>
-            </div>
-        </div>
-
         <!-- 考勤记录 -->
         <div class="page" id="page-attendance">
             <div class="page-title">考勤记录</div>
@@ -390,8 +377,8 @@
             </table>
         </div>
 
-        <!-- 活动规划 -->
-        <div class="page" id="page-activity-plan">
+        <!-- 活动中心（活动规划 + 活动记录） -->
+        <div class="page" id="page-activity-center">
             <style>
                 .plan-timeline{position:relative;padding:6px 0 10px;}
                 .plan-timeline::before{content:'';position:absolute;left:50%;top:0;bottom:0;width:3px;background:linear-gradient(180deg,#667eea,#764ba2,#f093fb);transform:translateX(-50%);border-radius:2px;}
@@ -421,7 +408,12 @@
                 .plan-card .p-ops .del{color:#e53935;border-color:#f5c6c6;}
                 .plan-empty{text-align:center;color:#999;padding:60px 0;font-size:14px;}
             </style>
-            <div class="page-title">🗓️ 活动规划</div>
+            <div class="page-title">🎭 活动中心</div>
+            <div style="display:flex;gap:10px;margin-bottom:16px;border-bottom:2px solid #eef0f6;padding-bottom:10px;">
+                <div id="actTab-plan" onclick="switchActivityTab('plan')" style="padding:8px 18px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;">🗓️ 活动规划</div>
+                <div id="actTab-record" onclick="switchActivityTab('record')" style="padding:8px 18px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;color:#888;">📝 活动记录</div>
+            </div>
+            <div id="actPane-plan">
             <div style="font-size:13px;color:#888;margin-bottom:14px;">各部门未来活动规划一览，按计划时间以时间线展示。点击"＋"即可添加本部门的活动规划。</div>
             <div class="toolbar">
                 <span style="color:#666;font-size:13px;" id="planCount">共 0 个活动规划</span>
@@ -433,6 +425,17 @@
                 </div>
             </div>
             <div id="planTimeline" class="plan-timeline"><div class="plan-empty">加载中...</div></div>
+            </div>
+            <div id="actPane-record" style="display:none;">
+                <div style="font-size:13px;color:#888;margin-bottom:14px;">已举办活动的记录归档，可按时间查看历史活动详情。</div>
+                <div class="toolbar">
+                    <span style="color:#666;font-size:13px;" id="activityCount">共 0 场活动</span>
+                    <button class="btn btn-primary" onclick="openActivityModal()">+ 新增活动</button>
+                </div>
+                <div id="activityList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(350px,1fr));gap:16px;">
+                    <div class="empty">加载中...</div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -787,7 +790,7 @@
             if (id==='page-activities') loadActivities();
             if (id==='page-attendance') loadAttendance();
             if (id==='page-skills') loadSkills();
-            if (id==='page-activity-plan') loadActivityPlans();
+            if (id==='page-activity-center') switchActivityTab('plan');
         }
 
         function showToast(msg) { const t=document.getElementById('toast'); t.textContent=msg; t.style.display='block'; setTimeout(()=>t.style.display='none',2000); }
@@ -877,6 +880,25 @@
         const PLAN_STATUS_MAP = { planned: {text:'规划中', cls:'b-planned'}, confirmed: {text:'已确定', cls:'b-confirmed'}, done: {text:'已完成', cls:'b-done'} };
         let planAll = [];
         let planDepts = [];
+
+        // 活动中心 Tab 切换（规划 / 记录）
+        function switchActivityTab(tab) {
+            const isPlan = tab === 'plan';
+            document.getElementById('actPane-plan').style.display = isPlan ? '' : 'none';
+            document.getElementById('actPane-record').style.display = isPlan ? 'none' : '';
+            const planTab = document.getElementById('actTab-plan');
+            const recTab = document.getElementById('actTab-record');
+            if (planTab) {
+                planTab.style.background = isPlan ? 'linear-gradient(135deg,#667eea,#764ba2)' : 'transparent';
+                planTab.style.color = isPlan ? '#fff' : '#888';
+            }
+            if (recTab) {
+                recTab.style.background = isPlan ? 'transparent' : 'linear-gradient(135deg,#667eea,#764ba2)';
+                recTab.style.color = isPlan ? '#888' : '#fff';
+            }
+            if (isPlan) { loadActivityPlans(); loadPlanDepartments(); }
+            else { loadActivities(); }
+        }
 
         function loadActivityPlans() {
             const curUser = JSON.parse(localStorage.getItem('user') || '{}');
