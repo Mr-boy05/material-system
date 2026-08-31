@@ -88,8 +88,23 @@
         .view-img-mask .view-img-name { color:#fff; font-size:15px; margin-top:16px; text-align:center; padding:0 20px; }
         .view-img-mask .view-img-close { margin-top:20px; padding:10px 30px; background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.3); color:#fff; border-radius:20px; font-size:14px; cursor:pointer; }
         /* 底部版权 */
-        .mobile-footer { text-align:center; padding:20px 16px 30px; color:#bbb; font-size:11px; line-height:1.8; }
+        .mobile-footer { text-align:center; padding:20px 16px 80px; color:#bbb; font-size:11px; line-height:1.8; }
         .mobile-footer .version { color:#667eea; }
+
+        /* 底部导航栏 */
+        .bottom-nav { position:fixed; bottom:0; left:0; right:0; background:white; display:flex; justify-content:space-around; align-items:center; padding:8px 0 calc(8px + env(safe-area-inset-bottom)); box-shadow:0 -2px 12px rgba(0,0,0,0.06); z-index:100; border-top:1px solid #f0f0f0; }
+        .bottom-nav-item { flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; cursor:pointer; padding:4px 0; color:#999; transition:all 0.2s; -webkit-tap-highlight-color:transparent; }
+        .bottom-nav-item .nav-icon { font-size:22px; line-height:1; }
+        .bottom-nav-item .nav-label { font-size:10px; font-weight:500; }
+        .bottom-nav-item.active { color:#667eea; }
+        .bottom-nav-item:active { transform:scale(0.92); }
+
+        /* 物资列表项优化 */
+        .mat-item .loc-text { font-size:12px; color:#666; margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .mat-item .item-actions { display:flex; flex-direction:column; justify-content:center; gap:6px; }
+        .stock-out { color:#c62828 !important; font-weight:600; }
+        .stock-low { color:#ef6c00 !important; font-weight:600; }
+        .stock-ok { color:#2e7d32 !important; font-weight:600; }
     </style>
 </head>
 <body>
@@ -111,9 +126,8 @@
             <div class="stat-card"><div class="num" id="statMine">0</div><div class="label">我的记录</div></div>
         </div>
         <div class="home-menu">
-            <div class="menu-section-title">功能菜单</div>
+            <div class="menu-section-title">更多功能</div>
             <div class="menu-grid" id="menuGrid"></div>
-            <div class="home-logout"><button onclick="logout()">退出登录</button></div>
         </div>
     </div>
 
@@ -216,6 +230,28 @@
             <div class="form-group"><label>确认新密码 <span class="req">*</span></label><input type="password" id="confirmPwd" placeholder="再次输入新密码"></div>
             <button class="btn-primary" onclick="submitChangePwd()">确认修改</button>
         </div>
+        <div style="padding:0 16px;margin-top:16px;">
+            <button onclick="logout()" style="width:100%;padding:14px;background:white;border:1.5px solid #ffcdd2;color:#c62828;border-radius:14px;font-size:15px;font-weight:600;cursor:pointer;">退出登录</button>
+        </div>
+    </div>
+
+    <!-- 底部导航栏 -->
+    <div class="bottom-nav">
+        <div class="bottom-nav-item active" data-page="page-home" onclick="switchTab('page-home')">
+            <div class="nav-icon">🏠</div><div class="nav-label">首页</div>
+        </div>
+        <div class="bottom-nav-item" data-page="page-search" onclick="switchTab('page-search')">
+            <div class="nav-icon">📦</div><div class="nav-label">物资</div>
+        </div>
+        <div class="bottom-nav-item" data-page="page-borrow" onclick="switchTab('page-borrow')">
+            <div class="nav-icon">📤</div><div class="nav-label">领取</div>
+        </div>
+        <div class="bottom-nav-item" data-page="page-records" onclick="switchTab('page-records')">
+            <div class="nav-icon">📋</div><div class="nav-label">记录</div>
+        </div>
+        <div class="bottom-nav-item" data-page="page-profile" onclick="switchTab('page-profile')">
+            <div class="nav-icon">👤</div><div class="nav-label">我的</div>
+        </div>
     </div>
 
     <!-- 底部版权 -->
@@ -269,19 +305,14 @@
         // 先渲染菜单，确保一定能显示
         function buildMenu() {
             const commonMenu = [
-                { icon:'📤', label:'物资领取', desc:'扫码/选择领取', page:'page-borrow' },
                 { icon:'↩️', label:'物资归还', desc:'归还借出物资', page:'page-return' },
-                { icon:'🔍', label:'物资查询', desc:'查看库存详情', page:'page-search' },
-                { icon:'📋', label:'我的记录', desc:'领取归还历史', page:'page-records' },
                 { icon:'📚', label:'技能文档', desc:'模板/资料下载', page:'page-skills' },
                 { icon:'📊', label:'数据大屏', desc:'可视化数据统计', url:'/dashboard' },
-                { icon:'⚙️', label:'个人设置', desc:'修改密码', page:'page-profile' },
             ];
-            // 管理员额外显示"管理后台"入口（根据本地缓存角色判断，无需重新登录）
+            // 管理员额外显示"管理后台"入口
             if (isAdmin) {
                 commonMenu.push({ icon:'⚙️', label:'管理后台', desc:'人员/活动/考勤管理', url:'/m/admin' });
             }
-            // 普通用户只显示物资管理相关功能
             const menu = commonMenu;
             const menuGrid = document.getElementById('menuGrid');
             if (menuGrid) {
@@ -348,6 +379,10 @@
             document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
             document.getElementById(id).classList.add('active');
             window.scrollTo(0,0);
+            // 更新底部导航激活状态
+            document.querySelectorAll('.bottom-nav-item').forEach(item=>{
+                item.classList.toggle('active', item.dataset.page === id);
+            });
             if (id==='page-borrow') loadMaterialSelect('borrowMaterial');
             if (id==='page-return') loadBorrowedSelect();
             if (id==='page-records') loadRecords();
@@ -355,6 +390,7 @@
             if (id==='page-skills') loadMSkills();
             if (id==='page-profile') loadProfile();
         }
+        function switchTab(id) { showPage(id); }
 
         function uploadImg(input, previewId) {
             const file = input.files[0];
@@ -498,8 +534,28 @@
                         const img = m.image 
                             ? `<img src="${m.image}" class="img" style="cursor:pointer;" onclick="event.stopPropagation();viewImage('${m.image}','${m.name}')" title="点击放大">` 
                             : `<div class="img-ph" style="cursor:pointer;" onclick="event.stopPropagation();uploadMatImage('${m.id}')" title="点击上传图片">📷</div>`;
-                        const delBtn = isAdmin ? `<div class="actions"><button class="btn-danger" onclick="event.stopPropagation();deleteMaterial('${m.id}','${m.name}')">删除</button></div>` : '';
-                        return `<div class="mat-item" onclick="goToBorrow('${m.id}')">${img}<div class="info"><div class="name">${m.name}</div><div class="code">${m.qr_code}</div><div class="stock">可领：<span>${m.available_stock}${m.unit}</span> · 共${m.total_stock}${m.unit}</div></div>${delBtn}</div>`;
+                        const delBtn = isAdmin ? `<button class="btn-danger" style="padding:5px 12px;font-size:12px;" onclick="event.stopPropagation();deleteMaterial('${m.id}','${m.name}')">删除</button>` : '';
+                        // 位置显示
+                        let locText = '';
+                        if (m.locations && m.locations.length) {
+                            const locNames = m.locations.map(l=>l.location).filter(Boolean);
+                            locText = locNames.length ? '📍 ' + (locNames.length > 2 ? locNames.slice(0,2).join('、') + ' 等' + locNames.length + '处' : locNames.join('、')) : '📍 未设置位置';
+                        } else if (m.location) {
+                            locText = '📍 ' + m.location;
+                        } else {
+                            locText = '📍 未设置位置';
+                        }
+                        const stockClass = m.available_stock === 0 ? 'stock-out' : (m.available_stock <= 5 ? 'stock-low' : 'stock-ok');
+                        return `<div class="mat-item" onclick="showDetail('${m.id}')">
+                            ${img}
+                            <div class="info">
+                                <div class="name">${m.name}</div>
+                                <div class="code">${m.qr_code}</div>
+                                <div class="loc-text">${locText}</div>
+                                <div class="stock">可领：<span class="${stockClass}">${m.available_stock}${m.unit}</span> · 共${m.total_stock}${m.unit}</div>
+                            </div>
+                            <div class="item-actions">${delBtn}</div>
+                        </div>`;
                     }).join('');
                 });
             }, 300);
@@ -534,6 +590,7 @@
                         </span>
                     </div>
                     ${editImgBtn}
+                    ${m.available_stock > 0 ? `<button class="btn-primary" style="width:100%;padding:14px;margin-top:16px;" onclick="goToBorrow('${m.id}')">📤 立即领取</button>` : `<div style="text-align:center;padding:14px;margin-top:16px;background:#f5f5f5;border-radius:12px;color:#999;font-size:14px;">暂无可领取库存</div>`}
                 `;
                 showPage('page-detail');
             });
