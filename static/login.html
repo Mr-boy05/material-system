@@ -181,7 +181,6 @@
         <div class="links">
             <a href="javascript:void(0)" onclick="openChangePwd()">🔑 修改密码</a>
             <a href="javascript:void(0)" onclick="openForgotPwd()">❓ 忘记密码</a>
-            <a href="javascript:void(0)" onclick="openRegister()">📝 注册</a>
             <a href="/m/login">📱 手机端 →</a>
         </div>
         <div class="tip">默认管理员：admin / admin123</div>
@@ -245,65 +244,6 @@
             <div class="modal-actions">
                 <button class="btn-cancel" onclick="closeForgotPwd()">取消</button>
                 <button class="btn-submit" onclick="submitResetPwd()">重置密码</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 注册弹窗 -->
-    <div class="modal-mask" id="registerModal">
-        <div class="modal">
-            <h3>📝 用户注册</h3>
-            <div class="form-group">
-                <label>用户名 <span style="color:#e74c3c;">*</span></label>
-                <input type="text" id="regUsername" placeholder="可输入中文或英文">
-            </div>
-            <div class="form-group">
-                <label>真实姓名</label>
-                <input type="text" id="regRealName" placeholder="不填则与用户名相同">
-            </div>
-            <div class="form-group">
-                <label>部门</label>
-                <select id="regDepartment">
-                    <option value="">请选择部门</option>
-                    <option value="办公室">办公室</option>
-                    <option value="学习部">学习部</option>
-                    <option value="体育部">体育部</option>
-                    <option value="文娱部">文娱部</option>
-                    <option value="志工部">志工部</option>
-                    <option value="宣传部">宣传部</option>
-                    <option value="马列部">马列部</option>
-                    <option value="组织部">组织部</option>
-                    <option value="权益部">权益部</option>
-                    <option value="社团部">社团部</option>
-                    <option value="主席团">主席团</option>
-                    <option value="副书记">副书记</option>
-                    <option value="老师">老师</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>电话</label>
-                <input type="tel" id="regPhone" placeholder="请输入电话号码">
-            </div>
-            <div class="form-group">
-                <label>邮箱 <span style="color:#e74c3c;">*</span></label>
-                <input type="email" id="regEmail" placeholder="用于接收验证码和找回密码">
-            </div>
-            <div class="form-group">
-                <label>邮箱验证码 <span style="color:#e74c3c;">*</span></label>
-                <div style="display:flex;gap:8px;">
-                    <input type="text" id="regCode" placeholder="请输入6位验证码" style="flex:1;">
-                    <button id="regSendCodeBtn" onclick="sendRegisterCode()" style="padding:0 16px;background:#667eea;color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px;white-space:nowrap;">发送验证码</button>
-                </div>
-            </div>
-            <div class="form-group">
-                <label>密码</label>
-                <input type="password" id="regPassword" placeholder="不填则默认 123456">
-            </div>
-            <div class="error-msg" id="regError" style="display:none;margin-top:0;"></div>
-            <div class="success-msg" id="regSuccess" style="display:none;margin-top:0;"></div>
-            <div class="modal-actions">
-                <button class="btn-cancel" onclick="closeRegister()">取消</button>
-                <button class="btn-submit" onclick="submitRegister()">确认注册</button>
             </div>
         </div>
     </div>
@@ -569,122 +509,6 @@
             });
         }
 
-        // 注册
-        function openRegister() {
-            document.getElementById('regUsername').value = '';
-            document.getElementById('regRealName').value = '';
-            document.getElementById('regDepartment').value = '';
-            document.getElementById('regPhone').value = '';
-            document.getElementById('regEmail').value = '';
-            document.getElementById('regCode').value = '';
-            document.getElementById('regPassword').value = '';
-            document.getElementById('regError').style.display = 'none';
-            document.getElementById('regSuccess').style.display = 'none';
-            document.getElementById('registerModal').style.display = 'flex';
-        }
-
-        let regCodeCountdown = 0;
-        function sendRegisterCode() {
-            const email = document.getElementById('regEmail').value.trim();
-            const errEl = document.getElementById('regError');
-            errEl.style.display = 'none';
-            if (!email) { errEl.textContent = '请先输入邮箱'; errEl.style.display = 'block'; return; }
-            const btn = document.getElementById('regSendCodeBtn');
-            btn.disabled = true;
-            btn.textContent = '发送中...';
-            fetch('/api/send-register-code', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email })
-            })
-            .then(res => res.json().then(data => ({ok: res.ok, data})))
-            .then(({ok, data}) => {
-                if (ok) {
-                    alert(data.message || '验证码已发送');
-                    regCodeCountdown = 60;
-                    const timer = setInterval(() => {
-                        regCodeCountdown--;
-                        if (regCodeCountdown <= 0) {
-                            clearInterval(timer);
-                            btn.disabled = false;
-                            btn.textContent = '发送验证码';
-                        } else {
-                            btn.textContent = regCodeCountdown + 's后重发';
-                        }
-                    }, 1000);
-                } else {
-                    errEl.textContent = data.detail || '发送失败';
-                    errEl.style.display = 'block';
-                    btn.disabled = false;
-                    btn.textContent = '发送验证码';
-                }
-            })
-            .catch(() => {
-                errEl.textContent = '网络错误，请重试';
-                errEl.style.display = 'block';
-                btn.disabled = false;
-                btn.textContent = '发送验证码';
-            });
-        }
-
-        function closeRegister() {
-            document.getElementById('registerModal').style.display = 'none';
-        }
-
-        function submitRegister() {
-            const username = document.getElementById('regUsername').value.trim();
-            const real_name = document.getElementById('regRealName').value.trim();
-            const department = document.getElementById('regDepartment').value.trim();
-            const phone = document.getElementById('regPhone').value.trim();
-            const email = document.getElementById('regEmail').value.trim();
-            const code = document.getElementById('regCode').value.trim();
-            const password = document.getElementById('regPassword').value;
-            const errEl = document.getElementById('regError');
-            const sucEl = document.getElementById('regSuccess');
-            errEl.style.display = 'none';
-            sucEl.style.display = 'none';
-
-            if (!username) {
-                errEl.textContent = '请输入用户名';
-                errEl.style.display = 'block';
-                return;
-            }
-            if (!email) {
-                errEl.textContent = '请输入邮箱';
-                errEl.style.display = 'block';
-                return;
-            }
-            if (!code) {
-                errEl.textContent = '请输入邮箱验证码';
-                errEl.style.display = 'block';
-                return;
-            }
-
-            fetch('/api/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password, real_name, department, phone, email, code })
-            })
-            .then(res => res.json().then(data => ({ ok: res.ok, data })))
-            .then(({ ok, data }) => {
-                if (ok) {
-                    sucEl.textContent = data.message || '注册成功';
-                    sucEl.style.display = 'block';
-                    setTimeout(() => {
-                        closeRegister();
-                        document.getElementById('username').value = username;
-                        document.getElementById('password').value = password || '123456';
-                    }, 1500);
-                } else {
-                    errEl.textContent = data.detail || '注册失败';
-                    errEl.style.display = 'block';
-                }
-            })
-            .catch(() => {
-                errEl.textContent = '网络错误，请重试';
-                errEl.style.display = 'block';
-            });
-        }
     </script>
 </body>
 </html>

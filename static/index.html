@@ -644,6 +644,7 @@
         <div class="modal" style="width:480px;max-height:85vh;overflow-y:auto;">
             <h3>人员详情</h3>
             <div id="userDetailContent"></div>
+            <div id="userDetailAudit" style="display:none;gap:10px;margin-top:12px;"></div>
             <div style="display:flex;gap:10px;margin-top:16px;">
                 <button class="btn btn-primary" style="flex:1;" id="userDetailEditBtn">编辑</button>
                 <button class="btn" style="flex:1;background:#f0f0f0;color:#666;" onclick="closeUserDetail()">关闭</button>
@@ -1353,6 +1354,11 @@
         function closeQrModal(){ document.getElementById('qrModal').style.display='none'; }
         function goMobile(){ localStorage.removeItem('force_desktop'); window.location.href='/m/'; }
         function logout(){
+            // 通知服务器删除会话（单设备登录）
+            const t = localStorage.getItem('token');
+            if (t) {
+                fetch('/api/logout', { method:'POST', headers:{'Authorization':'Bearer '+t} }).catch(()=>{});
+            }
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             localStorage.removeItem('force_desktop');
@@ -1430,6 +1436,15 @@
                     const roleColor = u.role==='admin' ? '#f5576c' : '#4facfe';
                     const roleText = u.role==='admin' ? '管理员' : '普通用户';
                     const initial = (u.real_name || u.username || '?').charAt(0).toUpperCase();
+                    // 状态标签
+                    const stMap = { pending:['待审核','#ff9800'], approved:['正常','#4caf50'], rejected:['已拒绝','#f44336'], disabled:['已禁用','#9e9e9e'] };
+                    const st = stMap[u.status] || ['正常','#4caf50'];
+                    // 待审核/已拒绝用户显示审核操作按钮
+                    const auditBtns = (u.status === 'pending' || u.status === 'rejected') ? `
+                        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                            <button class="btn btn-sm" style="background:#4caf50;color:white;flex:1;" onclick="event.stopPropagation();auditUser('${u.id}','approved')">✅ 通过</button>
+                            <button class="btn btn-sm" style="background:#f44336;color:white;flex:1;" onclick="event.stopPropagation();auditUser('${u.id}','rejected')">❌ 拒绝</button>
+                        </div>` : '';
                     return `
                     <div style="background:white;border-radius:12px;padding:18px;box-shadow:0 2px 8px rgba(0,0,0,0.06);cursor:pointer;transition:transform 0.2s,box-shadow 0.2s;position:relative;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)'" onmouseout="this.style.transform='';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.06)'" onclick="viewUserDetail('${u.id}')">
                         <div style="position:absolute;top:12px;right:12px;" onclick="event.stopPropagation()">
@@ -1448,9 +1463,13 @@
                             ${u.email ? `<div>📧 ${u.email}</div>` : ''}
                         </div>
                         <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;">
-                            <span style="font-size:11px;padding:3px 10px;border-radius:10px;background:${roleColor};color:white;">${roleText}</span>
+                            <div style="display:flex;gap:6px;align-items:center;">
+                                <span style="font-size:11px;padding:3px 10px;border-radius:10px;background:${roleColor};color:white;">${roleText}</span>
+                                <span style="font-size:11px;padding:3px 10px;border-radius:10px;background:${st[1]}22;color:${st[1]};font-weight:600;">● ${st[0]}</span>
+                            </div>
                             <span style="font-size:11px;color:#999;">${new Date(u.created_at).toLocaleDateString('zh-CN')}</span>
                         </div>
+                        ${auditBtns ? `<div style="margin-top:12px;">${auditBtns}</div>` : ''}
                     </div>`;
                 }).join('');
             })
@@ -1470,12 +1489,17 @@
                 const roleColor = u.role==='admin' ? '#f5576c' : '#4facfe';
                 const roleText = u.role==='admin' ? '管理员' : '普通用户';
                 const initial = (u.real_name || u.username || '?').charAt(0).toUpperCase();
+                const stMap = { pending:['待审核','#ff9800'], approved:['正常','#4caf50'], rejected:['已拒绝','#f44336'], disabled:['已禁用','#9e9e9e'] };
+                const st = stMap[u.status] || ['正常','#4caf50'];
                 let html = `
                     <div style="text-align:center;margin-bottom:20px;">
                         <div style="width:70px;height:70px;border-radius:50%;background:linear-gradient(135deg,#667eea,#764ba2);color:white;display:inline-flex;align-items:center;justify-content:center;font-size:28px;font-weight:600;margin-bottom:10px;">${initial}</div>
                         <div style="font-size:20px;font-weight:600;color:#333;">${u.real_name || u.username}</div>
                         <div style="font-size:13px;color:#999;margin-top:4px;">@${u.username}</div>
-                        <span style="display:inline-block;margin-top:8px;font-size:12px;padding:4px 12px;border-radius:12px;background:${roleColor};color:white;">${roleText}</span>
+                        <div style="margin-top:8px;display:flex;gap:6px;justify-content:center;">
+                            <span style="font-size:12px;padding:4px 12px;border-radius:12px;background:${roleColor};color:white;">${roleText}</span>
+                            <span style="font-size:12px;padding:4px 12px;border-radius:12px;background:${st[1]}22;color:${st[1]};font-weight:600;">● ${st[0]}</span>
+                        </div>
                     </div>
                     <div style="background:#fafafa;padding:15px;border-radius:10px;font-size:14px;color:#666;line-height:2;">
                         ${u.department ? `<div>🏛️ 部门：${u.department}</div>` : '<div>🏛️ 部门：未设置</div>'}
@@ -1485,9 +1509,37 @@
                     </div>
                 `;
                 document.getElementById('userDetailContent').innerHTML = html;
+                // 审核操作区域
+                const auditEl = document.getElementById('userDetailAudit');
+                if (u.status === 'pending' || u.status === 'rejected') {
+                    auditEl.style.display = 'flex';
+                    auditEl.innerHTML = `
+                        <button class="btn btn-sm" style="background:#4caf50;color:white;flex:1;padding:10px;" onclick="auditUser('${u.id}','approved');closeUserDetail();">✅ 审核通过</button>
+                        <button class="btn btn-sm" style="background:#f44336;color:white;flex:1;padding:10px;" onclick="auditUser('${u.id}','rejected');closeUserDetail();">❌ 拒绝</button>`;
+                } else {
+                    auditEl.style.display = 'none';
+                    auditEl.innerHTML = '';
+                }
                 document.getElementById('userDetailEditBtn').onclick = ()=>{ closeUserDetail(); editUser(id); };
                 document.getElementById('userDetailModal').style.display = 'flex';
             });
+        }
+
+        // 用户审核（管理员）
+        function auditUser(id, status) {
+            const text = status === 'approved' ? '确定审核通过该用户？' : '确定拒绝该用户？';
+            if (!confirm(text)) return;
+            fetch('/api/users/' + id + '/status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                body: JSON.stringify({ status })
+            })
+            .then(res => res.json().then(d => ({ ok: res.ok, d })))
+            .then(({ ok, d }) => {
+                if (ok) { showToast(d.message || '操作成功'); loadUsers(); }
+                else { showToast(d.detail || '操作失败'); }
+            })
+            .catch(() => showToast('操作失败'));
         }
 
         // 用户批量操作

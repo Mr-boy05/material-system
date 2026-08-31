@@ -863,7 +863,7 @@ async function loadUsers() {
                     ${u.username !== 'admin' ? `
                         <button class="btn-sm" style="background:#ff9800;color:white;" onclick="editMobUser('${u.id}')">编辑</button>
                         <button class="btn-sm ghost" onclick="resetMobUserPwd('${u.id}','${u.username}')">重置密码</button>
-                        <button class="btn-sm ${u.status === 'disabled' ? 'primary' : 'ghost'}" onclick="toggleMobUserStatus('${u.id}')">${u.status === 'disabled' ? '启用' : '禁用'}</button>
+                        <button class="btn-sm ${u.status === 'disabled' ? 'primary' : 'ghost'}" onclick="toggleMobDisableUser('${u.id}','${u.username}','${u.status === 'disabled' ? '启用' : '禁用'}')">${u.status === 'disabled' ? '启用' : '禁用'}</button>
                         <button class="btn-sm danger" onclick="deleteUser('${u.id}','${u.username}')">删除</button>
                     ` : ''}
                 </div>
@@ -1363,6 +1363,26 @@ function renderMobAttUsers() {
     if (statsEl) statsEl.innerHTML = '✅ 参加 ' + attendCount + '人 | 🏖️ 请假 ' + leaveCount + '人 | ❌ 缺席 ' + absentCount + '人 | 👨‍🏫 老师 ' + teacherCount + '人';
 }
 
+// 用户禁用/启用（管理员）
+async function toggleMobDisableUser(userId, username, action) {
+    if (!confirm(`确定${action}用户「${username}」吗？`)) return;
+    const target = action === '启用' ? 'approved' : 'disabled';
+    try {
+        const res = await api('/api/users/' + userId + '/status', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ status: target })
+        });
+        const result = await res.json();
+        if (res.ok) {
+            showToast(result.message || '操作成功');
+            loadUsers();
+        } else {
+            showToast(result.detail || '操作失败');
+        }
+    } catch(e) { showToast('操作失败'); }
+}
+
 function toggleMobUserStatus(userId) {
     // 如果当前状态就是当前标签，则取消标记（变回默认参加）
     if (mobUserStatus[userId] === currentMobAttTab) {
@@ -1440,6 +1460,10 @@ function closeModal(id) {
 
 function logout() {
     if (confirm('确定退出登录吗？')) {
+        const t = localStorage.getItem('token');
+        if (t) {
+            fetch('/api/logout', { method:'POST', headers:{'Authorization':'Bearer '+t} }).catch(()=>{});
+        }
         localStorage.removeItem('admin_token');
         localStorage.removeItem('admin_user');
         localStorage.removeItem('token');

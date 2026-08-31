@@ -18,7 +18,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "3.0.0"
+VERSION = "3.1.0"
 VERSION_DATE = "2026-08-31"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
@@ -123,6 +123,16 @@ def init_db():
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
     """)
+
+    # 登录会话表（单设备登录：同一账号同一时间只允许一个设备在线）
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS sessions (
+            token TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    c.execute("CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)")
 
     # 物资表
     c.execute("""
@@ -269,6 +279,8 @@ def init_db():
     add_column_if_not_exists("users", "phone", "TEXT DEFAULT ''")
     add_column_if_not_exists("users", "email", "TEXT DEFAULT ''")
     add_column_if_not_exists("users", "department", "TEXT DEFAULT ''")
+    # 用户审核状态：approved=正常, pending=待审核, rejected=已拒绝, disabled=已禁用
+    add_column_if_not_exists("users", "status", "TEXT DEFAULT 'approved'")
     add_column_if_not_exists("activities", "extra_fields", "TEXT DEFAULT '{}'")
     add_column_if_not_exists("attendance", "extra_fields", "TEXT DEFAULT '{}'")
     add_column_if_not_exists("attendance", "leave", "TEXT DEFAULT '[]'")
@@ -451,10 +463,21 @@ def get_current_user(authorization: str = Header(None), token: str = Query(None)
         raise credentials_exception
 
     cur = conn.cursor()
-    cur.execute("SELECT id, username, real_name, phone, email, department, role FROM users WHERE id = ?", (user_id,))
+    # 单设备登录校验：token 必须存在于有效会话表中
+    cur.execute("SELECT 1 FROM sessions WHERE token = ?", (jwt_token,))
+    if cur.fetchone() is None:
+        raise HTTPException(status_code=401, detail="账号已在其他设备登录，您已被强制下线，请重新登录")
+    cur.execute("SELECT id, username, real_name, phone, email, department, role, status FROM users WHERE id = ?", (user_id,))
     user = cur.fetchone()
     if user is None:
         raise credentials_exception
+    # 账号状态校验（禁用/拒绝的账号禁止使用）
+    if user["status"] == "disabled":
+        raise HTTPException(status_code=403, detail="账号已被禁用，请联系管理员")
+    if user["status"] == "rejected":
+        raise HTTPException(status_code=403, detail="账号审核未通过，请联系管理员")
+    if user["status"] == "pending":
+        raise HTTPException(status_code=403, detail="账号待管理员审核，请等待审核通过")
     return dict(user)
 
 # ==================== API 接口 ====================
@@ -487,7 +510,18 @@ def login(req: LoginRequest, conn=Depends(get_db)):
     user = cur.fetchone()
     if not user or not verify_password(req.password, user["password_hash"]):
         raise HTTPException(status_code=400, detail="账号或密码错误")
-    access_token = create_access_token(data={"sub": user["id"]})
+    # 审核状态检查
+    if user["status"] == "pending":
+        raise HTTPException(status_code=400, detail="账号待管理员审核，请等待审核通过后登录")
+    if user["status"] == "rejected":
+        raise HTTPException(status_code=400, detail="账号审核未通过，请联系管理员")
+    if user["status"] == "disabled":
+        raise HTTPException(status_code=400, detail="账号已被禁用，请联系管理员")
+    access_token = create_access_token(data={"sub": user["id"], "jti": str(uuid.uuid4())})
+    # 单设备登录：同一账号新登录会踢掉旧登录
+    cur.execute("DELETE FROM sessions WHERE user_id = ?", (user["id"],))
+    cur.execute("INSERT INTO sessions (token, user_id) VALUES (?, ?)", (access_token, user["id"]))
+    conn.commit()
     return {
         "token": access_token,
         "user_id": user["id"],
@@ -497,7 +531,40 @@ def login(req: LoginRequest, conn=Depends(get_db)):
         "email": user["email"],
         "department": user["department"],
         "role": user["role"],
+        "status": user["status"],
     }
+
+# ---------- 退出登录（删除会话）----------
+@app.post("/api/logout")
+def logout(authorization: str = Header(None), token: str = Query(None), conn=Depends(get_db)):
+    try:
+        jwt_token = None
+        if authorization and authorization.startswith("Bearer "):
+            jwt_token = authorization[7:]
+        elif token:
+            jwt_token = token
+        if jwt_token:
+            cur = conn.cursor()
+            cur.execute("DELETE FROM sessions WHERE token = ?", (jwt_token,))
+            conn.commit()
+    except Exception:
+        pass
+    return {"success": True, "message": "已退出登录"}
+
+# 账号密码验证（公开接口用）：校验密码和审核状态
+def authenticate_user(username: str, password: str, conn):
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM users WHERE username = ?", (username,))
+    user = cur.fetchone()
+    if not user or not verify_password(password, user["password_hash"]):
+        return None
+    if user["status"] == "pending":
+        raise HTTPException(status_code=403, detail="账号待管理员审核，请等待审核通过")
+    if user["status"] == "rejected":
+        raise HTTPException(status_code=403, detail="账号审核未通过，请联系管理员")
+    if user["status"] == "disabled":
+        raise HTTPException(status_code=403, detail="账号已被禁用，请联系管理员")
+    return dict(user)
 
 # ---------- 修改密码 ----------
 @app.post("/api/change-password")
@@ -519,6 +586,8 @@ def change_password(req: ChangePasswordRequest, conn=Depends(get_db)):
 # ---------- 用户注册 ----------
 @app.post("/api/register")
 def register(req: RegisterRequest, conn=Depends(get_db)):
+    # 系统已关闭自助注册，账号由管理员在后台统一添加
+    raise HTTPException(status_code=400, detail="系统暂未开放注册，请联系管理员在后台添加账号")
     username = req.username.strip()
     if not username:
         raise HTTPException(status_code=400, detail="用户名不能为空")
@@ -550,15 +619,16 @@ def register(req: RegisterRequest, conn=Depends(get_db)):
         raise HTTPException(status_code=400, detail="密码至少4位")
     real_name = req.real_name if req.real_name else username
     user_id = str(uuid.uuid4())
+    # 注册的账号默认待审核，需管理员审核通过后才能登录
     cur.execute("""
-        INSERT INTO users (id, username, password_hash, real_name, phone, email, department, role)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 'user')
+        INSERT INTO users (id, username, password_hash, real_name, phone, email, department, role, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'user', 'pending')
     """, (user_id, username, hash_password(password), real_name, req.phone, email, req.department))
     conn.commit()
     # 删除已使用的验证码
     if email in register_codes:
         del register_codes[email]
-    return {"success": True, "message": "注册成功，请登录", "username": username}
+    return {"success": True, "message": "注册成功，请等待管理员审核通过后登录", "username": username}
 
 # ---------- 用户管理（管理员）----------
 @app.get("/api/users")
@@ -567,7 +637,7 @@ def list_users(conn=Depends(get_db), user=Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="只有管理员可以查看用户")
     cur = conn.cursor()
     cur.execute("""
-        SELECT id, username, real_name, phone, email, department, role, created_at
+        SELECT id, username, real_name, phone, email, department, role, status, created_at
         FROM users ORDER BY created_at DESC
     """)
     return [dict(u) for u in cur.fetchall()]
@@ -587,8 +657,8 @@ def create_user(req: UserCreateRequest, conn=Depends(get_db), user=Depends(get_c
     real_name = req.real_name if req.real_name else username
     user_id = str(uuid.uuid4())
     cur.execute("""
-        INSERT INTO users (id, username, password_hash, real_name, phone, email, department, role)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO users (id, username, password_hash, real_name, phone, email, department, role, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'approved')
     """, (user_id, username, hash_password(password), real_name, req.phone, req.email, req.department, req.role))
     conn.commit()
     return {"success": True, "message": "用户创建成功", "user_id": user_id}
@@ -695,8 +765,34 @@ def delete_user(user_id: str, conn=Depends(get_db), user=Depends(get_current_use
         raise HTTPException(status_code=404, detail="用户不存在")
     cur.execute("DELETE FROM users WHERE id = ?", (user_id,))
     cur.execute("DELETE FROM transactions WHERE user_id = ?", (user_id,))
+    cur.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
     conn.commit()
     return {"success": True, "message": f"用户 {target['username']} 已删除"}
+
+# ---------- 用户审核/状态管理（管理员）----------
+class UserStatusRequest(BaseModel):
+    status: str  # approved / rejected / disabled
+
+@app.post("/api/users/{user_id}/status")
+def update_user_status(user_id: str, req: UserStatusRequest, conn=Depends(get_db), user=Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="只有管理员可以操作")
+    if req.status not in ("approved", "rejected", "disabled"):
+        raise HTTPException(status_code=400, detail="无效的状态值")
+    if user_id == user["id"] and req.status == "disabled":
+        raise HTTPException(status_code=400, detail="不能禁用当前登录的管理员账号")
+    cur = conn.cursor()
+    cur.execute("SELECT id, username FROM users WHERE id = ?", (user_id,))
+    target = cur.fetchone()
+    if not target:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    cur.execute("UPDATE users SET status = ? WHERE id = ?", (req.status, user_id))
+    # 如果禁用/拒绝，强制该账号下线
+    if req.status in ("disabled", "rejected"):
+        cur.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+    conn.commit()
+    status_text = {"approved": "审核通过", "rejected": "审核拒绝", "disabled": "禁用"}.get(req.status, req.status)
+    return {"success": True, "message": f"用户 {target['username']} 已{status_text}"}
 
 # ---------- 批量删除用户 ----------
 @app.post("/api/users/batch-delete")
@@ -798,8 +894,8 @@ def import_users(file: UploadFile = File(...), conn=Depends(get_db), user=Depend
             password = str(row[5]).strip() if row[5] else "123456"
             user_id = str(uuid.uuid4())
             cur.execute("""
-                INSERT INTO users (id, username, password_hash, real_name, phone, email, department, role)
-                VALUES (?, ?, ?, ?, ?, ?, ?, 'user')
+                INSERT INTO users (id, username, password_hash, real_name, phone, email, department, role, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'user', 'approved')
             """, (user_id, username, hash_password(password), real_name, phone, email, department))
             imported += 1
         # 继续读取后面的行（如果有更多数据）
@@ -818,8 +914,8 @@ def import_users(file: UploadFile = File(...), conn=Depends(get_db), user=Depend
             password = str(row[5]).strip() if row[5] else "123456"
             user_id = str(uuid.uuid4())
             cur.execute("""
-                INSERT INTO users (id, username, password_hash, real_name, phone, email, department, role)
-                VALUES (?, ?, ?, ?, ?, ?, ?, 'user')
+                INSERT INTO users (id, username, password_hash, real_name, phone, email, department, role, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'user', 'approved')
             """, (user_id, username, hash_password(password), real_name, phone, email, department))
             imported += 1
         conn.commit()

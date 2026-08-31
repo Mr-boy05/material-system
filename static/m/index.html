@@ -889,6 +889,10 @@
         }
         function logout() {
             if(confirm('确定退出登录？')){
+                const t = localStorage.getItem('token');
+                if (t) {
+                    fetch('/api/logout', { method:'POST', headers:{'Authorization':'Bearer '+t} }).catch(()=>{});
+                }
                 localStorage.removeItem('token');
                 localStorage.removeItem('user');
                 localStorage.removeItem('auto_login_cred');
