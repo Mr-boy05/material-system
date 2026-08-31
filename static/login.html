@@ -278,6 +278,10 @@
                     } else {
                         localStorage.removeItem('auto_login_cred');
                     }
+                    // 检测到另一端已在线时提示"请不要同时登录"
+                    if (data.other_device_online) {
+                        showOtherDeviceTip(data.other_device === 'pc' ? '电脑端' : '手机端');
+                    }
                     window.location.href = '/';
                 } else {
                     errorMsg.textContent = data.detail || '登录失败';
@@ -507,6 +511,20 @@
                 errEl.textContent = '网络错误，请重试';
                 errEl.style.display = 'block';
             });
+        }
+
+        // 另一端已登录提示（"请不要同时登录"）
+        function showOtherDeviceTip(otherName) {
+            var overlay = document.createElement('div');
+            overlay.id = 'otherDeviceTip';
+            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:99999;display:flex;align-items:center;justify-content:center;';
+            overlay.innerHTML = '<div style="background:#fff;border-radius:12px;padding:28px 32px;max-width:360px;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.18);">' +
+                '<div style="font-size:40px;margin-bottom:10px;">📱</div>' +
+                '<div style="font-size:17px;font-weight:600;color:#1a1a1a;margin-bottom:8px;">当前账号已登录</div>' +
+                '<div style="font-size:14px;color:#666;line-height:1.7;margin-bottom:20px;">检测到【' + otherName + '】已登录同一账号，请勿多人同时登录，以免数据冲突。</div>' +
+                '<button onclick="this.closest(\'#otherDeviceTip\').remove()" style="background:#2f6bff;color:#fff;border:none;border-radius:8px;padding:10px 28px;font-size:15px;cursor:pointer;">我知道了</button>' +
+                '</div>';
+            document.body.appendChild(overlay);
         }
 
     </script>

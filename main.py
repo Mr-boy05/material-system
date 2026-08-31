@@ -18,7 +18,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "3.1.1"
+VERSION = "3.1.2"
 VERSION_DATE = "2026-08-31"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
@@ -523,6 +523,10 @@ def login(req: LoginRequest, conn=Depends(get_db)):
     access_token = create_access_token(data={"sub": user["id"], "jti": str(uuid.uuid4())})
     # 多端登录：电脑端和手机端可同时在线（类QQ/微信），同类型设备新登录踢掉旧的
     device = "mobile" if req.device == "mobile" else "pc"
+    # 检测另一端设备是否已在线（用于前端提示"请不要同时登录"）
+    other_device = "mobile" if device == "pc" else "pc"
+    cur.execute("SELECT 1 FROM sessions WHERE user_id = ? AND device = ?", (user["id"], other_device))
+    other_device_online = cur.fetchone() is not None
     cur.execute("DELETE FROM sessions WHERE user_id = ? AND device = ?", (user["id"], device))
     cur.execute("INSERT INTO sessions (token, user_id, device) VALUES (?, ?, ?)", (access_token, user["id"], device))
     conn.commit()
@@ -537,6 +541,8 @@ def login(req: LoginRequest, conn=Depends(get_db)):
         "role": user["role"],
         "status": user["status"],
         "device": device,
+        "other_device_online": other_device_online,
+        "other_device": other_device if other_device_online else None,
     }
 
 # ---------- 退出登录（删除会话）----------
