@@ -697,6 +697,7 @@
         }
 
         function openSkillUpload() {
+            closeMSkillEdit();
             document.getElementById('mSkillTitle').value = '';
             document.getElementById('mSkillDesc').value = '';
             document.getElementById('mSkillFile').value = '';
@@ -785,6 +786,7 @@
 
         // ---------- 技能文档编辑 ----------
         function openMSkillEdit(id, title, desc) {
+            closeSkillUpload();
             document.getElementById('mEditSkillId').value = id;
             document.getElementById('mEditSkillTitle').value = title || '';
             document.getElementById('mEditSkillDesc').value = desc || '';
