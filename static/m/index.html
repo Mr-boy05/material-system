@@ -278,6 +278,25 @@
         </div>
     </div>
 
+    <!-- 手机端活动规划标记完成确认弹窗 -->
+    <div class="modal-mask" id="mCompletePlanModal" onclick="if(event.target===this)closeMCompletePlanModal()">
+        <div class="modal">
+            <div class="modal-title">✅ 标记活动完成</div>
+            <div style="font-size:12px;color:#7b1fa2;line-height:1.6;background:#fff8e1;padding:9px 11px;border-radius:10px;margin-bottom:12px;">确认后：该规划标记为"已完成"，并在【活动记录】中自动生成记录，时间取规划原始计划日期。可修改信息后再确认。</div>
+            <input type="hidden" id="mCompletePlanId">
+            <div class="form-group"><label>活动名称 <span class="req">*</span></label><input type="text" id="mCompletePlanTitle" placeholder="活动名称"></div>
+            <div class="form-group"><label>活动日期（沿用规划日期）</label><input type="text" id="mCompletePlanDate" disabled style="padding:11px;border:1px solid #e5e7f0;border-radius:10px;width:100%;background:#f5f5f5;font-size:14px;box-sizing:border-box;"></div>
+            <div class="form-group"><label>所属部门</label><input type="text" id="mCompletePlanDept" disabled style="padding:11px;border:1px solid #e5e7f0;border-radius:10px;width:100%;background:#f5f5f5;font-size:14px;box-sizing:border-box;"></div>
+            <div class="form-group"><label>活动地点</label><input type="text" id="mCompletePlanLocation" placeholder="如：学术报告厅"></div>
+            <div class="form-group"><label>活动内容说明</label><textarea id="mCompletePlanDesc" rows="3" style="width:100%;padding:11px;border:1px solid #e5e7f0;border-radius:10px;resize:vertical;font-size:14px;box-sizing:border-box;"></textarea></div>
+            <div class="error-msg" id="mCompletePlanError" style="display:none;margin:8px 0 0;color:#c62828;font-size:13px;"></div>
+            <div style="display:flex;gap:10px;margin-top:18px;">
+                <button class="btn-full ghost" style="flex:1;margin:0;" onclick="closeMCompletePlanModal()">取消</button>
+                <button class="btn-primary" style="flex:1;margin:0;" onclick="submitMCompletePlan()">确认完成并同步</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 个人设置页面 -->
     <div class="page" id="page-profile">
         <div class="nav-bar"><div class="back" onclick="showPage('page-home')">←</div><div class="title">个人设置</div><div class="right"></div></div>
@@ -915,9 +934,16 @@
                     if (p.creator_name) html += '<span>👤 ' + mplanEsc(p.creator_name) + '</span>';
                     html += '</div>';
                     if (p.description) html += '<div class="desc">' + mplanEsc(p.description) + '</div>';
-                    if (canEdit) {
-                        html += '<div class="ops"><button onclick="editMPlan(\'' + p.id + '\')">✏️ 编辑</button><button class="del" onclick="deleteMPlan(\'' + p.id + '\',\'' + mplanEsc(p.title).replace(/'/g,"\\'") + '\')">🗑️ 删除</button></div>';
+                    html += '<div class="ops">';
+                    if (p.status !== 'done') {
+                        html += '<button onclick="openMCompletePlanModal(\'' + p.id + '\')" style="background:#e8f5e9;color:#2e7d32;border-color:#c8e6c9;">✅ 完成</button>';
+                    } else {
+                        html += '<button style="background:#f5f5f5;color:#999;border-color:#eee;cursor:default;">✔ 已同步</button>';
                     }
+                    if (canEdit) {
+                        html += '<button onclick="editMPlan(\'' + p.id + '\')">✏️ 编辑</button><button class="del" onclick="deleteMPlan(\'' + p.id + '\',\'' + mplanEsc(p.title).replace(/'/g,"\\'") + '\')">🗑️ 删除</button>';
+                    }
+                    html += '</div>';
                     html += '</div></div>';
                 });
             });
@@ -974,6 +1000,38 @@
                 else showToast(d.detail || '删除失败');
             })
             .catch(()=>showToast('删除失败'));
+        }
+        // ---------- 手机端活动规划标记完成（同步活动记录） ----------
+        function openMCompletePlanModal(id){
+            const p = mPlanAll.find(x=>x.id===id);
+            if (!p) return;
+            document.getElementById('mCompletePlanId').value = id;
+            document.getElementById('mCompletePlanTitle').value = p.title || '';
+            document.getElementById('mCompletePlanDate').value = p.plan_date || '';
+            document.getElementById('mCompletePlanDept').value = p.department || '';
+            document.getElementById('mCompletePlanLocation').value = p.location || '';
+            document.getElementById('mCompletePlanDesc').value = p.description || '';
+            document.getElementById('mCompletePlanError').style.display = 'none';
+            document.getElementById('mCompletePlanModal').style.display = 'flex';
+        }
+        function closeMCompletePlanModal(){ document.getElementById('mCompletePlanModal').style.display = 'none'; }
+        function submitMCompletePlan(){
+            const pid = document.getElementById('mCompletePlanId').value;
+            const body = {
+                title: document.getElementById('mCompletePlanTitle').value.trim(),
+                location: document.getElementById('mCompletePlanLocation').value.trim(),
+                description: document.getElementById('mCompletePlanDesc').value.trim()
+            };
+            const errEl = document.getElementById('mCompletePlanError');
+            errEl.style.display = 'none';
+            if (!body.title) { errEl.textContent = '请输入活动名称'; errEl.style.display='block'; return; }
+            fetch('/api/activity-plans/' + pid + '/complete', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body: JSON.stringify(body) })
+            .then(res=>res.json().then(d=>({ok:res.ok, d})))
+            .then(({ok,d})=>{
+                if (ok) { showToast(d.message || '已标记完成'); closeMCompletePlanModal(); loadMPlans(); }
+                else { errEl.textContent = d.detail || '操作失败'; errEl.style.display='block'; }
+            })
+            .catch(()=>{ errEl.textContent = '网络错误，请重试'; errEl.style.display='block'; });
         }
 
         function downloadMSkill(id) {

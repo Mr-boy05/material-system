@@ -18,7 +18,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "3.2.1"
+VERSION = "3.2.2"
 VERSION_DATE = "2026-08-31"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
@@ -302,6 +302,8 @@ def init_db():
     add_column_if_not_exists("activities", "extra_fields", "TEXT DEFAULT '{}'")
     add_column_if_not_exists("attendance", "extra_fields", "TEXT DEFAULT '{}'")
     add_column_if_not_exists("attendance", "leave", "TEXT DEFAULT '[]'")
+    # 活动规划是否已同步到活动记录（0=未同步 1=已同步）
+    add_column_if_not_exists("activity_plans", "synced", "INTEGER DEFAULT 0")
 
     # 初始化管理员
     c.execute("SELECT COUNT(*) FROM users WHERE username = 'admin'")
@@ -2353,6 +2355,37 @@ def delete_activity_plan(plan_id: str, conn=Depends(get_db), user=Depends(get_cu
     cur.execute("DELETE FROM activity_plans WHERE id=?", (plan_id,))
     conn.commit()
     return {"success": True, "message": "活动规划已删除"}
+
+class ActivityPlanComplete(BaseModel):
+    title: Optional[str] = None
+    location: Optional[str] = None
+    description: Optional[str] = None
+
+# 活动规划标记完成并同步到活动记录（时间为规划的原始计划日期）
+@app.post("/api/activity-plans/{plan_id}/complete")
+def complete_activity_plan(plan_id: str, req: ActivityPlanComplete, conn=Depends(get_db), user=Depends(get_current_user)):
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM activity_plans WHERE id=?", (plan_id,))
+    plan = cur.fetchone()
+    if not plan:
+        raise HTTPException(status_code=404, detail="活动规划不存在")
+    if plan["status"] == "done" and plan.get("synced"):
+        raise HTTPException(status_code=400, detail="该活动已完成并已同步到活动记录，请勿重复操作")
+    # 确认框可修改的信息（未填写则沿用规划原值）
+    title = (req.title or "").strip() or plan["title"]
+    location = (req.location.strip() if req.location is not None else (plan["location"] or "")).strip()
+    description = (req.description.strip() if req.description is not None else (plan["description"] or "")).strip()
+    # 1. 更新规划状态为已完成，并保存修改后的信息
+    cur.execute("UPDATE activity_plans SET status='done', title=?, location=?, description=?, synced=1 WHERE id=?",
+                (title, location, description, plan_id))
+    # 2. 生成活动记录，时间为规划本身的计划日期
+    act_id = str(uuid.uuid4())
+    cur.execute("""
+        INSERT INTO activities (id, title, start_time, location, organizer, description, status, creator_id)
+        VALUES (?, ?, ?, ?, ?, ?, 'completed', ?)
+    """, (act_id, title, plan["plan_date"], location, plan["department"] or "", description, plan["creator_id"]))
+    conn.commit()
+    return {"success": True, "message": "活动已标记完成，并已生成活动记录", "activity_id": act_id}
 
 # ==================== 考勤记录 ====================
 class AttendanceCreate(BaseModel):
