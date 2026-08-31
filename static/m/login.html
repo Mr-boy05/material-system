@@ -324,7 +324,7 @@
             const errorMsg = document.getElementById('errorMsg');
             errorMsg.style.display = 'none';
             if (!username || !password) { errorMsg.textContent = '请输入账号和密码'; errorMsg.style.display = 'block'; return; }
-            fetch('/api/login', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username,password}) })
+            fetch('/api/login', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username,password,device:'mobile'}) })
             .then(res => res.json().then(data => ({ok:res.ok, data})))
             .then(({ok,data}) => {
                 if (ok) {

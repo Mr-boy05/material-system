@@ -18,7 +18,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "3.1.0"
+VERSION = "3.1.1"
 VERSION_DATE = "2026-08-31"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
@@ -129,6 +129,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS sessions (
             token TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
+            device TEXT DEFAULT 'pc',
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
     """)
@@ -281,6 +282,7 @@ def init_db():
     add_column_if_not_exists("users", "department", "TEXT DEFAULT ''")
     # 用户审核状态：approved=正常, pending=待审核, rejected=已拒绝, disabled=已禁用
     add_column_if_not_exists("users", "status", "TEXT DEFAULT 'approved'")
+    add_column_if_not_exists("sessions", "device", "TEXT DEFAULT 'pc'")
     add_column_if_not_exists("activities", "extra_fields", "TEXT DEFAULT '{}'")
     add_column_if_not_exists("attendance", "extra_fields", "TEXT DEFAULT '{}'")
     add_column_if_not_exists("attendance", "leave", "TEXT DEFAULT '[]'")
@@ -345,6 +347,7 @@ def get_db():
 class LoginRequest(BaseModel):
     username: str
     password: str
+    device: str = "pc"  # pc=电脑端, mobile=手机端（同类型设备互踢，不同类型可共存）
 
 class ChangePasswordRequest(BaseModel):
     username: str
@@ -463,10 +466,10 @@ def get_current_user(authorization: str = Header(None), token: str = Query(None)
         raise credentials_exception
 
     cur = conn.cursor()
-    # 单设备登录校验：token 必须存在于有效会话表中
+    # 会话校验：token 必须存在于有效会话表中
     cur.execute("SELECT 1 FROM sessions WHERE token = ?", (jwt_token,))
     if cur.fetchone() is None:
-        raise HTTPException(status_code=401, detail="账号已在其他设备登录，您已被强制下线，请重新登录")
+        raise HTTPException(status_code=401, detail="登录已失效，请重新登录")
     cur.execute("SELECT id, username, real_name, phone, email, department, role, status FROM users WHERE id = ?", (user_id,))
     user = cur.fetchone()
     if user is None:
@@ -518,9 +521,10 @@ def login(req: LoginRequest, conn=Depends(get_db)):
     if user["status"] == "disabled":
         raise HTTPException(status_code=400, detail="账号已被禁用，请联系管理员")
     access_token = create_access_token(data={"sub": user["id"], "jti": str(uuid.uuid4())})
-    # 单设备登录：同一账号新登录会踢掉旧登录
-    cur.execute("DELETE FROM sessions WHERE user_id = ?", (user["id"],))
-    cur.execute("INSERT INTO sessions (token, user_id) VALUES (?, ?)", (access_token, user["id"]))
+    # 多端登录：电脑端和手机端可同时在线（类QQ/微信），同类型设备新登录踢掉旧的
+    device = "mobile" if req.device == "mobile" else "pc"
+    cur.execute("DELETE FROM sessions WHERE user_id = ? AND device = ?", (user["id"], device))
+    cur.execute("INSERT INTO sessions (token, user_id, device) VALUES (?, ?, ?)", (access_token, user["id"], device))
     conn.commit()
     return {
         "token": access_token,
@@ -532,6 +536,7 @@ def login(req: LoginRequest, conn=Depends(get_db)):
         "department": user["department"],
         "role": user["role"],
         "status": user["status"],
+        "device": device,
     }
 
 # ---------- 退出登录（删除会话）----------
