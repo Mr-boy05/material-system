@@ -11,6 +11,7 @@ import uuid
 import random
 import string
 import smtplib
+import threading
 from urllib.parse import quote
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -18,8 +19,8 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "3.3.1"
-VERSION_DATE = "2026-08-31"
+VERSION = "3.4.0"
+VERSION_DATE = "2026-09-01"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
 def load_env():
@@ -293,6 +294,10 @@ def init_db():
     add_column_if_not_exists("transactions", "return_location", "TEXT DEFAULT ''")
     add_column_if_not_exists("transactions", "return_image", "TEXT DEFAULT ''")
     add_column_if_not_exists("transactions", "borrow_location", "TEXT DEFAULT ''")
+    # 是否需要归还（1=需要归还 0=不归还/已发放消耗）
+    add_column_if_not_exists("transactions", "need_return", "INTEGER DEFAULT 1")
+    # 超期提醒上次发送时间（避免重复提醒）
+    add_column_if_not_exists("transactions", "reminded_at", "TEXT DEFAULT ''")
     add_column_if_not_exists("users", "phone", "TEXT DEFAULT ''")
     add_column_if_not_exists("users", "email", "TEXT DEFAULT ''")
     add_column_if_not_exists("users", "department", "TEXT DEFAULT ''")
@@ -428,6 +433,7 @@ class BorrowRequest(BaseModel):
     phone: str = ""
     borrow_image: str = ""
     location: str = ""
+    need_return: bool = True
 
 class ReturnRequest(BaseModel):
     material_id: str
@@ -449,6 +455,7 @@ class PublicBorrowRequest(BaseModel):
     phone: str = ""
     borrow_image: str = ""
     location: str = ""
+    need_return: bool = True
 
 class PublicReturnRequest(BaseModel):
     username: str
@@ -1036,6 +1043,58 @@ def send_email(to_email: str, subject: str, content: str) -> bool:
         print(f"[邮件发送失败] {e}")
         return False
 
+def send_borrow_notify_async(user_email: str, real_name: str, material_name: str, quantity: int, need_return: bool, activity_name: str = ""):
+    """异步发送借出通知邮件（不阻塞接口）"""
+    if not SMTP_ENABLED or not user_email:
+        return
+    def _send():
+        try:
+            subject = f"【物资领取通知】你已领取 {material_name} x{quantity}"
+            lines = [
+                f"{real_name} 你好：",
+                "",
+                f"你于 {datetime.now().strftime('%Y-%m-%d %H:%M')} 成功领取以下物资：",
+                f"  · 物资名称：{material_name}",
+                f"  · 领取数量：{quantity}",
+            ]
+            if activity_name:
+                lines.append(f"  · 应用活动：{activity_name}")
+            if need_return:
+                lines += [
+                    "",
+                    "该物资需要归还，请在使用后及时办理归还手续。",
+                    "超过 24 小时未归还将收到提醒邮件。",
+                ]
+            else:
+                lines += [
+                    "",
+                    "本次领取标记为「已发放/消耗」，无需归还。",
+                    "如后续有剩余物资需要归还，可在归还页面正常办理。",
+                ]
+            lines += ["", "—— 城治学生会物资管理系统"]
+            send_email(user_email, subject, "\n".join(lines))
+        except Exception as e:
+            print(f"[借出通知邮件异常] {e}")
+    threading.Thread(target=_send, daemon=True).start()
+
+def send_overdue_remind_async(user_email: str, real_name: str, material_name: str, quantity: int, borrowed_at: str):
+    """异步发送超期未归还提醒邮件"""
+    if not SMTP_ENABLED or not user_email:
+        return
+    def _send():
+        try:
+            subject = f"【归还提醒】你借出的 {material_name} 已超过1天未归还"
+            content = (
+                f"{real_name} 你好：\n\n"
+                f"你于 {borrowed_at[:16].replace('T', ' ')} 借出的 {material_name} x{quantity} 已超过 24 小时未归还。\n\n"
+                f"请尽快办理归还手续。如已发放/消耗无需归还，请在记录中标记为「已发放」。\n\n"
+                f"—— 城治学生会物资管理系统"
+            )
+            send_email(user_email, subject, content)
+        except Exception as e:
+            print(f"[超期提醒邮件异常] {e}")
+    threading.Thread(target=_send, daemon=True).start()
+
 @app.post("/api/send-register-code")
 def send_register_code(req: SendCodeRequest, conn=Depends(get_db)):
     if not SMTP_ENABLED:
@@ -1545,16 +1604,30 @@ def borrow_material(req: BorrowRequest, conn=Depends(get_db), user=Depends(get_c
         conn.commit()
 
         tx_id = str(uuid.uuid4())
+        need_return = 1 if req.need_return else 0
+        tx_status = 'active' if req.need_return else 'completed'
+        returned_at = datetime.now().isoformat() if not req.need_return else None
         cur.execute("""
             INSERT INTO transactions (id, material_id, user_id, type, quantity, status,
-                                      activity_name, phone, borrow_image, borrowed_at, borrow_location)
-            VALUES (?, ?, ?, 'borrow', ?, 'active', ?, ?, ?, ?, ?)
-        """, (tx_id, req.material_id, user["id"], req.quantity,
-              req.activity_name, req.phone, req.borrow_image, datetime.now().isoformat(), req.location))
+                                      activity_name, phone, borrow_image, borrowed_at, borrow_location,
+                                      need_return, returned_at)
+            VALUES (?, ?, ?, 'borrow', ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (tx_id, req.material_id, user["id"], req.quantity, tx_status,
+              req.activity_name, req.phone, req.borrow_image, datetime.now().isoformat(), req.location,
+              need_return, returned_at))
         conn.commit()
 
-        return {"success": True, "message": f"领取成功！{m['name']} 剩余 {m['available_stock']}",
-                "material_name": m["name"], "remaining": m["available_stock"]}
+        # 借出成功后异步发送邮件通知
+        user_email = user.get("email", "")
+        real_name = user.get("real_name", "") or user.get("username", "")
+        send_borrow_notify_async(user_email, real_name, m["name"], req.quantity, req.need_return, req.activity_name)
+
+        msg = f"领取成功！{m['name']} 剩余 {m['available_stock']}"
+        if not req.need_return:
+            msg = f"领取成功！{m['name']} x{req.quantity} 已标记为「已发放/消耗」，无需归还"
+        return {"success": True, "message": msg,
+                "material_name": m["name"], "remaining": m["available_stock"],
+                "need_return": req.need_return}
     except HTTPException:
         raise
     except Exception as e:
@@ -1566,15 +1639,17 @@ def borrow_material(req: BorrowRequest, conn=Depends(get_db), user=Depends(get_c
 def return_material(req: ReturnRequest, conn=Depends(get_db), user=Depends(get_current_user)):
     try:
         cur = conn.cursor()
+        # 可归还数量 = 未归还(active) + 已发放(need_return=0,可退库)
         cur.execute("""
             SELECT COALESCE(SUM(quantity), 0) FROM transactions
-            WHERE material_id = ? AND user_id = ? AND status = 'active' AND type = 'borrow'
+            WHERE material_id = ? AND user_id = ? AND type = 'borrow'
+              AND (status = 'active' OR (status = 'completed' AND need_return = 0 AND quantity > 0))
         """, (req.material_id, user["id"]))
-        total_borrowed = tuple(cur.fetchone())[0]
-        if total_borrowed <= 0:
-            raise HTTPException(status_code=400, detail="你没有该物资的未归还记录")
-        if req.quantity > total_borrowed:
-            raise HTTPException(status_code=400, detail=f"归还数量不能超过未还数量（{total_borrowed}）")
+        total_returnable = tuple(cur.fetchone())[0]
+        if total_returnable <= 0:
+            raise HTTPException(status_code=400, detail="你没有该物资的可归还记录")
+        if req.quantity > total_returnable:
+            raise HTTPException(status_code=400, detail=f"归还数量不能超过可归还数量（{total_returnable}）")
 
         # 归还到指定位置，不存在则新建
         return_loc = req.return_location.strip() if req.return_location else ""
@@ -1590,25 +1665,70 @@ def return_material(req: ReturnRequest, conn=Depends(get_db), user=Depends(get_c
 
         cur.execute("UPDATE materials SET available_stock = available_stock + ? WHERE id = ?",
                     (req.quantity, req.material_id))
-        conn.commit()
         cur.execute("SELECT name, available_stock FROM materials WHERE id = ?", (req.material_id,))
         m = cur.fetchone()
 
-        # 更新操作人
         operator = user.get("real_name", "") or user.get("username", "")
         cur.execute("UPDATE materials SET operator = ? WHERE id = ?", (operator, req.material_id))
-        conn.commit()
 
+        # ===== 处理归还记录（支持部分归还 + 归还已发放物资）=====
+        remaining = req.quantity
+        now = datetime.now().isoformat()
+
+        # 1. 优先处理 active 未归还记录（按借出时间升序）
         cur.execute("""
-            UPDATE transactions SET status = 'completed', returned_at = ?,
-                   return_time = ?, return_location = ?, return_image = ?
-            WHERE id IN (
-                SELECT id FROM transactions
-                WHERE material_id = ? AND user_id = ? AND status = 'active' AND type = 'borrow'
-                ORDER BY borrowed_at ASC LIMIT 1
-            )
-        """, (datetime.now().isoformat(), req.return_time, req.return_location, req.return_image,
-              req.material_id, user["id"]))
+            SELECT id, quantity FROM transactions
+            WHERE material_id = ? AND user_id = ? AND type = 'borrow' AND status = 'active'
+            ORDER BY borrowed_at ASC
+        """, (req.material_id, user["id"]))
+        active_rows = cur.fetchall()
+        for row in active_rows:
+            if remaining <= 0:
+                break
+            tx_id, qty = row["id"], row["quantity"]
+            if qty <= remaining:
+                # 整条归还
+                cur.execute("""
+                    UPDATE transactions SET status='completed', returned_at=?,
+                           return_time=?, return_location=?, return_image=?
+                    WHERE id=?
+                """, (now, req.return_time, req.return_location, req.return_image, tx_id))
+                remaining -= qty
+            else:
+                # 部分归还：原记录扣减数量，新建一条已归还记录
+                cur.execute("UPDATE transactions SET quantity = quantity - ? WHERE id=?", (remaining, tx_id))
+                new_id = str(uuid.uuid4())
+                cur.execute("""
+                    INSERT INTO transactions (id, material_id, user_id, type, quantity, status,
+                                              activity_name, phone, borrowed_at, returned_at,
+                                              return_time, return_location, return_image, need_return)
+                    SELECT ?, material_id, user_id, 'borrow', ?, 'completed',
+                           activity_name, phone, borrowed_at, ?,
+                           ?, ?, ?, 1
+                    FROM transactions WHERE id=?
+                """, (new_id, remaining, now, req.return_time, req.return_location, req.return_image, tx_id))
+                remaining = 0
+
+        # 2. active 不够时，处理已发放(need_return=0)记录的退库
+        if remaining > 0:
+            cur.execute("""
+                SELECT id, quantity FROM transactions
+                WHERE material_id = ? AND user_id = ? AND type = 'borrow'
+                  AND status = 'completed' AND need_return = 0 AND quantity > 0
+                ORDER BY borrowed_at ASC
+            """, (req.material_id, user["id"]))
+            issued_rows = cur.fetchall()
+            for row in issued_rows:
+                if remaining <= 0:
+                    break
+                tx_id, qty = row["id"], row["quantity"]
+                if qty <= remaining:
+                    cur.execute("UPDATE transactions SET quantity = 0 WHERE id=?", (tx_id,))
+                    remaining -= qty
+                else:
+                    cur.execute("UPDATE transactions SET quantity = quantity - ? WHERE id=?", (remaining, tx_id))
+                    remaining = 0
+
         conn.commit()
 
         return {"success": True, "message": f"归还成功！{m['name']} 当前可领 {m['available_stock']}",
@@ -1661,18 +1781,32 @@ def public_borrow(req: PublicBorrowRequest, conn=Depends(get_db)):
         conn.commit()
 
         tx_id = str(uuid.uuid4())
+        need_return = 1 if req.need_return else 0
+        tx_status = 'active' if req.need_return else 'completed'
+        returned_at = datetime.now().isoformat() if not req.need_return else None
         cur.execute("""
             INSERT INTO transactions (id, material_id, user_id, type, quantity, status,
-                                      activity_name, phone, borrow_image, borrowed_at, borrow_location)
-            VALUES (?, ?, ?, 'borrow', ?, 'active', ?, ?, ?, ?, ?)
-        """, (tx_id, req.material_id, user["id"], req.quantity,
-              req.activity_name, req.phone, req.borrow_image, datetime.now().isoformat(), req.location))
+                                      activity_name, phone, borrow_image, borrowed_at, borrow_location,
+                                      need_return, returned_at)
+            VALUES (?, ?, ?, 'borrow', ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (tx_id, req.material_id, user["id"], req.quantity, tx_status,
+              req.activity_name, req.phone, req.borrow_image, datetime.now().isoformat(), req.location,
+              need_return, returned_at))
         conn.commit()
+
+        # 借出成功后异步发送邮件通知
+        user_email = user.get("email", "")
+        real_name = user.get("real_name", "") or user.get("username", "")
+        send_borrow_notify_async(user_email, real_name, m["name"], req.quantity, req.need_return, req.activity_name)
 
         # 自动生成token返回，方便后续操作
         token = create_access_token({"sub": user["username"], "id": user["id"]})
-        return {"success": True, "message": f"领取成功！{m['name']} 剩余 {m['available_stock']}",
+        msg = f"领取成功！{m['name']} 剩余 {m['available_stock']}"
+        if not req.need_return:
+            msg = f"领取成功！{m['name']} x{req.quantity} 已标记为「已发放/消耗」，无需归还"
+        return {"success": True, "message": msg,
                 "material_name": m["name"], "remaining": m["available_stock"],
+                "need_return": req.need_return,
                 "token": token, "user": {"id": user["id"], "username": user["username"],
                                           "real_name": user["real_name"], "role": user["role"], "phone": user["phone"]}}
     except HTTPException:
@@ -1690,15 +1824,17 @@ def public_return(req: PublicReturnRequest, conn=Depends(get_db)):
         raise HTTPException(status_code=401, detail="账号或密码错误")
     try:
         cur = conn.cursor()
+        # 可归还数量 = 未归还(active) + 已发放(need_return=0,可退库)
         cur.execute("""
             SELECT COALESCE(SUM(quantity), 0) FROM transactions
-            WHERE material_id = ? AND user_id = ? AND status = 'active' AND type = 'borrow'
+            WHERE material_id = ? AND user_id = ? AND type = 'borrow'
+              AND (status = 'active' OR (status = 'completed' AND need_return = 0 AND quantity > 0))
         """, (req.material_id, user["id"]))
-        total_borrowed = tuple(cur.fetchone())[0]
-        if total_borrowed <= 0:
-            raise HTTPException(status_code=400, detail="你没有该物资的未归还记录")
-        if req.quantity > total_borrowed:
-            raise HTTPException(status_code=400, detail=f"归还数量不能超过未还数量（{total_borrowed}）")
+        total_returnable = tuple(cur.fetchone())[0]
+        if total_returnable <= 0:
+            raise HTTPException(status_code=400, detail="你没有该物资的可归还记录")
+        if req.quantity > total_returnable:
+            raise HTTPException(status_code=400, detail=f"归还数量不能超过可归还数量（{total_returnable}）")
 
         # 归还到指定位置，不存在则新建
         return_loc = req.return_location.strip() if req.return_location else ""
@@ -1714,24 +1850,62 @@ def public_return(req: PublicReturnRequest, conn=Depends(get_db)):
 
         cur.execute("UPDATE materials SET available_stock = available_stock + ? WHERE id = ?",
                     (req.quantity, req.material_id))
-        conn.commit()
         cur.execute("SELECT name, available_stock FROM materials WHERE id = ?", (req.material_id,))
         m = cur.fetchone()
 
         operator = user.get("real_name", "") or user.get("username", "")
         cur.execute("UPDATE materials SET operator = ? WHERE id = ?", (operator, req.material_id))
-        conn.commit()
+
+        # ===== 处理归还记录（支持部分归还 + 归还已发放物资）=====
+        remaining = req.quantity
+        now = datetime.now().isoformat()
 
         cur.execute("""
-            UPDATE transactions SET status = 'completed', returned_at = ?,
-                   return_time = ?, return_location = ?, return_image = ?
-            WHERE id IN (
-                SELECT id FROM transactions
-                WHERE material_id = ? AND user_id = ? AND status = 'active' AND type = 'borrow'
-                ORDER BY borrowed_at ASC LIMIT 1
-            )
-        """, (datetime.now().isoformat(), req.return_time, req.return_location, req.return_image,
-              req.material_id, user["id"]))
+            SELECT id, quantity FROM transactions
+            WHERE material_id = ? AND user_id = ? AND type = 'borrow' AND status = 'active'
+            ORDER BY borrowed_at ASC
+        """, (req.material_id, user["id"]))
+        for row in cur.fetchall():
+            if remaining <= 0: break
+            tx_id, qty = row["id"], row["quantity"]
+            if qty <= remaining:
+                cur.execute("""
+                    UPDATE transactions SET status='completed', returned_at=?,
+                           return_time=?, return_location=?, return_image=?
+                    WHERE id=?
+                """, (now, req.return_time, req.return_location, req.return_image, tx_id))
+                remaining -= qty
+            else:
+                cur.execute("UPDATE transactions SET quantity = quantity - ? WHERE id=?", (remaining, tx_id))
+                new_id = str(uuid.uuid4())
+                cur.execute("""
+                    INSERT INTO transactions (id, material_id, user_id, type, quantity, status,
+                                              activity_name, phone, borrowed_at, returned_at,
+                                              return_time, return_location, return_image, need_return)
+                    SELECT ?, material_id, user_id, 'borrow', ?, 'completed',
+                           activity_name, phone, borrowed_at, ?,
+                           ?, ?, ?, 1
+                    FROM transactions WHERE id=?
+                """, (new_id, remaining, now, req.return_time, req.return_location, req.return_image, tx_id))
+                remaining = 0
+
+        if remaining > 0:
+            cur.execute("""
+                SELECT id, quantity FROM transactions
+                WHERE material_id = ? AND user_id = ? AND type = 'borrow'
+                  AND status = 'completed' AND need_return = 0 AND quantity > 0
+                ORDER BY borrowed_at ASC
+            """, (req.material_id, user["id"]))
+            for row in cur.fetchall():
+                if remaining <= 0: break
+                tx_id, qty = row["id"], row["quantity"]
+                if qty <= remaining:
+                    cur.execute("UPDATE transactions SET quantity = 0 WHERE id=?", (tx_id,))
+                    remaining -= qty
+                else:
+                    cur.execute("UPDATE transactions SET quantity = quantity - ? WHERE id=?", (remaining, tx_id))
+                    remaining = 0
+
         conn.commit()
 
         token = create_access_token({"sub": user["username"], "id": user["id"]})
@@ -2785,6 +2959,50 @@ def mobile_login():
 @app.get("/m/scan.html")
 def mobile_scan():
     return FileResponse("static/m/scan.html")
+
+# ==================== 超期未归还提醒（后台定时任务） ====================
+def overdue_reminder_worker():
+    """后台线程：每小时检查一次超期24小时未归还的记录，发邮件提醒"""
+    while True:
+        try:
+            if not SMTP_ENABLED:
+                time.sleep(3600)
+                continue
+            conn = sqlite3.connect(DATABASE_FILE)
+            conn.row_factory = sqlite3.Row
+            cur = conn.cursor()
+            cutoff = (datetime.now() - timedelta(hours=24)).isoformat()
+            cur.execute("""
+                SELECT t.id, t.material_id, t.quantity, t.borrowed_at, t.user_id,
+                       t.reminded_at, m.name as material_name,
+                       u.real_name, u.email
+                FROM transactions t
+                JOIN materials m ON t.material_id = m.id
+                JOIN users u ON t.user_id = u.id
+                WHERE t.type='borrow' AND t.status='active' AND t.need_return=1
+                  AND t.borrowed_at < ?
+                  AND (t.reminded_at = '' OR t.reminded_at IS NULL OR t.reminded_at < ?)
+                  AND u.email != '' AND u.email IS NOT NULL
+            """, (cutoff, cutoff))
+            rows = cur.fetchall()
+            for row in rows:
+                send_overdue_remind_async(
+                    row["email"], row["real_name"] or "用户",
+                    row["material_name"], row["quantity"], row["borrowed_at"]
+                )
+                cur.execute("UPDATE transactions SET reminded_at=? WHERE id=?",
+                            (datetime.now().isoformat(), row["id"]))
+            conn.commit()
+            conn.close()
+            if rows:
+                print(f"[超期提醒] 已发送 {len(rows)} 封提醒邮件")
+        except Exception as e:
+            print(f"[超期提醒任务异常] {e}")
+        time.sleep(3600)
+
+# 启动后台提醒线程（守护线程，随主进程退出）
+_overdue_thread = threading.Thread(target=overdue_reminder_worker, daemon=True)
+_overdue_thread.start()
 
 # ==================== 启动 ====================
 if __name__ == "__main__":

@@ -265,6 +265,12 @@
                     <div class="form-group"><label>领取物资名称 <span class="req">*</span></label><select id="borrowMaterial" onchange="onBorrowMaterialChange()"><option value="">请选择物资</option></select></div>
                     <div class="form-group"><label>应用于活动名称 <span class="req">*</span></label><input type="text" id="borrowActivity" placeholder="请输入活动名称"></div>
                     <div class="form-group"><label>领取数量 <span class="req">*</span></label><input type="number" id="borrowQty" value="1" min="1"></div>
+                    <div class="form-group"><label>是否需要归还 <span class="req">*</span></label>
+                        <select id="borrowNeedReturn">
+                            <option value="1">需要归还（借用后归还）</option>
+                            <option value="0">不需要归还（已发放/消耗，如笔记本发给新同学）</option>
+                        </select>
+                    </div>
                     <div class="form-group"><label>领取位置 <span class="req">*</span></label><select id="borrowLocation"><option value="">请先选择物资</option></select></div>
                     <div class="form-group"><label>领取人姓名 <span class="req">*</span></label><input type="text" id="borrowUser" readonly></div>
                     <div class="form-group"><label>领取人电话 <span class="req">*</span></label><input type="tel" id="borrowPhone" placeholder="请输入电话号码"></div>
@@ -1630,8 +1636,9 @@
             const quantity = Number(document.getElementById('borrowQty').value)||1;
             const location = document.getElementById('borrowLocation').value;
             const phone = document.getElementById('borrowPhone').value.trim();
+            const need_return = document.getElementById('borrowNeedReturn').value === '1';
             if (!phone) { showToast('请输入电话号码'); return; }
-            fetch('/api/borrow', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({material_id,quantity,activity_name,phone,borrow_image:uploadedImages.borrow,location}) })
+            fetch('/api/borrow', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({material_id,quantity,activity_name,phone,borrow_image:uploadedImages.borrow,location,need_return}) })
             .then(res=>res.json().then(d=>({ok:res.ok,data:d})))
             .then(({ok,data})=>{
                 if (ok) { showToast('✅ '+data.message); setTimeout(()=>{ document.getElementById('borrowActivity').value=''; document.getElementById('borrowQty').value='1'; document.getElementById('borrowLocation').innerHTML='<option value="">请先选择物资</option>'; document.getElementById('borrowPreview').style.display='none'; uploadedImages.borrow=''; loadMaterialSelect('borrowMaterial'); },1000); }
