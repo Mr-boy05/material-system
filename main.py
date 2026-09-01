@@ -416,6 +416,7 @@ class MaterialCreate(BaseModel):
     location: Optional[str] = ""
     image: Optional[str] = ""
     qr_code: Optional[str] = ""
+    locations: list = []  # 多位置：[{"location": "A柜", "stock": 10}, ...]
 
 class MaterialUpdate(BaseModel):
     name: Optional[str] = None
@@ -1472,31 +1473,54 @@ def get_material_detail(material_id: str, conn=Depends(get_db), user=Depends(get
 
 @app.post("/api/materials")
 def create_material(req: MaterialCreate, conn=Depends(get_db), user=Depends(get_current_user)):
-    material_id = str(uuid.uuid4())
-    cur = conn.cursor()
-    # 编号：用户手动输入或自动生成 CZ-0000x 格式
-    if req.qr_code and req.qr_code.strip():
-        qr_code = req.qr_code.strip()
-        # 检查编号是否已存在
-        cur.execute("SELECT id FROM materials WHERE qr_code=?", (qr_code,))
-        if cur.fetchone():
-            raise HTTPException(status_code=400, detail=f"编号 {qr_code} 已存在")
-    else:
-        cur.execute("SELECT COUNT(*) FROM materials")
-        count = tuple(cur.fetchone())[0]
-        qr_code = f"CZ-{count + 1:05d}"
-    operator = user.get("real_name", "") or user.get("username", "")
-    cur.execute("""
-        INSERT INTO materials (id, name, qr_code, spec, unit, total_stock, available_stock, location, image, operator)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (material_id, req.name, qr_code, req.spec, req.unit, req.total_stock, req.total_stock, req.location, req.image, operator))
-    # 创建位置记录
-    if req.location:
-        loc_id = str(uuid.uuid4())
-        cur.execute("INSERT INTO material_locations (id, material_id, location, stock) VALUES (?, ?, ?, ?)",
-                  (loc_id, material_id, req.location, req.total_stock))
-    conn.commit()
-    return {"id": material_id, "qr_code": qr_code, "message": "物资添加成功"}
+    try:
+        material_id = str(uuid.uuid4())
+        cur = conn.cursor()
+        # 编号：用户手动输入或自动生成 CZ-0000x 格式
+        if req.qr_code and req.qr_code.strip():
+            qr_code = req.qr_code.strip()
+            cur.execute("SELECT id FROM materials WHERE qr_code=?", (qr_code,))
+            if cur.fetchone():
+                raise HTTPException(status_code=400, detail=f"编号 {qr_code} 已存在")
+        else:
+            cur.execute("SELECT COUNT(*) FROM materials")
+            count = tuple(cur.fetchone())[0]
+            qr_code = f"CZ-{count + 1:05d}"
+
+        # 多位置处理
+        locations = req.locations or []
+        if locations:
+            # 多位置模式：总库存 = 各位置数量之和
+            total_stock = sum(int(loc.get("stock", 0)) for loc in locations if loc.get("location", "").strip())
+            primary_location = locations[0].get("location", "") if locations else ""
+        else:
+            # 兼容旧模式
+            total_stock = req.total_stock
+            primary_location = req.location or ""
+            locations = [{"location": primary_location, "stock": total_stock}] if primary_location and total_stock > 0 else []
+
+        operator = user.get("real_name", "") or user.get("username", "")
+        cur.execute("""
+            INSERT INTO materials (id, name, qr_code, spec, unit, total_stock, available_stock, location, image, operator)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (material_id, req.name, qr_code, req.spec, req.unit, total_stock, total_stock, primary_location, req.image, operator))
+
+        # 创建位置记录
+        for loc in locations:
+            loc_name = loc.get("location", "").strip()
+            loc_stock = int(loc.get("stock", 0))
+            if loc_name and loc_stock > 0:
+                loc_id = str(uuid.uuid4())
+                cur.execute("INSERT INTO material_locations (id, material_id, location, stock) VALUES (?, ?, ?, ?)",
+                          (loc_id, material_id, loc_name, loc_stock))
+
+        conn.commit()
+        return {"id": material_id, "qr_code": qr_code, "message": "物资添加成功"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"添加失败：{str(e)}")
 
 # ---------- 公开物资查询（无需登录，用于登录页快速领取） ----------
 @app.get("/api/public/materials")

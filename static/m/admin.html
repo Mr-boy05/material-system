@@ -243,8 +243,17 @@
         <div class="form-group"><label>物资编号</label><input type="text" id="newMatQrCode" placeholder="不填则自动生成 CZ-00001"></div>
         <div class="form-group"><label>规格型号</label><input type="text" id="newMatSpec" placeholder="如：ThinkPad X1"></div>
         <div class="form-group"><label>单位</label><input type="text" id="newMatUnit" value="个" placeholder="个/台/支"></div>
-        <div class="form-group"><label>库存数量 <span class="req">*</span></label><input type="number" id="newMatStock" value="0" min="0"></div>
-        <div class="form-group"><label>存放位置</label><input type="text" id="newMatLocation" placeholder="如：办公室A柜"></div>
+        <div class="form-group">
+            <label>存放位置与库存 <span class="req">*</span></label>
+            <div id="newMatLocationRows">
+                <div class="loc-row" style="display:flex;gap:6px;margin-bottom:6px;align-items:center;">
+                    <input type="text" class="loc-name" placeholder="位置" style="flex:2;">
+                    <input type="number" class="loc-stock" placeholder="数量" value="1" min="0" style="flex:1;" oninput="updateNewMatTotal()">
+                </div>
+            </div>
+            <button type="button" onclick="addNewMatLocation()" style="width:100%;padding:8px;background:#f0f0f0;border:none;border-radius:6px;color:#333;font-size:13px;margin-top:4px;">+ 添加位置</button>
+            <div id="newMatTotalHint" style="font-size:12px;color:#666;margin-top:6px;">总库存：1</div>
+        </div>
         <button class="btn-full" onclick="addMaterial()">确认添加</button>
         <button class="btn-full ghost" onclick="closeModal('addMatModal')">取消</button>
     </div>
@@ -761,19 +770,57 @@ async function submitEditMat() {
 }
 
 function showAddMaterial() {
+    resetNewMatLocations();
     document.getElementById('addMatModal').classList.add('show');
+}
+
+function resetNewMatLocations() {
+    document.getElementById('newMatLocationRows').innerHTML = `
+        <div class="loc-row" style="display:flex;gap:6px;margin-bottom:6px;align-items:center;">
+            <input type="text" class="loc-name" placeholder="位置" style="flex:2;">
+            <input type="number" class="loc-stock" placeholder="数量" value="1" min="0" style="flex:1;" oninput="updateNewMatTotal()">
+        </div>`;
+    updateNewMatTotal();
+}
+function addNewMatLocation() {
+    const container = document.getElementById('newMatLocationRows');
+    const row = document.createElement('div');
+    row.className = 'loc-row';
+    row.style.cssText = 'display:flex;gap:6px;margin-bottom:6px;align-items:center;';
+    row.innerHTML = `
+        <input type="text" class="loc-name" placeholder="位置" style="flex:2;">
+        <input type="number" class="loc-stock" placeholder="数量" value="0" min="0" style="flex:1;" oninput="updateNewMatTotal()">
+        <button type="button" style="background:#ff4444;color:white;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:12px;" onclick="this.parentElement.remove();updateNewMatTotal();">删</button>
+    `;
+    container.appendChild(row);
+    updateNewMatTotal();
+}
+function updateNewMatTotal() {
+    let total = 0;
+    document.querySelectorAll('#newMatLocationRows .loc-stock').forEach(s => { total += Number(s.value)||0; });
+    document.getElementById('newMatTotalHint').textContent = '总库存：' + total;
 }
 
 async function addMaterial() {
     const name = document.getElementById('newMatName').value.trim();
     if (!name) { showToast('请输入物资名称'); return; }
+    // 收集多位置数据
+    const rows = document.querySelectorAll('#newMatLocationRows .loc-row');
+    const locations = [];
+    let total_stock = 0;
+    rows.forEach(row => {
+        const loc = row.querySelector('.loc-name').value.trim();
+        const stock = Number(row.querySelector('.loc-stock').value)||0;
+        if (loc && stock > 0) { locations.push({location: loc, stock: stock}); total_stock += stock; }
+    });
+    if (locations.length === 0) { showToast('请至少填写一个存放位置和数量'); return; }
     const data = {
         name,
         qr_code: document.getElementById('newMatQrCode').value.trim(),
         spec: document.getElementById('newMatSpec').value.trim(),
         unit: document.getElementById('newMatUnit').value.trim() || '个',
-        total_stock: parseInt(document.getElementById('newMatStock').value) || 0,
-        location: document.getElementById('newMatLocation').value.trim()
+        total_stock,
+        locations
     };
     try {
         const res = await api('/api/materials', {
