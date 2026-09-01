@@ -1625,16 +1625,22 @@ def borrow_material(req: BorrowRequest, conn=Depends(get_db), user=Depends(get_c
             cur.execute("UPDATE material_locations SET stock = stock - ? WHERE id=?", (req.quantity, loc["id"]))
             req.location = loc["location"]
 
-        # 更新物资总可用库存
-        cur.execute("""
-            UPDATE materials SET available_stock = available_stock - ?
-            WHERE id = ? AND available_stock >= ?
-        """, (req.quantity, req.material_id, req.quantity))
+        # 更新物资库存：消耗品(不归还)同时扣总库存和可用库存，借用只扣可用库存
+        if req.need_return:
+            cur.execute("""
+                UPDATE materials SET available_stock = available_stock - ?
+                WHERE id = ? AND available_stock >= ?
+            """, (req.quantity, req.material_id, req.quantity))
+        else:
+            cur.execute("""
+                UPDATE materials SET available_stock = available_stock - ?, total_stock = total_stock - ?
+                WHERE id = ? AND available_stock >= ? AND total_stock >= ?
+            """, (req.quantity, req.quantity, req.material_id, req.quantity, req.quantity))
         if cur.rowcount == 0:
             conn.rollback()
             raise HTTPException(status_code=400, detail="库存不足")
 
-        cur.execute("SELECT name, available_stock FROM materials WHERE id = ?", (req.material_id,))
+        cur.execute("SELECT name, available_stock, total_stock FROM materials WHERE id = ?", (req.material_id,))
         m = cur.fetchone()
 
         # 更新操作人
@@ -1750,6 +1756,7 @@ def return_material(req: ReturnRequest, conn=Depends(get_db), user=Depends(get_c
 
         # 2. active 不够时，处理已发放(need_return=0)记录的退库
         issued_touched = []
+        issued_returned = 0  # 记录退库数量，用于恢复总库存
         if remaining > 0:
             cur.execute("""
                 SELECT id, quantity FROM transactions
@@ -1766,9 +1773,16 @@ def return_material(req: ReturnRequest, conn=Depends(get_db), user=Depends(get_c
                 if qty <= remaining:
                     cur.execute("UPDATE transactions SET quantity = 0 WHERE id=?", (tx_id,))
                     remaining -= qty
+                    issued_returned += qty
                 else:
                     cur.execute("UPDATE transactions SET quantity = quantity - ? WHERE id=?", (remaining, tx_id))
+                    issued_returned += remaining
                     remaining = 0
+
+            # 退库时恢复总库存
+            if issued_returned > 0:
+                cur.execute("UPDATE materials SET total_stock = total_stock + ? WHERE id=?",
+                            (issued_returned, req.material_id))
 
             # 记录消耗数量到 remark
             if req.consumed_quantity > 0 and issued_touched:
@@ -1811,15 +1825,22 @@ def public_borrow(req: PublicBorrowRequest, conn=Depends(get_db)):
             cur.execute("UPDATE material_locations SET stock = stock - ? WHERE id=?", (req.quantity, loc["id"]))
             req.location = loc["location"]
 
-        cur.execute("""
-            UPDATE materials SET available_stock = available_stock - ?
-            WHERE id = ? AND available_stock >= ?
-        """, (req.quantity, req.material_id, req.quantity))
+        # 更新物资库存：消耗品(不归还)同时扣总库存和可用库存，借用只扣可用库存
+        if req.need_return:
+            cur.execute("""
+                UPDATE materials SET available_stock = available_stock - ?
+                WHERE id = ? AND available_stock >= ?
+            """, (req.quantity, req.material_id, req.quantity))
+        else:
+            cur.execute("""
+                UPDATE materials SET available_stock = available_stock - ?, total_stock = total_stock - ?
+                WHERE id = ? AND available_stock >= ? AND total_stock >= ?
+            """, (req.quantity, req.quantity, req.material_id, req.quantity, req.quantity))
         if cur.rowcount == 0:
             conn.rollback()
             raise HTTPException(status_code=400, detail="库存不足")
 
-        cur.execute("SELECT name, available_stock FROM materials WHERE id = ?", (req.material_id,))
+        cur.execute("SELECT name, available_stock, total_stock FROM materials WHERE id = ?", (req.material_id,))
         m = cur.fetchone()
 
         operator = user.get("real_name", "") or user.get("username", "")
@@ -1942,15 +1963,22 @@ def public_return(req: PublicReturnRequest, conn=Depends(get_db)):
                   AND status = 'completed' AND need_return = 0 AND quantity > 0
                 ORDER BY borrowed_at ASC
             """, (req.material_id, user["id"]))
+            issued_returned = 0
             for row in cur.fetchall():
                 if remaining <= 0: break
                 tx_id, qty = row["id"], row["quantity"]
                 if qty <= remaining:
                     cur.execute("UPDATE transactions SET quantity = 0 WHERE id=?", (tx_id,))
                     remaining -= qty
+                    issued_returned += qty
                 else:
                     cur.execute("UPDATE transactions SET quantity = quantity - ? WHERE id=?", (remaining, tx_id))
+                    issued_returned += remaining
                     remaining = 0
+            # 退库时恢复总库存
+            if issued_returned > 0:
+                cur.execute("UPDATE materials SET total_stock = total_stock + ? WHERE id=?",
+                            (issued_returned, req.material_id))
 
         conn.commit()
 

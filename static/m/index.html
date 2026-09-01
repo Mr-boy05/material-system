@@ -646,7 +646,7 @@
             .then(res=>res.json().then(d=>({ok:res.ok,data:d})))
             .then(({ok,data})=>{
                 showLoading(false);
-                if (ok) { showToast('✅ '+data.message); setTimeout(()=>{ document.getElementById('borrowActivity').value=''; document.getElementById('borrowQty').value='1'; document.getElementById('borrowLocation').innerHTML='<option value="">请先选择物资</option>'; document.getElementById('borrowPreview').style.display='none'; uploadedImages.borrow=''; showPage('page-home'); },1500); }
+                if (ok) { showToast('✅ '+data.message); setTimeout(()=>{ document.getElementById('borrowActivity').value=''; document.getElementById('borrowQty').value='1'; document.getElementById('borrowLocation').innerHTML='<option value="">请先选择物资</option>'; document.getElementById('borrowPreview').style.display='none'; uploadedImages.borrow=''; loadBorrowedSelect(); showPage('page-home'); },1500); }
                 else showToast('❌ '+(data.detail||'领取失败'));
             })
             .catch(()=>{ showLoading(false); showToast('网络错误'); });
