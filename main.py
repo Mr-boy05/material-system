@@ -1483,9 +1483,23 @@ def create_material(req: MaterialCreate, conn=Depends(get_db), user=Depends(get_
             if cur.fetchone():
                 raise HTTPException(status_code=400, detail=f"编号 {qr_code} 已存在")
         else:
-            cur.execute("SELECT COUNT(*) FROM materials")
-            count = tuple(cur.fetchone())[0]
-            qr_code = f"CZ-{count + 1:05d}"
+            # 查找当前最大编号，避免与已删除物资的编号冲突
+            cur.execute("SELECT qr_code FROM materials WHERE qr_code LIKE 'CZ-%' ORDER BY qr_code DESC LIMIT 1")
+            row = cur.fetchone()
+            if row and row["qr_code"]:
+                try:
+                    next_num = int(row["qr_code"].replace("CZ-", "")) + 1
+                except ValueError:
+                    next_num = 1
+            else:
+                next_num = 1
+            # 循环确保编号不重复
+            while True:
+                qr_code = f"CZ-{next_num:05d}"
+                cur.execute("SELECT id FROM materials WHERE qr_code=?", (qr_code,))
+                if not cur.fetchone():
+                    break
+                next_num += 1
 
         # 多位置处理
         locations = req.locations or []
