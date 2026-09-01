@@ -86,6 +86,7 @@
         .stock-out { background:#ffebee; color:#c62828; }
         .status-active { background:#fff3e0; color:#e65100; padding:3px 10px; border-radius:10px; font-size:11px; }
         .status-completed { background:#e8f5e9; color:#2e7d32; padding:3px 10px; border-radius:10px; font-size:11px; }
+        .status-issued { background:#e3f2fd; color:#1565c0; padding:3px 10px; border-radius:10px; font-size:11px; }
         .user-with-role { font-size:13px; }
         .user-with-role .role-tag { font-size:10px; background:#667eea; color:white; padding:1px 6px; border-radius:4px; margin-left:4px; }
         .empty { text-align:center; padding:40px; color:#999; }
@@ -1388,10 +1389,25 @@
             fetch('/api/my-transactions', { headers:{'Authorization':'Bearer '+token} })
             .then(res=>res.json())
             .then(data=>{
-                const active = data.filter(r=>r.status==='active');
+                // 可归还 = 未归还(active) + 已发放可退库(need_return=0, quantity>0)
+                const returnable = data.filter(r => r.status==='active' || (r.status==='completed' && r.need_return===0 && r.quantity>0));
+                // 按物资合并数量
+                const map = {};
+                returnable.forEach(r => {
+                    const mid = r.material_id || r.id;
+                    if (!map[mid]) map[mid] = { name: r.material_name, location: r.material_location||'', active: 0, issued: 0 };
+                    if (r.status==='active') map[mid].active += r.quantity;
+                    else map[mid].issued += r.quantity;
+                });
+                const list = Object.entries(map).map(([mid, info]) => ({ mid, ...info }));
                 const sel = document.getElementById('returnMaterial');
-                if (!active.length) { sel.innerHTML='<option value="">暂无未归还物资</option>'; return; }
-                sel.innerHTML = '<option value="">请选择物资</option>' + active.map(r=>`<option value="${r.material_id||r.id}" data-location="${r.material_location||''}">${r.material_name}（未还${r.quantity}）</option>`).join('');
+                if (!list.length) { sel.innerHTML='<option value="">暂无可归还物资</option>'; return; }
+                sel.innerHTML = '<option value="">请选择物资</option>' + list.map(r=>{
+                    const parts = [];
+                    if (r.active>0) parts.push(`未还${r.active}`);
+                    if (r.issued>0) parts.push(`可退库${r.issued}`);
+                    return `<option value="${r.mid}" data-location="${r.location}">${r.name}（${parts.join('，')}）</option>`;
+                }).join('');
             });
         }
 
@@ -1409,7 +1425,16 @@
                 const tbody = document.getElementById('recordTable');
                 if (!data.length) { tbody.innerHTML='<tr><td colspan="11" class="empty">暂无记录</td></tr>'; return; }
                 tbody.innerHTML = data.map(r=>{
-                    const st = r.status==='active'?'<span class="status-active">借出中</span>':'<span class="status-completed">已归还</span>';
+                    let st;
+                    if (r.status==='active') {
+                        st = `<span class="status-active">借出中（剩余${r.quantity}）</span>`;
+                    } else if (r.need_return===0) {
+                        st = r.quantity>0
+                            ? `<span class="status-issued">已发放/消耗（剩${r.quantity}可退）</span>`
+                            : `<span class="status-completed">已发放（已退库）</span>`;
+                    } else {
+                        st = `<span class="status-completed">已归还</span>`;
+                    }
                     const imgs = (r.borrow_image?`<img src="${r.borrow_image}" class="record-img" style="cursor:pointer;" onclick="viewImage('${r.borrow_image}','领取图片')" title="点击放大">`:'') + (r.return_image?`<img src="${r.return_image}" class="record-img" style="cursor:pointer;" onclick="viewImage('${r.return_image}','归还图片')" title="点击放大">`:'');
                     const userDisplay = r.user_role === 'admin'
                         ? `<span class="user-with-role">${r.user_name}<span class="role-tag">管理员</span></span>`

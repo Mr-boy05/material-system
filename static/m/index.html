@@ -75,6 +75,7 @@
         .record-item .status { font-size:11px; padding:4px 12px; border-radius:10px; font-weight:500; }
         .status-active { background:#fff3e0; color:#e65100; }
         .status-completed { background:#e8f5e9; color:#2e7d32; }
+        .status-issued { background:#e3f2fd; color:#1565c0; }
         .record-item .meta { font-size:12px; color:#999; margin-top:10px; line-height:1.7; }
         .record-item .meta img { width:44px; height:44px; border-radius:8px; object-fit:cover; margin-top:6px; margin-right:6px; cursor:pointer; }
         .record-item .actions { margin-top:12px; text-align:right; }
@@ -571,10 +572,24 @@
             fetch('/api/my-transactions', { headers:{'Authorization':'Bearer '+token} })
             .then(res=>res.json())
             .then(data=>{
-                const active = data.filter(r=>r.status==='active');
+                // 可归还 = 未归还(active) + 已发放可退库(need_return=0, quantity>0)
+                const returnable = data.filter(r => r.status==='active' || (r.status==='completed' && r.need_return===0 && r.quantity>0));
+                const map = {};
+                returnable.forEach(r => {
+                    const mid = r.material_id || r.id;
+                    if (!map[mid]) map[mid] = { name: r.material_name, location: r.material_location||'', unit: r.unit||'', active: 0, issued: 0 };
+                    if (r.status==='active') map[mid].active += r.quantity;
+                    else map[mid].issued += r.quantity;
+                });
+                const list = Object.entries(map).map(([mid, info]) => ({ mid, ...info }));
                 const sel = document.getElementById('returnMaterial');
-                if (!active.length) { sel.innerHTML='<option value="">暂无未归还物资</option>'; return; }
-                sel.innerHTML = '<option value="">请选择物资</option>' + active.map(r=>`<option value="${r.material_id||r.id}" data-location="${r.material_location||''}">${r.material_name}（未还${r.quantity}${r.unit}）</option>`).join('');
+                if (!list.length) { sel.innerHTML='<option value="">暂无可归还物资</option>'; return; }
+                sel.innerHTML = '<option value="">请选择物资</option>' + list.map(r=>{
+                    const parts = [];
+                    if (r.active>0) parts.push(`未还${r.active}${r.unit}`);
+                    if (r.issued>0) parts.push(`可退库${r.issued}${r.unit}`);
+                    return `<option value="${r.mid}" data-location="${r.location}">${r.name}（${parts.join('，')}）</option>`;
+                }).join('');
             });
         }
 
@@ -752,8 +767,17 @@
                 const box = document.getElementById('recordList');
                 if (!data.length) { box.innerHTML='<div style="text-align:center;padding:40px;color:#999">暂无记录</div>'; return; }
                 box.innerHTML = data.map(r=>{
-                    const statusText = r.status==='active'?'借出中':'已归还';
-                    const statusClass = r.status==='active'?'status-active':'status-completed';
+                    let statusText, statusClass;
+                    if (r.status==='active') {
+                        statusText = `借出中（剩${r.quantity}）`;
+                        statusClass = 'status-active';
+                    } else if (r.need_return===0) {
+                        statusText = r.quantity>0 ? `已发放（剩${r.quantity}可退）` : '已发放（已退库）';
+                        statusClass = 'status-issued';
+                    } else {
+                        statusText = '已归还';
+                        statusClass = 'status-completed';
+                    }
                     const userName = r.user_name ? `<div class="user">使用人：${r.user_name}</div>` : '';
                     const borrowImg = r.borrow_image ? `<img src="${r.borrow_image}" style="cursor:pointer;" onclick="viewImage('${r.borrow_image}','领取图片')" title="点击放大">` : '';
                     const returnImg = r.return_image ? `<img src="${r.return_image}" style="cursor:pointer;" onclick="viewImage('${r.return_image}','归还图片')" title="点击放大">` : '';

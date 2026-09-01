@@ -1926,6 +1926,7 @@ def my_transactions(conn=Depends(get_db), user=Depends(get_current_user)):
     cur.execute("""
         SELECT t.id, t.material_id, t.quantity, t.status, t.activity_name, t.phone, t.borrow_image,
                t.return_time, t.return_location, t.return_image, t.borrowed_at, t.returned_at,
+               t.need_return,
                m.name as material_name, m.spec, m.unit, m.image as material_image, m.location as material_location
         FROM transactions t
         JOIN materials m ON t.material_id = m.id
@@ -1952,6 +1953,7 @@ def all_transactions(conn=Depends(get_db), user=Depends(get_current_user)):
     cur.execute("""
         SELECT t.id, t.quantity, t.status, t.activity_name, t.phone, t.borrow_image,
                t.return_time, t.return_location, t.return_image, t.borrowed_at, t.returned_at,
+               t.need_return,
                m.name as material_name, m.spec, m.unit,
                u.real_name as user_name, u.role as user_role
         FROM transactions t
