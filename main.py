@@ -66,10 +66,10 @@ CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "*")
 #    授权码获取：QQ邮箱→设置→账户→POP3/SMTP服务→开启→生成授权码
 # 2. 163邮箱：SMTP_SERVER="smtp.163.com", SMTP_PORT=465, SMTP_USER="你的邮箱@163.com", SMTP_PASSWORD="授权码"
 # 3. 不配置则忘记密码功能不可用，不影响其他功能
-SMTP_SERVER = os.environ.get("SMTP_SERVER", "")
+SMTP_SERVER = os.environ.get("SMTP_SERVER", "smtp.qq.com")
 SMTP_PORT = int(os.environ.get("SMTP_PORT", "465"))
-SMTP_USER = os.environ.get("SMTP_USER", "")
-SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
+SMTP_USER = os.environ.get("SMTP_USER", "3541269828@qq.com")
+SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "ydsutyzuijgyciga")
 SMTP_ENABLED = bool(SMTP_SERVER and SMTP_USER and SMTP_PASSWORD)
 
 # 验证码存储（内存）：{email: {"code": "123456", "expire": datetime}}
