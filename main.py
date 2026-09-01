@@ -1602,7 +1602,6 @@ def borrow_material(req: BorrowRequest, conn=Depends(get_db), user=Depends(get_c
         # 更新操作人
         operator = user.get("real_name", "") or user.get("username", "")
         cur.execute("UPDATE materials SET operator = ? WHERE id = ?", (operator, req.material_id))
-        conn.commit()
 
         tx_id = str(uuid.uuid4())
         need_return = 1 if req.need_return else 0
@@ -1616,6 +1615,7 @@ def borrow_material(req: BorrowRequest, conn=Depends(get_db), user=Depends(get_c
         """, (tx_id, req.material_id, user["id"], req.quantity, tx_status,
               req.activity_name, req.phone, req.borrow_image, datetime.now().isoformat(), req.location,
               need_return, returned_at))
+        # 所有数据库操作在同一个事务中，一次性提交
         conn.commit()
 
         # 借出成功后异步发送邮件通知
@@ -1786,7 +1786,6 @@ def public_borrow(req: PublicBorrowRequest, conn=Depends(get_db)):
 
         operator = user.get("real_name", "") or user.get("username", "")
         cur.execute("UPDATE materials SET operator = ? WHERE id = ?", (operator, req.material_id))
-        conn.commit()
 
         tx_id = str(uuid.uuid4())
         need_return = 1 if req.need_return else 0
@@ -1800,6 +1799,7 @@ def public_borrow(req: PublicBorrowRequest, conn=Depends(get_db)):
         """, (tx_id, req.material_id, user["id"], req.quantity, tx_status,
               req.activity_name, req.phone, req.borrow_image, datetime.now().isoformat(), req.location,
               need_return, returned_at))
+        # 所有数据库操作在同一个事务中，一次性提交
         conn.commit()
 
         # 借出成功后异步发送邮件通知
