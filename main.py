@@ -441,6 +441,7 @@ class ReturnRequest(BaseModel):
     return_time: str = ""
     return_location: str = ""
     return_image: str = ""
+    consumed_quantity: int = 0
 
 class BatchDeleteRequest(BaseModel):
     ids: list = []
@@ -1710,6 +1711,7 @@ def return_material(req: ReturnRequest, conn=Depends(get_db), user=Depends(get_c
                 remaining = 0
 
         # 2. active 不够时，处理已发放(need_return=0)记录的退库
+        issued_touched = []
         if remaining > 0:
             cur.execute("""
                 SELECT id, quantity FROM transactions
@@ -1722,12 +1724,18 @@ def return_material(req: ReturnRequest, conn=Depends(get_db), user=Depends(get_c
                 if remaining <= 0:
                     break
                 tx_id, qty = row["id"], row["quantity"]
+                issued_touched.append(tx_id)
                 if qty <= remaining:
                     cur.execute("UPDATE transactions SET quantity = 0 WHERE id=?", (tx_id,))
                     remaining -= qty
                 else:
                     cur.execute("UPDATE transactions SET quantity = quantity - ? WHERE id=?", (remaining, tx_id))
                     remaining = 0
+
+            # 记录消耗数量到 remark
+            if req.consumed_quantity > 0 and issued_touched:
+                remark = f"消耗{req.consumed_quantity}个"
+                cur.execute("UPDATE transactions SET remark = ? WHERE id = ?", (remark, issued_touched[0]))
 
         conn.commit()
 
@@ -1926,7 +1934,7 @@ def my_transactions(conn=Depends(get_db), user=Depends(get_current_user)):
     cur.execute("""
         SELECT t.id, t.material_id, t.quantity, t.status, t.activity_name, t.phone, t.borrow_image,
                t.return_time, t.return_location, t.return_image, t.borrowed_at, t.returned_at,
-               t.need_return,
+               t.need_return, t.remark,
                m.name as material_name, m.spec, m.unit, m.image as material_image, m.location as material_location
         FROM transactions t
         JOIN materials m ON t.material_id = m.id
@@ -1953,7 +1961,7 @@ def all_transactions(conn=Depends(get_db), user=Depends(get_current_user)):
     cur.execute("""
         SELECT t.id, t.quantity, t.status, t.activity_name, t.phone, t.borrow_image,
                t.return_time, t.return_location, t.return_image, t.borrowed_at, t.returned_at,
-               t.need_return,
+               t.need_return, t.remark,
                m.name as material_name, m.spec, m.unit,
                u.real_name as user_name, u.role as user_role
         FROM transactions t

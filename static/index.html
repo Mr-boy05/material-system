@@ -290,7 +290,8 @@
             <div id="returnForm" style="display:none;">
                 <div class="form-card">
                     <div class="form-group"><label>归还物资名称 <span class="req">*</span></label><select id="returnMaterial" onchange="onReturnMaterialChange()"><option value="">请选择物资</option></select></div>
-                    <div class="form-group"><label>归还数量 <span class="req">*</span></label><input type="number" id="returnQty" value="1" min="1"></div>
+                    <div class="form-group" id="consumedGroup" style="display:none;"><label>实际消耗数量 <span class="req">*</span></label><input type="number" id="returnConsumed" value="0" min="0" oninput="onConsumedChange()"><small style="color:#999;">填写实际用掉/发出去的数量，剩余自动计算为归还数量</small></div>
+                    <div class="form-group"><label>归还数量 <span class="req">*</span></label><input type="number" id="returnQty" value="1" min="1"><small id="returnQtyHint" style="color:#999;display:none;"></small></div>
                     <div class="form-group"><label>归还人姓名 <span class="req">*</span></label><input type="text" id="returnUser" readonly></div>
                     <div class="form-group"><label>归还时间 <span class="req">*</span></label><input type="date" id="returnTime"></div>
                     <div class="form-group"><label>归还地点 <span class="req">*</span></label><input type="text" id="returnLocation" placeholder="选择物资后自动填充，可手动修改"></div>
@@ -1385,6 +1386,7 @@
             }
         }
 
+        let returnableMap = {};
         function loadBorrowedSelect() {
             fetch('/api/my-transactions', { headers:{'Authorization':'Bearer '+token} })
             .then(res=>res.json())
@@ -1399,6 +1401,7 @@
                     if (r.status==='active') map[mid].active += r.quantity;
                     else map[mid].issued += r.quantity;
                 });
+                returnableMap = map;
                 const list = Object.entries(map).map(([mid, info]) => ({ mid, ...info }));
                 const sel = document.getElementById('returnMaterial');
                 if (!list.length) { sel.innerHTML='<option value="">暂无可归还物资</option>'; return; }
@@ -1416,6 +1419,36 @@
             const opt = sel.options[sel.selectedIndex];
             const location = opt ? opt.getAttribute('data-location') : '';
             document.getElementById('returnLocation').value = location || '';
+            const mid = sel.value;
+            const info = returnableMap[mid];
+            const consumedGroup = document.getElementById('consumedGroup');
+            const returnQtyHint = document.getElementById('returnQtyHint');
+            const returnQty = document.getElementById('returnQty');
+            const returnConsumed = document.getElementById('returnConsumed');
+            if (info && info.issued > 0) {
+                // 有已发放可退库物资，显示消耗数量字段
+                consumedGroup.style.display = 'block';
+                returnConsumed.value = 0;
+                returnConsumed.max = info.issued;
+                returnQtyHint.style.display = 'block';
+                returnQtyHint.textContent = `可退库总数：${info.issued}，消耗0，归还${info.issued}`;
+                returnQty.value = info.issued;
+                returnQty.max = info.issued + info.active;
+            } else {
+                consumedGroup.style.display = 'none';
+                returnQtyHint.style.display = 'none';
+                returnQty.value = info ? info.active : 1;
+            }
+        }
+
+        function onConsumedChange() {
+            const sel = document.getElementById('returnMaterial');
+            const info = returnableMap[sel.value];
+            if (!info) return;
+            const consumed = Math.min(Number(document.getElementById('returnConsumed').value)||0, info.issued);
+            const returnQty = Math.max(0, info.issued - consumed);
+            document.getElementById('returnQty').value = returnQty;
+            document.getElementById('returnQtyHint').textContent = `可退库总数：${info.issued}，消耗${consumed}，归还${returnQty}`;
         }
 
         function loadAllRecords() {
@@ -1435,6 +1468,7 @@
                     } else {
                         st = `<span class="status-completed">已归还</span>`;
                     }
+                    if (r.remark) st += `<div style="font-size:11px;color:#999;margin-top:3px;">${r.remark}</div>`;
                     const imgs = (r.borrow_image?`<img src="${r.borrow_image}" class="record-img" style="cursor:pointer;" onclick="viewImage('${r.borrow_image}','领取图片')" title="点击放大">`:'') + (r.return_image?`<img src="${r.return_image}" class="record-img" style="cursor:pointer;" onclick="viewImage('${r.return_image}','归还图片')" title="点击放大">`:'');
                     const userDisplay = r.user_role === 'admin'
                         ? `<span class="user-with-role">${r.user_name}<span class="role-tag">管理员</span></span>`
@@ -1675,15 +1709,16 @@
             const material_id = document.getElementById('returnMaterial').value;
             if (!material_id) { showToast('请选择物资'); return; }
             const quantity = Number(document.getElementById('returnQty').value)||1;
+            const consumed = Number(document.getElementById('returnConsumed')?.value)||0;
             const return_time = document.getElementById('returnTime').value;
             if (!return_time) { showToast('请选择归还时间'); return; }
             const return_location = document.getElementById('returnLocation').value;
             if (!return_location) { showToast('请选择归还地点'); return; }
             if (!uploadedImages.return) { showToast('请上传归还图片'); return; }
-            fetch('/api/return', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({material_id,quantity,return_time,return_location,return_image:uploadedImages.return}) })
+            fetch('/api/return', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({material_id,quantity,return_time,return_location,return_image:uploadedImages.return,consumed_quantity:consumed}) })
             .then(res=>res.json().then(d=>({ok:res.ok,data:d})))
             .then(({ok,data})=>{
-                if (ok) { showToast('✅ '+data.message); setTimeout(()=>{ document.getElementById('returnQty').value='1'; document.getElementById('returnPreview').style.display='none'; uploadedImages.return=''; loadBorrowedSelect(); },1000); }
+                if (ok) { showToast('✅ '+data.message); setTimeout(()=>{ document.getElementById('returnQty').value='1'; document.getElementById('returnConsumed').value='0'; document.getElementById('consumedGroup').style.display='none'; document.getElementById('returnQtyHint').style.display='none'; document.getElementById('returnPreview').style.display='none'; uploadedImages.return=''; loadBorrowedSelect(); },1000); }
                 else showToast('❌ '+(data.detail||'归还失败'));
             });
         }
