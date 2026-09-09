@@ -254,6 +254,18 @@
             <button type="button" onclick="addNewMatLocation()" style="width:100%;padding:8px;background:#f0f0f0;border:none;border-radius:6px;color:#333;font-size:13px;margin-top:4px;">+ 添加位置</button>
             <div id="newMatTotalHint" style="font-size:12px;color:#666;margin-top:6px;">总库存：1</div>
         </div>
+        <div class="form-group">
+            <label>物资图片</label>
+            <div id="newMatImgBox">
+                <div class="upload-area" onclick="document.getElementById('newMatImage').click()" id="newMatImgPlaceholder" style="border:2px dashed #ccc;border-radius:10px;padding:24px 0;text-align:center;color:#999;font-size:14px;background:#fafafa;">📷 拍照/选择图片</div>
+                <img id="newMatImgPreview" style="max-width:100%;max-height:160px;border-radius:8px;display:none;">
+            </div>
+            <input type="file" id="newMatImage" accept="image/*" style="display:none" onchange="uploadNewMatImg(this)">
+            <div style="display:flex;gap:8px;margin-top:6px;display:none;" id="newMatImgActions">
+                <button type="button" class="btn-full ghost" style="flex:1;padding:8px;" onclick="document.getElementById('newMatImage').click()">更换图片</button>
+                <button type="button" class="btn-full ghost" style="flex:1;padding:8px;color:#ff4444;" onclick="removeNewMatImg()">删除图片</button>
+            </div>
+        </div>
         <button class="btn-full" onclick="addMaterial()">确认添加</button>
         <button class="btn-full ghost" onclick="closeModal('addMatModal')">取消</button>
     </div>
@@ -771,7 +783,48 @@ async function submitEditMat() {
 
 function showAddMaterial() {
     resetNewMatLocations();
+    newMatImage = '';
+    document.getElementById('newMatImgPreview').style.display='none';
+    document.getElementById('newMatImgPlaceholder').style.display='block';
+    document.getElementById('newMatImgActions').style.display='none';
+    document.getElementById('newMatName').value='';
+    document.getElementById('newMatQrCode').value='';
+    document.getElementById('newMatSpec').value='';
+    document.getElementById('newMatUnit').value='个';
     document.getElementById('addMatModal').classList.add('show');
+}
+
+let newMatImage = '';
+
+function uploadNewMatImg(input) {
+    const file = input.files[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { showToast('图片不能超过5MB'); return; }
+    const formData = new FormData();
+    formData.append('file', file);
+    showToast('正在上传图片...');
+    fetch('/api/upload', { method:'POST', headers:{'Authorization':'Bearer '+token}, body:formData })
+    .then(res=>res.json())
+    .then(data=>{
+        if (data.url) {
+            newMatImage = data.url;
+            document.getElementById('newMatImgPreview').src = URL.createObjectURL(file);
+            document.getElementById('newMatImgPreview').style.display='block';
+            document.getElementById('newMatImgPlaceholder').style.display='none';
+            document.getElementById('newMatImgActions').style.display='flex';
+            showToast('图片上传成功');
+        } else showToast(data.detail||'上传失败');
+    })
+    .catch(()=>showToast('上传失败'));
+    input.value='';
+}
+
+function removeNewMatImg() {
+    newMatImage = '';
+    document.getElementById('newMatImgPreview').style.display='none';
+    document.getElementById('newMatImgPlaceholder').style.display='block';
+    document.getElementById('newMatImgActions').style.display='none';
+    showToast('已移除图片');
 }
 
 function resetNewMatLocations() {
@@ -820,7 +873,8 @@ async function addMaterial() {
         spec: document.getElementById('newMatSpec').value.trim(),
         unit: document.getElementById('newMatUnit').value.trim() || '个',
         total_stock,
-        locations
+        locations,
+        image: newMatImage
     };
     try {
         const res = await api('/api/materials', {
