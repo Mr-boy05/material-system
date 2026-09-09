@@ -265,6 +265,7 @@
                     <input type="file" id="importFileInput" accept=".xlsx,.xls" style="display:none" onchange="importMaterials(this)">
                     <button class="btn btn-primary" onclick="openAddModal()">+ 新增物资</button>
                 </div>
+                <button class="btn btn-primary user-only" onclick="openAddModal()">+ 新增物资</button>
             </div>
             <table>
                 <thead><tr><th style="width:40px;" class="admin-only"><input type="checkbox" id="selectAllMat" onchange="toggleSelectAllMat(this)"></th><th>图片</th><th>物资名称</th><th>编号</th><th>情况</th><th>总库存</th><th>可领取</th><th>存放位置</th><th class="admin-only">操作人</th><th>操作</th></tr></thead>

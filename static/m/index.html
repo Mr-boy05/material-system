@@ -210,7 +210,7 @@
 
     <!-- 物资查询 -->
     <div class="page" id="page-search">
-        <div class="nav-bar"><div class="back" onclick="showPage('page-home')">←</div><div class="title">物资查询</div><div class="right"></div></div>
+        <div class="nav-bar"><div class="back" onclick="showPage('page-home')">←</div><div class="title">物资查询</div><div class="right" onclick="openUserAddMat()" style="cursor:pointer;font-size:15px;">＋ 录入</div></div>
         <div class="search-bar"><input type="text" id="searchKeyword" placeholder="输入名称/编码/规格搜索..." oninput="doSearch()"></div>
         <div class="mat-list" id="searchResults"><div style="text-align:center;padding:40px;color:#999">输入关键词搜索</div></div>
     </div>
@@ -219,6 +219,50 @@
     <div class="page" id="page-detail">
         <div class="nav-bar"><div class="back" onclick="showPage('page-search')">←</div><div class="title">物资详情</div><div class="right"></div></div>
         <div class="detail-card" id="detailContent"></div>
+    </div>
+
+    <!-- 新增物资弹窗（所有用户可录入） -->
+    <div class="modal-mask" id="addMatModal" style="display:none;" onclick="if(event.target===this)closeUserAddMat()">
+        <div class="modal">
+            <div class="modal-title">录入物资</div>
+            <div class="form-group"><label>物资名称 <span class="req">*</span></label><input type="text" id="newMatName" placeholder="请输入物资名称"></div>
+            <div class="form-group"><label>物资编号</label><input type="text" id="newMatQrCode" placeholder="不填则自动生成 CZ-00001"></div>
+            <div class="form-group"><label>物资情况</label>
+                <select id="newMatCondition" style="width:100%;padding:10px 12px;border:1px solid #e5e7f0;border-radius:10px;background:#fff;font-size:14px;">
+                    <option value="全新">全新</option>
+                    <option value="正常" selected>正常</option>
+                    <option value="损坏">损坏</option>
+                </select>
+            </div>
+            <div class="form-group"><label>单位</label><input type="text" id="newMatUnit" value="个" placeholder="个/台/支"></div>
+            <div class="form-group">
+                <label>存放位置与库存 <span class="req">*</span></label>
+                <div id="newMatLocationRows">
+                    <div class="loc-row" style="display:flex;gap:6px;margin-bottom:6px;align-items:center;">
+                        <input type="text" class="loc-name" placeholder="位置" style="flex:2;padding:10px;border:1px solid #e5e7f0;border-radius:8px;">
+                        <input type="number" class="loc-stock" placeholder="数量" value="1" min="0" style="flex:1;padding:10px;border:1px solid #e5e7f0;border-radius:8px;" oninput="updateNewMatTotal()">
+                    </div>
+                </div>
+                <button type="button" onclick="addNewMatLocation()" style="width:100%;padding:8px;background:#f0f0f0;border:none;border-radius:6px;color:#333;font-size:13px;margin-top:4px;">+ 添加位置</button>
+                <div id="newMatTotalHint" style="font-size:12px;color:#666;margin-top:6px;">总库存：1</div>
+            </div>
+            <div class="form-group">
+                <label>物资图片</label>
+                <div id="newMatImgBox">
+                    <div class="upload-area" onclick="document.getElementById('newMatImage').click()" id="newMatImgPlaceholder" style="border:2px dashed #ccc;border-radius:10px;padding:24px 0;text-align:center;color:#999;font-size:14px;background:#fafafa;">📷 拍照/选择图片</div>
+                    <img id="newMatImgPreview" style="max-width:100%;max-height:160px;border-radius:8px;display:none;">
+                </div>
+                <input type="file" id="newMatImage" accept="image/*" style="display:none" onchange="uploadNewMatImg(this)">
+                <div style="display:flex;gap:8px;margin-top:6px;display:none;" id="newMatImgActions">
+                    <button type="button" class="btn-full ghost" style="flex:1;padding:8px;" onclick="document.getElementById('newMatImage').click()">更换图片</button>
+                    <button type="button" class="btn-full ghost" style="flex:1;padding:8px;color:#ff4444;" onclick="removeNewMatImg()">删除图片</button>
+                </div>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:18px;">
+                <button class="btn-full ghost" style="flex:1;margin:0;" onclick="closeUserAddMat()">取消</button>
+                <button class="btn-primary" style="flex:1;margin:0;" onclick="submitUserAddMat()">确认录入</button>
+            </div>
+        </div>
     </div>
 
     <!-- 我的记录 -->
@@ -865,6 +909,115 @@
 
         function showToast(msg) { const t=document.getElementById('toast'); t.textContent=msg; t.style.display='block'; setTimeout(()=>t.style.display='none',2000); }
         function showLoading(show) { document.getElementById('loading').style.display=show?'flex':'none'; }
+
+        // ---------- 普通用户录入物资 ----------
+        let newMatImage = '';
+        function openUserAddMat() {
+            newMatImage = '';
+            document.getElementById('newMatImgPreview').style.display='none';
+            document.getElementById('newMatImgPlaceholder').style.display='block';
+            document.getElementById('newMatImgActions').style.display='none';
+            document.getElementById('newMatName').value='';
+            document.getElementById('newMatQrCode').value='';
+            document.getElementById('newMatCondition').value='正常';
+            document.getElementById('newMatUnit').value='个';
+            resetNewMatLocations();
+            document.getElementById('addMatModal').style.display='flex';
+        }
+        function closeUserAddMat() { document.getElementById('addMatModal').style.display='none'; }
+        function resetNewMatLocations() {
+            document.getElementById('newMatLocationRows').innerHTML = `
+                <div class="loc-row" style="display:flex;gap:6px;margin-bottom:6px;align-items:center;">
+                    <input type="text" class="loc-name" placeholder="位置" style="flex:2;padding:10px;border:1px solid #e5e7f0;border-radius:8px;">
+                    <input type="number" class="loc-stock" placeholder="数量" value="1" min="0" style="flex:1;padding:10px;border:1px solid #e5e7f0;border-radius:8px;" oninput="updateNewMatTotal()">
+                </div>`;
+            updateNewMatTotal();
+        }
+        function addNewMatLocation() {
+            const container = document.getElementById('newMatLocationRows');
+            const row = document.createElement('div');
+            row.className = 'loc-row';
+            row.style.cssText = 'display:flex;gap:6px;margin-bottom:6px;align-items:center;';
+            row.innerHTML = `
+                <input type="text" class="loc-name" placeholder="位置" style="flex:2;padding:10px;border:1px solid #e5e7f0;border-radius:8px;">
+                <input type="number" class="loc-stock" placeholder="数量" value="0" min="0" style="flex:1;padding:10px;border:1px solid #e5e7f0;border-radius:8px;" oninput="updateNewMatTotal()">
+                <button type="button" style="background:#ff4444;color:white;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:12px;" onclick="this.parentElement.remove();updateNewMatTotal();">删</button>
+            `;
+            container.appendChild(row);
+            updateNewMatTotal();
+        }
+        function updateNewMatTotal() {
+            let total = 0;
+            document.querySelectorAll('#newMatLocationRows .loc-stock').forEach(s => { total += Number(s.value)||0; });
+            document.getElementById('newMatTotalHint').textContent = '总库存：' + total;
+        }
+        function uploadNewMatImg(input) {
+            const file = input.files[0];
+            if (!file) return;
+            if (file.size > 5 * 1024 * 1024) { showToast('图片不能超过5MB'); return; }
+            const formData = new FormData();
+            formData.append('file', file);
+            showToast('正在上传图片...');
+            fetch('/api/upload', { method:'POST', headers:{'Authorization':'Bearer '+token}, body:formData })
+            .then(res=>res.json())
+            .then(data=>{
+                if (data.url) {
+                    newMatImage = data.url;
+                    document.getElementById('newMatImgPreview').src = URL.createObjectURL(file);
+                    document.getElementById('newMatImgPreview').style.display='block';
+                    document.getElementById('newMatImgPlaceholder').style.display='none';
+                    document.getElementById('newMatImgActions').style.display='flex';
+                    showToast('图片上传成功');
+                } else showToast(data.detail||'上传失败');
+            })
+            .catch(()=>showToast('上传失败'));
+            input.value='';
+        }
+        function removeNewMatImg() {
+            newMatImage = '';
+            document.getElementById('newMatImgPreview').style.display='none';
+            document.getElementById('newMatImgPlaceholder').style.display='block';
+            document.getElementById('newMatImgActions').style.display='none';
+            showToast('已移除图片');
+        }
+        async function submitUserAddMat() {
+            const name = document.getElementById('newMatName').value.trim();
+            if (!name) { showToast('请输入物资名称'); return; }
+            const rows = document.querySelectorAll('#newMatLocationRows .loc-row');
+            const locations = [];
+            let total_stock = 0;
+            rows.forEach(row => {
+                const loc = row.querySelector('.loc-name').value.trim();
+                const stock = Number(row.querySelector('.loc-stock').value)||0;
+                if (loc && stock > 0) { locations.push({location: loc, stock: stock}); total_stock += stock; }
+            });
+            if (locations.length === 0) { showToast('请至少填写一个存放位置和数量'); return; }
+            const data = {
+                name,
+                qr_code: document.getElementById('newMatQrCode').value.trim(),
+                condition: document.getElementById('newMatCondition').value,
+                unit: document.getElementById('newMatUnit').value.trim() || '个',
+                total_stock,
+                locations,
+                image: newMatImage
+            };
+            try {
+                const res = await fetch('/api/materials', {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json','Authorization':'Bearer '+token},
+                    body: JSON.stringify(data)
+                });
+                const result = await res.json();
+                if (res.ok) {
+                    showToast('录入成功，编号：' + result.qr_code);
+                    closeUserAddMat();
+                    loadStats();
+                    if (typeof doSearch === 'function') doSearch();
+                } else {
+                    showToast(result.detail || '录入失败');
+                }
+            } catch(e) { showToast('录入失败'); }
+        }
 
         // ---------- 技能文档 ----------
         function mFormatSize(bytes) {
