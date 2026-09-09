@@ -20,7 +20,13 @@
         .home-hero h2 { font-size:20px; margin-top:2px; position:relative; z-index:1; }
         .home-hero p { opacity:0.85; font-size:13px; margin-top:4px; position:relative; z-index:1; }
         .home-hero .role-tag { display:inline-block; background:rgba(255,255,255,0.25); padding:4px 14px; border-radius:14px; font-size:12px; margin-top:8px; position:relative; z-index:1; backdrop-filter:blur(10px); }
-        .home-stats { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; padding:0 16px; margin-top:-35px; position:relative; z-index:2; }
+        /* 公告栏 */
+        .m-notice-bar { display:flex; align-items:center; gap:8px; background:linear-gradient(90deg,#fff8e1,#fff3cd); border:1px solid #ffe082; border-radius:10px; padding:9px 12px; margin:12px 16px 0; }
+        .m-notice-track { display:inline-block; white-space:nowrap; font-size:13px; color:#6d4c00; animation:m-notice-scroll 20s linear infinite; }
+        .m-notice-track span { margin-right:40px; }
+        .m-notice-track .notice-damaged { color:#c62828; font-weight:600; }
+        @keyframes m-notice-scroll { 0% { transform:translateX(100%); } 100% { transform:translateX(-100%); } }
+        .home-stats { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; padding:0 16px; margin-top:14px; position:relative; z-index:2; }
         .stat-card { background:white; border-radius:14px; padding:16px 10px; text-align:center; box-shadow:0 4px 16px rgba(0,0,0,0.08); }
         .stat-card .num { font-size:22px; font-weight:700; color:#667eea; }
         .stat-card .label { font-size:11px; color:#999; margin-top:4px; }
@@ -147,6 +153,13 @@
             <img src="/static/college_logo_white.png" alt="重庆超大城市数字化治理学院" class="hero-logo">
             <h2 id="welcomeName">你好</h2>
             <div class="role-tag" id="roleTag">普通用户</div>
+        </div>
+        <!-- 公告栏（所有用户可见） -->
+        <div class="m-notice-bar" id="mNoticeBar" style="display:none;">
+            <span style="flex-shrink:0;font-size:15px;">📢</span>
+            <div style="flex:1;overflow:hidden;white-space:nowrap;">
+                <div class="m-notice-track" id="mNoticeTrack"></div>
+            </div>
         </div>
         <div class="home-stats">
             <div class="stat-card"><div class="num" id="statTotal">0</div><div class="label">物资总数</div></div>
@@ -472,8 +485,29 @@
         let allMaterials = [];
         let pendingBorrowMaterial = null;
 
+        // 公告栏（所有用户可见）
+        function loadMNotices() {
+            fetch('/api/announcements', { headers:{'Authorization':'Bearer '+token}})
+            .then(res=>res.json())
+            .then(data=>{
+                const track = document.getElementById('mNoticeTrack');
+                const bar = document.getElementById('mNoticeBar');
+                if (!track || !bar) return;
+                const items = [];
+                if (data.manual && data.manual.trim()) items.push(`<span>📣 ${data.manual.replace(/</g,'&lt;')}</span>`);
+                (data.damaged || []).forEach(d => items.push(`<span class="notice-damaged">${d}</span>`));
+                if (!items.length) { bar.style.display='none'; return; }
+                let html = items.join('');
+                if (items.length < 3) html = html + html;
+                track.innerHTML = html;
+                bar.style.display='flex';
+            })
+            .catch(()=>{ setTimeout(loadMNotices, 1500); });
+        }
+
         // 加载首页统计数据
         function loadStats() {
+            loadMNotices();
             fetch('/api/materials', { headers:{'Authorization':'Bearer '+token} })
             .then(res=>res.json())
             .then(data=>{
@@ -490,7 +524,8 @@
             })
             .catch(()=>{});
         }
-        loadStats();
+        // 页面加载后稍延迟再拉取统计数据/公告，避免与页面加载竞争导致请求被取消
+        setTimeout(loadStats, 300);
 
         // 处理从扫码页面跳转过来的物资领取
         const pendingFromScan = localStorage.getItem('pendingBorrowMaterial');

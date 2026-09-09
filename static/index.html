@@ -59,6 +59,17 @@
         .page.active { display:block; }
         .page-title { font-size:20px; font-weight:700; color:#333; margin-bottom:18px; }
 
+        /* 公告栏 */
+        .notice-bar { display:flex; align-items:center; gap:12px; background:linear-gradient(90deg,#fff8e1,#fff3cd); border:1px solid #ffe082; border-radius:10px; padding:10px 14px; margin-bottom:16px; box-shadow:0 1px 6px rgba(255,193,7,0.15); }
+        .notice-icon { font-size:18px; flex-shrink:0; }
+        .notice-scroll { flex:1; overflow:hidden; white-space:nowrap; }
+        .notice-track { display:inline-block; white-space:nowrap; font-size:14px; color:#6d4c00; animation:notice-scroll 25s linear infinite; }
+        .notice-track span { margin-right:60px; }
+        .notice-track .notice-damaged { color:#c62828; font-weight:600; }
+        @keyframes notice-scroll { 0% { transform:translateX(100%); } 100% { transform:translateX(-100%); } }
+        .notice-edit { flex-shrink:0; padding:6px 14px; background:#ffb300; color:white; border:none; border-radius:8px; cursor:pointer; font-size:13px; }
+        .notice-edit:hover { background:#ffa000; }
+
         /* 筛选栏 */
         .filter-bar { background:white; border-radius:10px; padding:14px 16px; margin-bottom:14px; box-shadow:0 1px 6px rgba(0,0,0,0.04); display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
         .filter-bar input, .filter-bar select { padding:8px 12px; border:2px solid #e8e8e8; border-radius:8px; font-size:13px; }
@@ -220,6 +231,14 @@
 
     <!-- 右侧内容 -->
     <div class="main">
+        <!-- 公告栏 -->
+        <div class="notice-bar" id="noticeBar" style="display:none;">
+            <span class="notice-icon">📢</span>
+            <div class="notice-scroll">
+                <div class="notice-track" id="noticeTrack"></div>
+            </div>
+            <button class="notice-edit admin-only" id="noticeEditBtn" onclick="openNoticeEdit()">✏️ 编辑公告</button>
+        </div>
         <!-- 物资管理 -->
         <div class="page active" id="page-materials">
             <div class="page-title">物资管理</div>
@@ -248,8 +267,8 @@
                 </div>
             </div>
             <table>
-                <thead><tr><th style="width:40px;" class="admin-only"><input type="checkbox" id="selectAllMat" onchange="toggleSelectAllMat(this)"></th><th>图片</th><th>物资名称</th><th>编号</th><th>总库存</th><th>可领取</th><th>存放位置</th><th class="admin-only">操作人</th><th>操作</th></tr></thead>
-                <tbody id="materialTable"><tr><td colspan="9" class="empty">加载中...</td></tr></tbody>
+                <thead><tr><th style="width:40px;" class="admin-only"><input type="checkbox" id="selectAllMat" onchange="toggleSelectAllMat(this)"></th><th>图片</th><th>物资名称</th><th>编号</th><th>情况</th><th>总库存</th><th>可领取</th><th>存放位置</th><th class="admin-only">操作人</th><th>操作</th></tr></thead>
+                <tbody id="materialTable"><tr><td colspan="10" class="empty">加载中...</td></tr></tbody>
             </table>
         </div>
 
@@ -281,7 +300,7 @@
                 <div style="margin-top:20px;">
                     <div class="page-title" style="font-size:16px;margin-bottom:12px;">📦 全部物资清单</div>
                     <table>
-                        <thead><tr><th>图片</th><th>物资名称</th><th>编号</th><th>规格</th><th>总库存</th><th>可领取</th><th>存放位置</th><th>操作</th></tr></thead>
+                        <thead><tr><th>图片</th><th>物资名称</th><th>编号</th><th>情况</th><th>总库存</th><th>可领取</th><th>存放位置</th><th>操作</th></tr></thead>
                         <tbody id="borrowMaterialList"><tr><td colspan="8" class="empty">加载中...</td></tr></tbody>
                     </table>
                 </div>
@@ -495,7 +514,13 @@
             <h3>新增物资</h3>
             <div class="form-group"><label>物资名称 <span class="req">*</span></label><input type="text" id="newName" placeholder="如：笔记本电脑"></div>
             <div class="form-group"><label>物资编号</label><input type="text" id="newQrCode" placeholder="不填则自动生成 CZ-00001"></div>
-            <div class="form-group"><label>规格</label><input type="text" id="newSpec" placeholder="如：15.6寸 / 500ml"></div>
+            <div class="form-group"><label>物资情况</label>
+                <select id="newCondition" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;background:#fff;">
+                    <option value="全新">全新</option>
+                    <option value="正常" selected>正常</option>
+                    <option value="损坏">损坏</option>
+                </select>
+            </div>
             <div class="form-group"><label>单位</label><input type="text" id="newUnit" placeholder="如：个 / 件 / 本" value="个"></div>
             <div class="form-group">
                 <label>存放位置与库存 <span class="req">*</span></label>
@@ -521,7 +546,13 @@
             <input type="hidden" id="editMatId">
             <div class="form-group"><label>物资名称 <span class="req">*</span></label><input type="text" id="editMatName"></div>
             <div class="form-group"><label>物资编号</label><input type="text" id="editMatQrCode"></div>
-            <div class="form-group"><label>规格</label><input type="text" id="editMatSpec"></div>
+            <div class="form-group"><label>物资情况</label>
+                <select id="editMatCondition" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;background:#fff;">
+                    <option value="全新">全新</option>
+                    <option value="正常">正常</option>
+                    <option value="损坏">损坏</option>
+                </select>
+            </div>
             <div class="form-group"><label>单位</label><input type="text" id="editMatUnit"></div>
             <div class="form-group"><label>总库存数量</label><input type="number" id="editMatStock" min="0"><div style="font-size:12px;color:#999;margin-top:4px;">修改总库存会同步调整可用库存，当前可用库存会显示在下方</div></div>
             <div class="form-group"><label>当前可用库存</label><input type="text" id="editMatAvailable" disabled style="background:#f5f5f5;"></div>
@@ -804,8 +835,49 @@
         document.getElementById('returnUser').value = user.real_name || '';
         document.getElementById('borrowPhone').value = user.phone || '';
         document.getElementById('returnTime').value = new Date().toISOString().split('T')[0];
+        // 页面加载后稍延迟拉取公告，避免与页面加载竞争导致请求被取消
+        setTimeout(loadNotices, 300);
         let uploadedImages = { new:'', borrow:'', return:'' };
         let allMaterials = [];
+
+        // ---------- 公告栏 ----------
+        function loadNotices() {
+            fetch('/api/announcements', { headers:{'Authorization':'Bearer '+token}})
+            .then(res=>res.json())
+            .then(data=>{
+                const track = document.getElementById('noticeTrack');
+                if (!track) return;
+                const items = [];
+                if (data.manual && data.manual.trim()) items.push(`<span>📣 ${escapeHtml(data.manual)}</span>`);
+                (data.damaged || []).forEach(d => items.push(`<span class="notice-damaged">${d}</span>`));
+                if (!items.length) { document.getElementById('noticeBar').style.display='none'; return; }
+                // 内容少时复制一份实现无缝滚动
+                let html = items.join('');
+                if (items.length < 3) html = html + html;
+                track.innerHTML = html;
+                document.getElementById('noticeBar').style.display='flex';
+            })
+            .catch(()=>{ setTimeout(loadNotices, 1500); });
+        }
+        function escapeHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+        function openNoticeEdit() {
+            fetch('/api/announcements', { headers:{'Authorization':'Bearer '+token}})
+            .then(res=>res.json())
+            .then(data=>{
+                document.getElementById('noticeEditContent').value = data.manual || '';
+                document.getElementById('noticeEditModal').style.display='flex';
+            });
+        }
+        function saveNotice() {
+            const content = document.getElementById('noticeEditContent').value.trim();
+            fetch('/api/announcements', { method:'PUT', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({content}) })
+            .then(res=>res.json())
+            .then(data=>{
+                if (data.success) { showToast('公告已更新'); document.getElementById('noticeEditModal').style.display='none'; loadNotices(); }
+                else showToast(data.detail||'保存失败');
+            })
+            .catch(()=>showToast('保存失败'));
+        }
 
         function toggleDropdown(btn) {
             btn.classList.toggle('open');
@@ -1300,7 +1372,7 @@
                 }
                 const tbody = document.getElementById('materialTable');
                 document.getElementById('materialCount').textContent = '共 ' + filtered.length + ' 条';
-                if (!filtered.length) { tbody.innerHTML='<tr><td colspan="9" class="empty">暂无物资</td></tr>'; return; }
+                if (!filtered.length) { tbody.innerHTML='<tr><td colspan="10" class="empty">暂无物资</td></tr>'; return; }
                 let rows = [];
                 filtered.forEach(m=>{
                     let img = m.image ? `<img src="${m.image}" class="mat-img" style="cursor:pointer;" onclick="viewImage('${m.image}','${m.name}')" title="点击放大">` : `<div class="mat-img-ph">📷</div>`;
@@ -1319,6 +1391,7 @@
                             <td>${firstRow ? img : ''}</td>
                             <td>${firstRow ? nameHtml : ''}</td>
                             <td>${firstRow ? `<code>${m.qr_code}</code>` : ''}</td>
+                            <td>${firstRow ? condTag(m.condition) : ''}</td>
                             <td>${firstRow ? m.total_stock : ''}</td>
                             <td><span class="stock-badge ${sc}">${loc.stock}</span></td>
                             <td>${isAdmin ? `<span style="cursor:pointer;color:#1976d2;" onclick="openLocationManager('${m.id}','${(m.name||'').replace(/'/g,"\\'")}')" title="点击管理位置">${locTag}${loc.location || '-'}</span>` : `${locTag}${loc.location || '-'}`}</td>
@@ -1342,6 +1415,13 @@
             });
         }
 
+        function condTag(cond) {
+            const c = cond || '正常';
+            const map = {'全新':'#43a047','正常':'#1976d2','损坏':'#c62828'};
+            const bg = {'全新':'#e8f5e9','正常':'#e3f2fd','损坏':'#ffebee'};
+            return `<span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;background:${bg[c]||'#f0f0f0'};color:${map[c]||'#666'};">${c}</span>`;
+        }
+
         function renderBorrowMaterialList(data) {
             const tbody = document.getElementById('borrowMaterialList');
             if (!data.length) { tbody.innerHTML='<tr><td colspan="8" class="empty">暂无物资</td></tr>'; return; }
@@ -1351,7 +1431,7 @@
                 let selectBtn = m.available_stock > 0
                     ? `<button class="btn btn-sm btn-primary" onclick="selectBorrowMaterial('${m.id}')">选择</button>`
                     : `<button class="btn btn-sm" style="background:#f0f0f0;color:#999;cursor:not-allowed;" disabled>库存不足</button>`;
-                return `<tr><td>${img}</td><td><strong>${m.name}</strong></td><td><code>${m.qr_code}</code></td><td>${m.spec||'-'}</td><td>${m.total_stock}</td><td><span class="stock-badge ${sc}">${m.available_stock}</span></td><td>${m.location||'-'}</td><td>${selectBtn}</td></tr>`;
+                return `<tr><td>${img}</td><td><strong>${m.name}</strong></td><td><code>${m.qr_code}</code></td><td>${condTag(m.condition)}</td><td>${m.total_stock}</td><td><span class="stock-badge ${sc}">${m.available_stock}</span></td><td>${m.location||'-'}</td><td>${selectBtn}</td></tr>`;
             }).join('');
         }
 
@@ -1525,7 +1605,7 @@
             const name = document.getElementById('newName').value.trim();
             if (!name) { showToast('请输入物资名称'); return; }
             const qr_code = document.getElementById('newQrCode').value.trim();
-            const spec = document.getElementById('newSpec').value.trim();
+            const condition = document.getElementById('newCondition').value;
             const unit = document.getElementById('newUnit').value.trim() || '个';
             // 收集多位置数据
             const rows = document.querySelectorAll('#locationRows .location-row');
@@ -1540,10 +1620,10 @@
                 }
             });
             if (locations.length === 0) { showToast('请至少填写一个存放位置和数量'); return; }
-            fetch('/api/materials', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({name,qr_code,spec,unit,total_stock,locations,image:uploadedImages.new}) })
+            fetch('/api/materials', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({name,qr_code,condition,unit,total_stock,locations,image:uploadedImages.new}) })
             .then(res=>res.json().then(d=>({ok:res.ok,data:d})))
             .then(({ok,data})=>{
-                if (ok) { showToast('添加成功！编号：'+data.qr_code); closeAddModal(); document.getElementById('newName').value=''; document.getElementById('newQrCode').value=''; document.getElementById('newSpec').value=''; document.getElementById('newUnit').value='个'; document.getElementById('newPreview').style.display='none'; uploadedImages.new=''; loadMaterials(); }
+                if (ok) { showToast('添加成功！编号：'+data.qr_code); closeAddModal(); document.getElementById('newName').value=''; document.getElementById('newQrCode').value=''; document.getElementById('newUnit').value='个'; document.getElementById('newPreview').style.display='none'; uploadedImages.new=''; loadMaterials(); }
                 else showToast(data.detail||'添加失败');
             })
             .catch(()=>showToast('网络错误'));
@@ -1557,7 +1637,7 @@
             document.getElementById('editMatId').value = m.id;
             document.getElementById('editMatName').value = m.name;
             document.getElementById('editMatQrCode').value = m.qr_code || '';
-            document.getElementById('editMatSpec').value = m.spec || '';
+            document.getElementById('editMatCondition').value = ['全新','正常','损坏'].includes(m.condition) ? m.condition : '正常';
             document.getElementById('editMatUnit').value = m.unit || '个';
             document.getElementById('editMatStock').value = m.total_stock;
             document.getElementById('editMatAvailable').value = m.available_stock;
@@ -1597,11 +1677,11 @@
             const name = document.getElementById('editMatName').value.trim();
             if (!name) { showToast('物资名称不能为空'); return; }
             const qr_code = document.getElementById('editMatQrCode').value.trim();
-            const spec = document.getElementById('editMatSpec').value.trim();
+            const condition = document.getElementById('editMatCondition').value;
             const unit = document.getElementById('editMatUnit').value.trim() || '个';
             const total_stock = Number(document.getElementById('editMatStock').value);
             const location = document.getElementById('editMatLocation').value.trim();
-            const body = {name, qr_code, spec, unit, total_stock, location, image: editMatImage};
+            const body = {name, qr_code, condition, unit, total_stock, location, image: editMatImage};
             fetch('/api/materials/'+id, { method:'PUT', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify(body) })
             .then(res=>res.json().then(d=>({ok:res.ok,data:d})))
             .then(({ok,data})=>{
@@ -3111,5 +3191,17 @@
 
         loadMaterials();
     </script>
+    <!-- 编辑公告弹窗 -->
+    <div class="modal-mask" id="noticeEditModal" style="display:none;" onclick="if(event.target===this)this.style.display='none';">
+        <div class="modal">
+            <h3>📢 编辑公告</h3>
+            <div style="font-size:12px;color:#999;margin-bottom:10px;">公告显示在页面顶部横向滚动，所有用户可见；物资「损坏」会自动追加提醒</div>
+            <div class="form-group"><label>公告内容</label><textarea id="noticeEditContent" rows="4" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;resize:vertical;" placeholder="输入公告内容，留空则只显示损坏提醒"></textarea></div>
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="document.getElementById('noticeEditModal').style.display='none'">取消</button>
+                <button class="btn-submit" onclick="saveNotice()">保存公告</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

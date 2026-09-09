@@ -16,6 +16,13 @@
         .nav-bar .action { font-size:13px; cursor:pointer; opacity:0.9; min-width:50px; text-align:right; }
         .nav-bar .back { font-size:20px; cursor:pointer; opacity:0.9; min-width:30px; font-weight:bold; }
 
+        /* 公告栏 */
+        .m-notice-bar { display:flex; align-items:center; gap:8px; background:linear-gradient(90deg,#fff8e1,#fff3cd); border:1px solid #ffe082; border-radius:10px; padding:9px 12px; margin:12px 16px 0; }
+        .m-notice-track { display:inline-block; white-space:nowrap; font-size:13px; color:#6d4c00; animation:m-notice-scroll 20s linear infinite; }
+        .m-notice-track span { margin-right:40px; }
+        .m-notice-track .notice-damaged { color:#c62828; font-weight:600; }
+        @keyframes m-notice-scroll { 0% { transform:translateX(100%); } 100% { transform:translateX(-100%); } }
+
         /* 统计卡片 */
         .stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:16px; }
         .stat-card { background:white; border-radius:14px; padding:18px 14px; box-shadow:0 2px 12px rgba(0,0,0,0.06); }
@@ -118,6 +125,14 @@
             <div class="title" style="margin-left:4px;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">管理后台</div>
         </div>
         <div class="action" onclick="logout()">退出</div>
+    </div>
+    <!-- 公告栏（所有用户可见，管理员可编辑） -->
+    <div class="m-notice-bar" id="mNoticeBar" style="display:none;">
+        <span style="flex-shrink:0;font-size:15px;">📢</span>
+        <div style="flex:1;overflow:hidden;white-space:nowrap;">
+            <div class="m-notice-track" id="mNoticeTrack"></div>
+        </div>
+        <span onclick="openMNoticeEdit()" style="flex-shrink:0;font-size:16px;padding:0 4px;cursor:pointer;" title="编辑公告">✏️</span>
     </div>
     <div class="stats-grid">
         <div class="stat-card"><div class="num" id="statMatCount">0</div><div class="label">物资种类</div></div>
@@ -235,13 +250,32 @@
     <div class="tab-item" onclick="switchTab('users')"><div class="icon">👥</div><div class="label">人员</div></div>
 </div>
 
+<!-- 编辑公告弹窗 -->
+<div class="modal-mask" id="mNoticeEditModal">
+    <div class="modal">
+        <div class="modal-title">📢 编辑公告</div>
+        <div style="font-size:12px;color:#999;margin-bottom:10px;">公告显示在首页顶部横向滚动，所有用户可见；物资「损坏」会自动追加提醒</div>
+        <div class="form-group"><label>公告内容</label><textarea id="mNoticeEditContent" rows="4" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;resize:vertical;" placeholder="输入公告内容，留空则只显示损坏提醒"></textarea></div>
+        <div style="display:flex;gap:10px;margin-top:14px;">
+            <button class="btn-full ghost" style="flex:1;" onclick="document.getElementById('mNoticeEditModal').classList.remove('show')">取消</button>
+            <button class="btn-full" style="flex:1;" onclick="saveMNotice()">保存公告</button>
+        </div>
+    </div>
+</div>
+
 <!-- 新增物资弹窗 -->
 <div class="modal-mask" id="addMatModal">
     <div class="modal">
         <div class="modal-title">新增物资</div>
         <div class="form-group"><label>物资名称 <span class="req">*</span></label><input type="text" id="newMatName" placeholder="请输入物资名称"></div>
         <div class="form-group"><label>物资编号</label><input type="text" id="newMatQrCode" placeholder="不填则自动生成 CZ-00001"></div>
-        <div class="form-group"><label>规格型号</label><input type="text" id="newMatSpec" placeholder="如：ThinkPad X1"></div>
+        <div class="form-group"><label>物资情况</label>
+            <select id="newMatCondition" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;background:#fff;">
+                <option value="全新">全新</option>
+                <option value="正常" selected>正常</option>
+                <option value="损坏">损坏</option>
+            </select>
+        </div>
         <div class="form-group"><label>单位</label><input type="text" id="newMatUnit" value="个" placeholder="个/台/支"></div>
         <div class="form-group">
             <label>存放位置与库存 <span class="req">*</span></label>
@@ -278,7 +312,13 @@
         <input type="hidden" id="editMatId">
         <div class="form-group"><label>物资名称 <span class="req">*</span></label><input type="text" id="editMatName"></div>
         <div class="form-group"><label>物资编号</label><input type="text" id="editMatQrCode"></div>
-        <div class="form-group"><label>规格型号</label><input type="text" id="editMatSpec"></div>
+        <div class="form-group"><label>物资情况</label>
+            <select id="editMatCondition" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;background:#fff;">
+                <option value="全新">全新</option>
+                <option value="正常">正常</option>
+                <option value="损坏">损坏</option>
+            </select>
+        </div>
         <div class="form-group"><label>单位</label><input type="text" id="editMatUnit"></div>
         <div class="form-group"><label>总库存数量</label><input type="number" id="editMatStock" min="0"><div style="font-size:12px;color:#999;margin-top:4px;">修改总库存会同步调整可用库存</div></div>
         <div class="form-group"><label>当前可用库存</label><input type="text" id="editMatAvailable" disabled style="background:#f5f5f5;"></div>
@@ -471,9 +511,48 @@ function api(url, options = {}) {
     return fetch(url, options);
 }
 
+// 公告栏
+function loadMNotices() {
+    fetch('/api/announcements', { headers:{'Authorization':'Bearer '+token}})
+    .then(res=>res.json())
+    .then(data=>{
+        const track = document.getElementById('mNoticeTrack');
+        const bar = document.getElementById('mNoticeBar');
+        if (!track || !bar) return;
+        const items = [];
+        if (data.manual && data.manual.trim()) items.push(`<span>📣 ${data.manual.replace(/</g,'&lt;')}</span>`);
+        (data.damaged || []).forEach(d => items.push(`<span class="notice-damaged">${d}</span>`));
+        if (!items.length) { bar.style.display='none'; return; }
+        let html = items.join('');
+        if (items.length < 3) html = html + html;
+        track.innerHTML = html;
+        bar.style.display='flex';
+    })
+    .catch(()=>{ setTimeout(loadMNotices, 1500); });
+}
+function openMNoticeEdit() {
+    fetch('/api/announcements', { headers:{'Authorization':'Bearer '+token}})
+    .then(res=>res.json())
+    .then(data=>{
+        document.getElementById('mNoticeEditContent').value = data.manual || '';
+        document.getElementById('mNoticeEditModal').classList.add('show');
+    });
+}
+function saveMNotice() {
+    const content = document.getElementById('mNoticeEditContent').value.trim();
+    fetch('/api/announcements', { method:'PUT', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({content}) })
+    .then(res=>res.json())
+    .then(data=>{
+        if (data.success) { showToast('公告已更新'); document.getElementById('mNoticeEditModal').classList.remove('show'); loadMNotices(); }
+        else showToast(data.detail||'保存失败');
+    })
+    .catch(()=>showToast('保存失败'));
+}
+
 // 仪表盘
 async function loadDashboard() {
     try {
+        loadMNotices();
         const res = await api('/api/stats/overview');
         const data = await res.json();
         document.getElementById('statMatCount').textContent = data.material_count;
@@ -507,6 +586,13 @@ async function loadDashboard() {
 }
 
 // 物资列表
+function condTag(cond) {
+    const c = cond || '正常';
+    const map = {'全新':'#43a047','正常':'#1976d2','损坏':'#c62828'};
+    const bg = {'全新':'#e8f5e9','正常':'#e3f2fd','损坏':'#ffebee'};
+    return `<span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;background:${bg[c]||'#f0f0f0'};color:${map[c]||'#666'};">${c}</span>`;
+}
+
 async function loadMaterials() {
     try {
         const keyword = document.getElementById('searchInput').value;
@@ -549,7 +635,7 @@ async function loadMaterials() {
                     </div>
                 </div>
                 <div class="meta">
-                    <span>📐 ${m.spec || '无'}</span>
+                    <span>${condTag(m.condition)}</span>
                     <span>👤 ${m.operator || '未知'}</span>
                 </div>
                 ${locationsHtml}
@@ -709,7 +795,7 @@ function openEditMaterial(id) {
     document.getElementById('editMatId').value = m.id;
     document.getElementById('editMatName').value = m.name;
     document.getElementById('editMatQrCode').value = m.qr_code || '';
-    document.getElementById('editMatSpec').value = m.spec || '';
+    document.getElementById('editMatCondition').value = ['全新','正常','损坏'].includes(m.condition) ? m.condition : '正常';
     document.getElementById('editMatUnit').value = m.unit || '个';
     document.getElementById('editMatStock').value = m.total_stock;
     document.getElementById('editMatAvailable').value = m.available_stock;
@@ -756,7 +842,7 @@ async function submitEditMat() {
     const data = {
         name,
         qr_code: document.getElementById('editMatQrCode').value.trim(),
-        spec: document.getElementById('editMatSpec').value.trim(),
+        condition: document.getElementById('editMatCondition').value,
         unit: document.getElementById('editMatUnit').value.trim() || '个',
         total_stock: parseInt(document.getElementById('editMatStock').value) || 0,
         location: document.getElementById('editMatLocation').value.trim(),
@@ -789,7 +875,7 @@ function showAddMaterial() {
     document.getElementById('newMatImgActions').style.display='none';
     document.getElementById('newMatName').value='';
     document.getElementById('newMatQrCode').value='';
-    document.getElementById('newMatSpec').value='';
+    document.getElementById('newMatCondition').value='正常';
     document.getElementById('newMatUnit').value='个';
     document.getElementById('addMatModal').classList.add('show');
 }
@@ -870,7 +956,7 @@ async function addMaterial() {
     const data = {
         name,
         qr_code: document.getElementById('newMatQrCode').value.trim(),
-        spec: document.getElementById('newMatSpec').value.trim(),
+        condition: document.getElementById('newMatCondition').value,
         unit: document.getElementById('newMatUnit').value.trim() || '个',
         total_stock,
         locations,

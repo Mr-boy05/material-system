@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "3.4.1"
+VERSION = "3.5.0"
 VERSION_DATE = "2026-09-09"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
@@ -40,7 +40,7 @@ def load_env():
 
 load_env()
 
-from fastapi import FastAPI, Depends, HTTPException, status, Header, UploadFile, File, Form, Query
+from fastapi import FastAPI, Depends, HTTPException, status, Header, UploadFile, File, Form, Query, Body
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, StreamingResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -149,9 +149,26 @@ def init_db():
             location TEXT,
             image TEXT DEFAULT '',
             operator TEXT DEFAULT '',
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            condition TEXT DEFAULT '正常'
         )
     """)
+
+    # 兼容旧库：materials 表补充 condition 列
+    try:
+        c.execute("SELECT condition FROM materials LIMIT 1")
+    except Exception:
+        c.execute("ALTER TABLE materials ADD COLUMN condition TEXT DEFAULT '正常'")
+
+    # 公告表（id=1 为管理员公告，损坏提醒自动生成）
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS announcements (
+            id INTEGER PRIMARY KEY,
+            content TEXT DEFAULT '',
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    c.execute("INSERT OR IGNORE INTO announcements (id, content) VALUES (1, '欢迎使用城治学生会物资管理系统！')")
 
     # 物资位置表（同一物资可存放在多个位置，每个位置独立库存）
     c.execute("""
@@ -411,6 +428,7 @@ class UserUpdateRequest(BaseModel):
 class MaterialCreate(BaseModel):
     name: str
     spec: Optional[str] = ""
+    condition: Optional[str] = "正常"
     unit: str = "个"
     total_stock: int = 0
     location: Optional[str] = ""
@@ -421,6 +439,7 @@ class MaterialCreate(BaseModel):
 class MaterialUpdate(BaseModel):
     name: Optional[str] = None
     spec: Optional[str] = None
+    condition: Optional[str] = None
     unit: Optional[str] = None
     total_stock: Optional[int] = None
     location: Optional[str] = None
@@ -1302,7 +1321,7 @@ def delete_material_location(material_id: str, loc_id: str, conn=Depends(get_db)
 def list_materials(conn=Depends(get_db), user=Depends(get_current_user)):
     cur = conn.cursor()
     cur.execute("""
-        SELECT id, name, qr_code, spec, unit, total_stock, available_stock, location, image, operator, created_at
+        SELECT id, name, qr_code, spec, condition, unit, total_stock, available_stock, location, image, operator, created_at
         FROM materials ORDER BY created_at DESC
     """)
     materials = [dict(m) for m in cur.fetchall()]
@@ -1318,14 +1337,14 @@ def search_materials(keyword: str = "", conn=Depends(get_db), user=Depends(get_c
     cur = conn.cursor()
     if keyword:
         cur.execute("""
-            SELECT id, name, qr_code, spec, unit, total_stock, available_stock, location, image, operator
+            SELECT id, name, qr_code, spec, condition, unit, total_stock, available_stock, location, image, operator
             FROM materials
             WHERE name LIKE ? OR qr_code LIKE ? OR spec LIKE ? OR operator LIKE ?
             ORDER BY name
         """, (f"%{keyword}%", f"%{keyword}%", f"%{keyword}%", f"%{keyword}%"))
     else:
         cur.execute("""
-            SELECT id, name, qr_code, spec, unit, total_stock, available_stock, location, image, operator
+            SELECT id, name, qr_code, spec, condition, unit, total_stock, available_stock, location, image, operator
             FROM materials ORDER BY name
         """)
     materials = [dict(m) for m in cur.fetchall()]
@@ -1340,7 +1359,7 @@ def search_materials(keyword: str = "", conn=Depends(get_db), user=Depends(get_c
 def get_material_by_qr(qr_code: str, conn=Depends(get_db), user=Depends(get_current_user)):
     cur = conn.cursor()
     cur.execute("""
-        SELECT id, name, qr_code, spec, unit, total_stock, available_stock, location, image, operator
+        SELECT id, name, qr_code, spec, condition, unit, total_stock, available_stock, location, image, operator
         FROM materials WHERE qr_code = ?
     """, (qr_code,))
     material = cur.fetchone()
@@ -1359,7 +1378,7 @@ def download_material_template(user=Depends(get_current_user)):
     ws.title = "物资导入模板"
 
     # 表头
-    headers = ["物资名称", "规格", "单位", "库存数量", "存放位置"]
+    headers = ["物资名称", "物资情况", "单位", "库存数量", "存放位置"]
     header_fill = openpyxl.styles.PatternFill(start_color="43A047", end_color="43A047", fill_type="solid")
     header_font = openpyxl.styles.Font(bold=True, color="FFFFFF", size=11)
     for col, header in enumerate(headers, 1):
@@ -1369,7 +1388,7 @@ def download_material_template(user=Depends(get_current_user)):
         cell.alignment = openpyxl.styles.Alignment(horizontal="center", vertical="center")
 
     # 示例数据（第2行）
-    sample_data = ["笔记本电脑", "ThinkPad X1", "台", 5, "办公室A柜"]
+    sample_data = ["笔记本电脑", "正常", "台", 5, "办公室A柜"]
     for col, value in enumerate(sample_data, 1):
         cell = ws.cell(row=2, column=col, value=value)
         cell.font = openpyxl.styles.Font(color="999999", italic=True)
@@ -1414,7 +1433,7 @@ def export_materials(conn=Depends(get_db), user=Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="只有管理员可以导出物资")
     cur = conn.cursor()
     cur.execute("""
-        SELECT name, qr_code, spec, unit, total_stock, available_stock, location, operator, created_at
+        SELECT name, qr_code, spec, condition, unit, total_stock, available_stock, location, operator, created_at
         FROM materials ORDER BY created_at DESC
     """)
     materials = cur.fetchall()
@@ -1424,7 +1443,7 @@ def export_materials(conn=Depends(get_db), user=Depends(get_current_user)):
     ws.title = "物资清单"
 
     # 表头
-    headers = ["物资名称", "编号", "规格", "单位", "总库存", "可领取", "存放位置", "操作人", "创建时间"]
+    headers = ["物资名称", "编号", "物资情况", "单位", "总库存", "可领取", "存放位置", "操作人", "创建时间"]
     for col, header in enumerate(headers, 1):
         cell = ws.cell(row=1, column=col, value=header)
         cell.font = openpyxl.styles.Font(bold=True)
@@ -1434,7 +1453,7 @@ def export_materials(conn=Depends(get_db), user=Depends(get_current_user)):
     for row, m in enumerate(materials, 2):
         ws.cell(row=row, column=1, value=m["name"])
         ws.cell(row=row, column=2, value=m["qr_code"])
-        ws.cell(row=row, column=3, value=m["spec"] or "")
+        ws.cell(row=row, column=3, value=m["condition"] or m["spec"] or "正常")
         ws.cell(row=row, column=4, value=m["unit"] or "个")
         ws.cell(row=row, column=5, value=m["total_stock"])
         ws.cell(row=row, column=6, value=m["available_stock"])
@@ -1463,7 +1482,7 @@ def export_materials(conn=Depends(get_db), user=Depends(get_current_user)):
 def get_material_detail(material_id: str, conn=Depends(get_db), user=Depends(get_current_user)):
     cur = conn.cursor()
     cur.execute("""
-        SELECT id, name, qr_code, spec, unit, total_stock, available_stock, location, image, operator
+        SELECT id, name, qr_code, spec, condition, unit, total_stock, available_stock, location, image, operator
         FROM materials WHERE id = ?
     """, (material_id,))
     material = cur.fetchone()
@@ -1514,10 +1533,13 @@ def create_material(req: MaterialCreate, conn=Depends(get_db), user=Depends(get_
             locations = [{"location": primary_location, "stock": total_stock}] if primary_location and total_stock > 0 else []
 
         operator = user.get("real_name", "") or user.get("username", "")
+        condition = (req.condition or "正常").strip()
+        if condition not in ("全新", "正常", "损坏"):
+            condition = "正常"
         cur.execute("""
-            INSERT INTO materials (id, name, qr_code, spec, unit, total_stock, available_stock, location, image, operator)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (material_id, req.name, qr_code, req.spec, req.unit, total_stock, total_stock, primary_location, req.image, operator))
+            INSERT INTO materials (id, name, qr_code, spec, condition, unit, total_stock, available_stock, location, image, operator)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (material_id, req.name, qr_code, req.spec, condition, req.unit, total_stock, total_stock, primary_location, req.image, operator))
 
         # 创建位置记录
         for loc in locations:
@@ -1541,7 +1563,7 @@ def create_material(req: MaterialCreate, conn=Depends(get_db), user=Depends(get_
 def public_list_materials(conn=Depends(get_db)):
     cur = conn.cursor()
     cur.execute("""
-        SELECT id, name, qr_code, spec, unit, total_stock, available_stock, location, image
+        SELECT id, name, qr_code, spec, condition, unit, total_stock, available_stock, location, image
         FROM materials ORDER BY name
     """)
     return [dict(m) for m in cur.fetchall()]
@@ -1551,14 +1573,14 @@ def public_search_materials(keyword: str = "", conn=Depends(get_db)):
     cur = conn.cursor()
     if keyword:
         cur.execute("""
-            SELECT id, name, qr_code, spec, unit, total_stock, available_stock, location, image
+            SELECT id, name, qr_code, spec, condition, unit, total_stock, available_stock, location, image
             FROM materials
             WHERE name LIKE ? OR qr_code LIKE ? OR spec LIKE ? OR location LIKE ?
             ORDER BY name
         """, (f"%{keyword}%", f"%{keyword}%", f"%{keyword}%", f"%{keyword}%"))
     else:
         cur.execute("""
-            SELECT id, name, qr_code, spec, unit, total_stock, available_stock, location, image
+            SELECT id, name, qr_code, spec, condition, unit, total_stock, available_stock, location, image
             FROM materials ORDER BY name
         """)
     return [dict(m) for m in cur.fetchall()]
@@ -1567,7 +1589,7 @@ def public_search_materials(keyword: str = "", conn=Depends(get_db)):
 def public_get_material_by_qr(qr_code: str, conn=Depends(get_db)):
     cur = conn.cursor()
     cur.execute("""
-        SELECT id, name, qr_code, spec, unit, total_stock, available_stock, location, image
+        SELECT id, name, qr_code, spec, condition, unit, total_stock, available_stock, location, image
         FROM materials WHERE qr_code = ?
     """, (qr_code,))
     material = cur.fetchone()
@@ -2060,6 +2082,13 @@ def update_material(material_id: str, req: MaterialUpdate, conn=Depends(get_db),
     if req.spec is not None:
         updates.append("spec=?")
         params.append(req.spec)
+
+    if req.condition is not None:
+        condition = req.condition.strip()
+        if condition not in ("全新", "正常", "损坏"):
+            condition = "正常"
+        updates.append("condition=?")
+        params.append(condition)
     
     if req.unit is not None:
         updates.append("unit=?")
@@ -2226,6 +2255,8 @@ def import_materials(file: UploadFile = File(...), conn=Depends(get_db), user=De
                 col_map["name"] = idx
             elif h and "规格" in str(h):
                 col_map["spec"] = idx
+            elif h and ("情况" in str(h) or "状态" in str(h)):
+                col_map["condition"] = idx
             elif h and "单位" in str(h):
                 col_map["unit"] = idx
             elif h and ("库存" in str(h) or "数量" in str(h)):
@@ -2252,6 +2283,9 @@ def import_materials(file: UploadFile = File(...), conn=Depends(get_db), user=De
                 unit = str(row[col_map.get("unit", -1)]).strip() if col_map.get("unit") is not None and row[col_map["unit"]] else "个"
                 stock = int(row[col_map.get("stock", -1)]) if col_map.get("stock") is not None and row[col_map["stock"]] else 0
                 location = str(row[col_map.get("location", -1)]).strip() if col_map.get("location") is not None and row[col_map["location"]] else ""
+                condition = str(row[col_map.get("condition", -1)]).strip() if col_map.get("condition") is not None and row[col_map["condition"]] else "正常"
+                if condition not in ("全新", "正常", "损坏"):
+                    condition = "正常"
 
                 # 检查物资是否已存在
                 cur.execute("SELECT id, total_stock, available_stock FROM materials WHERE name = ?", (name,))
@@ -2262,9 +2296,9 @@ def import_materials(file: UploadFile = File(...), conn=Depends(get_db), user=De
                     new_total = existing["total_stock"] + stock
                     new_available = existing["available_stock"] + stock
                     cur.execute("""
-                        UPDATE materials SET spec=?, unit=?, total_stock=?, available_stock=?, location=?, operator=?
+                        UPDATE materials SET spec=?, condition=?, unit=?, total_stock=?, available_stock=?, location=?, operator=?
                         WHERE id=?
-                    """, (spec, unit, new_total, new_available, location, operator, existing["id"]))
+                    """, (spec, condition, unit, new_total, new_available, location, operator, existing["id"]))
                     updated_count += 1
                 else:
                     # 新增物资
@@ -2273,9 +2307,9 @@ def import_materials(file: UploadFile = File(...), conn=Depends(get_db), user=De
                     count = tuple(cur.fetchone())[0]
                     qr_code = f"MAT-{count + 1:06d}"
                     cur.execute("""
-                        INSERT INTO materials (id, name, qr_code, spec, unit, total_stock, available_stock, location, image, operator)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (material_id, name, qr_code, spec, unit, stock, stock, location, "", operator))
+                        INSERT INTO materials (id, name, qr_code, spec, condition, unit, total_stock, available_stock, location, image, operator)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (material_id, name, qr_code, spec, condition, unit, stock, stock, location, "", operator))
                     added_count += 1
             except Exception as e:
                 error_rows.append({"row": row_idx, "error": str(e)})
@@ -2876,6 +2910,30 @@ def delete_custom_field(target: str, field_name: str, conn=Depends(get_db), user
 # ==================== 技能文档（模板/技能文件，管理员上传，全员下载） ====================
 SKILL_DIR = os.path.join(os.path.dirname(DATABASE_FILE), "skills")
 os.makedirs(SKILL_DIR, exist_ok=True)
+
+# ---------- 公告栏 ----------
+@app.get("/api/announcements")
+def get_announcements(conn=Depends(get_db), user=Depends(get_current_user)):
+    cur = conn.cursor()
+    cur.execute("SELECT content, updated_at FROM announcements WHERE id=1")
+    row = cur.fetchone()
+    manual = row["content"] if row else ""
+    # 自动生成损坏物资提醒
+    cur.execute("SELECT name, qr_code FROM materials WHERE condition='损坏'")
+    damaged = [f"⚠️ 物资「{m['name']}」（{m['qr_code']}）已损坏，请及时处理" for m in cur.fetchall()]
+    return {"manual": manual, "damaged": damaged}
+
+@app.put("/api/announcements")
+def update_announcement(req: dict = Body(...), conn=Depends(get_db), user=Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="仅管理员可编辑公告")
+    content = (req.get("content") or "") if isinstance(req, dict) else ""
+    from datetime import datetime as _dt
+    cur = conn.cursor()
+    cur.execute("UPDATE announcements SET content=?, updated_at=? WHERE id=1",
+                (content.strip(), _dt.now().strftime("%Y-%m-%d %H:%M:%S")))
+    conn.commit()
+    return {"success": True, "message": "公告已更新", "content": content.strip()}
 
 @app.post("/api/skills/upload")
 def upload_skill_file(
