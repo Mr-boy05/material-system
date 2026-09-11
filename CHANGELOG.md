@@ -4,6 +4,16 @@
 
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
+---
+
+## [3.6.0] - 2026-09-11
+
+### 变更
+- **域名 + HTTPS 正式启用**：备案通过（firsturl.top，黔ICP备2026016642号-1）——
+  - 全部访问入口切换到 \https://firsturl.top\（HTTP 自动 301 跳转 HTTPS）
+  - Nginx 反代 + DigiCert 免费证书（有效期至 2026-12-10，到期前需续期）
+  - 手机端 \https://firsturl.top/m/\ 同步生效
+- **APP（v1.2.1）**：服务器地址切换为 \https://firsturl.top/\，重新打包
 
 ---
 
