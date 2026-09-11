@@ -394,7 +394,8 @@
                     <span id="skillFileName" style="color:#666;font-size:13px;min-width:120px;">未选择文件</span>
                     <button class="btn btn-primary" onclick="uploadSkillFile()">上传</button>
                 </div>
-                <div style="font-size:12px;color:#999;margin-top:8px;">支持所有文件格式：PDF、Word、Excel、PPT、图片、压缩包、视频等</div>
+                <div id="skillUploadBar"></div>
+                <div style="font-size:12px;color:#999;margin-top:8px;">支持所有文件格式：PDF、Word、Excel、PPT、图片、压缩包、视频等（单个文件≤500MB）</div>
             </div>
             <div class="toolbar">
                 <span style="color:#666;font-size:13px;" id="skillCount">共 0 个文件</span>
@@ -617,6 +618,7 @@
                 <div id="editSkillFileName" style="font-size:12px;color:#999;margin-top:4px;">未选择文件（保持原文件）</div>
             </div>
             <div class="error-msg" id="skillEditError" style="display:none;margin-top:0;"></div>
+            <div id="editSkillBar"></div>
             <div class="modal-actions"><button class="btn-cancel" onclick="closeSkillEdit()">取消</button><button class="btn-submit" onclick="submitSkillEdit()">保存</button></div>
         </div>
     </div>
@@ -706,7 +708,7 @@
                 <div id="activityCustomFields"></div>
                 <button type="button" class="btn btn-sm" style="margin-top:8px;background:#f0f0f0;color:#666;" onclick="addCustomField('activity')">+ 添加字段</button>
             </div>
-            <div class="form-group"><label>活动文件（小文件，单个≤50MB，支持多文件/文件夹）</label>
+            <div class="form-group"><label>活动文件（单个≤500MB，支持多文件/文件夹）</label>
                 <div style="display:flex;gap:8px;margin-bottom:8px;">
                     <button type="button" class="btn btn-sm" style="flex:1;background:#e3f2fd;color:#1976d2;" onclick="document.getElementById('activityFileUpload').click()">📁 选择文件</button>
                     <button type="button" class="btn btn-sm" style="flex:1;background:#f3e5f5;color:#7b1fa2;" onclick="document.getElementById('activityFolderUpload').click()">📂 选择文件夹</button>
@@ -904,16 +906,64 @@
         }
 
         function showToast(msg) { const t=document.getElementById('toast'); t.textContent=msg; t.style.display='block'; setTimeout(()=>t.style.display='none',2000); }
+        // ---------- 通用上传（带进度条） ----------
+        function uploadWithProgress(url, formData, progressEl, extraHeaders) {
+            return new Promise(function(resolve, reject) {
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', url);
+                xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+                if (extraHeaders) {
+                    Object.keys(extraHeaders).forEach(function(k){ xhr.setRequestHeader(k, extraHeaders[k]); });
+                }
+                xhr.upload.onprogress = function(e) {
+                    if (e.lengthComputable && progressEl) {
+                        const p = Math.round(e.loaded / e.total * 100);
+                        const pct = progressEl.querySelector('.up-percent');
+                        const bar = progressEl.querySelector('.up-bar');
+                        if (pct) pct.textContent = p + '%';
+                        if (bar) bar.style.width = p + '%';
+                    }
+                };
+                xhr.onload = function() {
+                    try {
+                        const data = JSON.parse(xhr.responseText);
+                        resolve({ ok: xhr.status >= 200 && xhr.status < 300, data: data, status: xhr.status });
+                    } catch (err) { reject(err); }
+                };
+                xhr.onerror = function() { reject(new Error('网络错误')); };
+                xhr.send(formData);
+            });
+        }
+        function createUploadBar(container, fileName) {
+            if (!container) container = document.body;
+            const id = 'upbar-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6);
+            container.insertAdjacentHTML('beforeend',
+                '<div id="' + id + '" style="display:flex;align-items:center;gap:10px;margin-top:8px;padding:8px 12px;background:#e3f2fd;border-radius:6px;font-size:13px;">' +
+                '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:55%;color:#1976d2;">📤 ' + (fileName || '上传中') + '</span>' +
+                '<span class="up-percent" style="color:#1976d2;font-weight:600;min-width:38px;text-align:right;">0%</span>' +
+                '<div style="flex:1;height:6px;background:#e0e0e0;border-radius:3px;overflow:hidden;">' +
+                '<div class="up-bar" style="height:100%;width:0%;background:#2196f3;transition:width .25s;"></div></div></div>');
+            return document.getElementById(id);
+        }
+        function removeUploadBar(el) { if (el && el.parentNode) el.parentNode.removeChild(el); }
+
 
         // ---------- 技能文档 ----------
         function formatFileSize(bytes) {
             if (bytes < 1024) return bytes + ' B';
             if (bytes < 1048576) return (bytes/1024).toFixed(1) + ' KB';
-            return (bytes/1048576).toFixed(1) + ' MB';
+            if (bytes < 1073741824) return (bytes/1048576).toFixed(1) + ' MB';
+            return (bytes/1073741824).toFixed(2) + ' GB';
         }
 
         function onSkillFileSelected(input) {
             const file = input.files[0];
+            if (file && file.size > 500 * 1024 * 1024) {
+                showToast('文件不能超过500MB');
+                input.value = '';
+                document.getElementById('skillFileName').textContent = '未选择文件';
+                return;
+            }
             document.getElementById('skillFileName').textContent = file ? file.name + ' (' + formatFileSize(file.size) + ')' : '未选择文件';
         }
 
@@ -921,15 +971,17 @@
             const input = document.getElementById('skillFileInput');
             const file = input.files[0];
             if (!file) { showToast('请先选择文件'); return; }
+            if (file.size > 500 * 1024 * 1024) { showToast('文件不能超过500MB'); return; }
             const title = document.getElementById('skillTitle').value.trim();
             const desc = document.getElementById('skillDesc').value.trim();
             const formData = new FormData();
             formData.append('file', file);
             formData.append('title', title);
             formData.append('description', desc);
-            fetch('/api/skills/upload', { method:'POST', headers:{'Authorization':'Bearer '+token}, body:formData })
-            .then(res=>res.json().then(data=>({ok:res.ok, data})))
+            const barEl = createUploadBar(document.getElementById('skillUploadBar'), file.name);
+            uploadWithProgress('/api/skills/upload', formData, barEl)
             .then(({ok, data})=>{
+                removeUploadBar(barEl);
                 if (ok && data.success) {
                     showToast('上传成功');
                     document.getElementById('skillTitle').value='';
@@ -941,7 +993,7 @@
                     showToast(data.detail || '上传失败');
                 }
             })
-            .catch(()=>showToast('上传失败，请重试'));
+            .catch(()=>{ removeUploadBar(barEl); showToast('上传失败，请重试'); });
         }
 
         function loadSkills() {
@@ -1218,14 +1270,19 @@
             const formData = new FormData();
             if (title) formData.append('title', title);
             formData.append('description', desc);
-            if (fileInput.files[0]) formData.append('file', fileInput.files[0]);
-            fetch('/api/skills/' + fileId, { method:'PUT', headers:{'Authorization':'Bearer '+token}, body:formData })
-            .then(res=>res.json().then(d=>({ok:res.ok, d})))
+            let barEl = null;
+            if (fileInput.files[0]) {
+                if (fileInput.files[0].size > 500 * 1024 * 1024) { showToast('文件不能超过500MB'); return; }
+                formData.append('file', fileInput.files[0]);
+                barEl = createUploadBar(document.getElementById('editSkillBar'), fileInput.files[0].name);
+            }
+            uploadWithProgress('/api/skills/' + fileId, formData, barEl)
             .then(({ok, d})=>{
+                if (barEl) removeUploadBar(barEl);
                 if (ok && d.success) { showToast('保存成功'); closeSkillEdit(); loadSkills(); }
                 else { document.getElementById('skillEditError').textContent = d.detail || '保存失败'; document.getElementById('skillEditError').style.display = 'block'; }
             })
-            .catch(()=>{ document.getElementById('skillEditError').textContent = '保存失败，请重试'; document.getElementById('skillEditError').style.display = 'block'; });
+            .catch(()=>{ if (barEl) removeUploadBar(barEl); document.getElementById('skillEditError').textContent = '保存失败，请重试'; document.getElementById('skillEditError').style.display = 'block'; });
         }
 
         // ---------- 物资位置管理 ----------
@@ -1329,16 +1386,17 @@
             if (!file) return;
             const formData = new FormData();
             formData.append('file', file);
-            fetch('/api/upload', { method:'POST', headers:{'Authorization':'Bearer '+token}, body:formData })
-            .then(res=>res.json())
-            .then(data=>{
+            const barEl = createUploadBar((input.closest && input.closest('.form-group')) || document.body, file.name);
+            uploadWithProgress('/api/upload', formData, barEl)
+            .then(({data})=>{
+                removeUploadBar(barEl);
                 const key = previewId.replace('Preview','');
                 uploadedImages[key] = data.url;
                 document.getElementById(previewId).src = URL.createObjectURL(file);
                 document.getElementById(previewId).style.display = 'block';
                 showToast('图片上传成功');
             })
-            .catch(()=>showToast('图片上传失败'));
+            .catch(()=>{ removeUploadBar(barEl); showToast('图片上传失败'); });
         }
 
         function loadMaterials() {
@@ -1657,10 +1715,10 @@
             if (!file) return;
             const formData = new FormData();
             formData.append('file', file);
-            showToast('正在上传图片...');
-            fetch('/api/upload', { method:'POST', headers:{'Authorization':'Bearer '+token}, body:formData })
-            .then(res=>res.json())
-            .then(data=>{
+            const barEl = createUploadBar(document.getElementById('editMatImage').closest('.form-group') || document.body, file.name);
+            uploadWithProgress('/api/upload', formData, barEl)
+            .then(({data})=>{
+                removeUploadBar(barEl);
                 if (data.url) {
                     editMatImage = data.url;
                     const preview = document.getElementById('editMatPreview');
@@ -1669,7 +1727,7 @@
                     showToast('图片上传成功');
                 } else showToast(data.detail||'上传失败');
             })
-            .catch(()=>showToast('上传失败'));
+            .catch(()=>{ removeUploadBar(barEl); showToast('上传失败'); });
             input.value='';
         }
 
@@ -1744,10 +1802,10 @@
             }
             const formData = new FormData();
             formData.append('file', file);
-            showToast('正在导入，请稍候...');
-            fetch('/api/materials/import', { method:'POST', headers:{'Authorization':'Bearer '+token}, body:formData })
-            .then(res => res.json().then(d => ({ok:res.ok, data:d})))
+            const barEl = createUploadBar(document.body, file.name);
+            uploadWithProgress('/api/materials/import', formData, barEl)
             .then(({ok, data}) => {
+                removeUploadBar(barEl);
                 if (ok) {
                     alert(data.message + (data.errors && data.errors.length ? '\n\n部分行导入失败：' + data.errors.map(e => '第'+e.row+'行: '+e.error).join('\n') : ''));
                     loadMaterials();
@@ -1755,7 +1813,7 @@
                     showToast(data.detail || '导入失败');
                 }
             })
-            .catch(() => showToast('导入失败，请重试'))
+            .catch(() => { removeUploadBar(barEl); showToast('导入失败，请重试'); })
             .finally(() => { input.value = ''; });
         }
 
@@ -2089,10 +2147,11 @@
             if (!file) return;
             const formData = new FormData();
             formData.append('file', file);
-            showToast('正在导入...');
-            fetch('/api/users/import', { method:'POST', headers:{'Authorization':'Bearer '+token}, body:formData })
+            const barEl = createUploadBar(document.body, file.name);
+            uploadWithProgress('/api/users/import', formData, barEl)
             .then(res => res.json().then(d=>({ok:res.ok, data:d})))
             .then(({ok, data}) => {
+                removeUploadBar(barEl);
                 if (ok) {
                     let msg = `成功导入 ${data.imported} 个用户`;
                     if (data.skipped && data.skipped.length) {
@@ -2104,7 +2163,7 @@
                     alert(data.detail || '导入失败');
                 }
             })
-            .catch(() => alert('导入失败'))
+            .catch(() => { removeUploadBar(barEl); alert('导入失败'); })
             .finally(() => { input.value = ''; });
         }
 
@@ -2380,8 +2439,8 @@
 
         // 上传单个活动文件
         function uploadSingleActivityFile(file) {
-            if (file.size > 50 * 1024 * 1024) {
-                showToast('文件 ' + file.name + ' 超过50MB，大文件请使用WPS云文档链接');
+            if (file.size > 500 * 1024 * 1024) {
+                showToast('文件 ' + file.name + ' 超过500MB');
                 return;
             }
             // 显示上传进度

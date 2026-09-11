@@ -436,6 +436,7 @@
             <div class="form-group"><label>更换文件（可选）</label><input type="file" id="mEditSkillFile"><div id="mEditSkillFileName" style="font-size:12px;color:#999;margin-top:4px;">未选择（保持原文件）</div></div>
             <div style="display:flex;gap:10px;margin-top:16px;">
                 <button class="btn-full ghost" style="flex:1;margin:0;" onclick="closeMSkillEdit()">取消</button>
+                <div id="mSkillEditBar"></div>
                 <button class="btn-primary" style="flex:1;margin:0;" onclick="submitMSkillEdit()">保存</button>
             </div>
         </div>
@@ -451,10 +452,11 @@
                 <input type="file" id="mSkillFile" style="display:none" onchange="onMSkillFileSelected(this)">
                 <button class="btn-full ghost" style="margin:0;" onclick="document.getElementById('mSkillFile').click()">选择文件</button>
                 <div id="mSkillFileName" style="font-size:12px;color:#999;margin-top:6px;">未选择文件</div>
-                <div style="font-size:11px;color:#bbb;margin-top:4px;">支持 PDF、Word、Excel、PPT、图片、压缩包等所有格式</div>
+                <div style="font-size:11px;color:#bbb;margin-top:4px;">支持 PDF、Word、Excel、PPT、图片、压缩包等所有格式（单个≤500MB）</div>
             </div>
             <div style="display:flex;gap:10px;margin-top:16px;">
                 <button class="btn-full ghost" style="flex:1;margin:0;" onclick="closeSkillUpload()">取消</button>
+                <div id="mSkillUploadBar"></div>
                 <button class="btn-primary" style="flex:1;margin:0;" onclick="uploadMSkill()">上传</button>
             </div>
         </div>
@@ -600,20 +602,19 @@
         function uploadImg(input, previewId) {
             const file = input.files[0];
             if (!file) return;
-            showLoading(true);
             const formData = new FormData();
             formData.append('file', file);
-            fetch('/api/upload', { method:'POST', headers:{'Authorization':'Bearer '+token}, body:formData })
-            .then(res=>res.json())
-            .then(data=>{
-                showLoading(false);
+            const barEl = createUploadBar((input.closest && input.closest('.form-group')) || document.body, file.name);
+            uploadWithProgress('/api/upload', formData, barEl)
+            .then(({data})=>{
+                removeUploadBar(barEl);
                 const key = previewId.replace('Preview','');
                 uploadedImages[key] = data.url;
                 document.getElementById(previewId).src = URL.createObjectURL(file);
                 document.getElementById(previewId).style.display = 'block';
                 showToast('图片上传成功');
             })
-            .catch(()=>{ showLoading(false); showToast('图片上传失败'); });
+            .catch(()=>{ removeUploadBar(barEl); showToast('图片上传失败'); });
         }
 
         function loadMaterialSelect(selectId) {
@@ -847,14 +848,10 @@
                 if (file.size > 5 * 1024 * 1024) { showToast('图片不能超过5MB'); return; }
                 const formData = new FormData();
                 formData.append('file', file);
-                showToast('正在上传...');
-                fetch('/api/materials/' + materialId + '/image', {
-                    method: 'POST',
-                    headers: {'Authorization': 'Bearer ' + token},
-                    body: formData
-                })
-                .then(res => res.json())
-                .then(data => {
+                const barEl = createUploadBar(document.body, file.name);
+                uploadWithProgress('/api/materials/' + materialId + '/image', formData, barEl)
+                .then(({data}) => {
+                    removeUploadBar(barEl);
                     if (data.success) {
                         showToast('图片上传成功');
                         doSearch();
@@ -865,7 +862,7 @@
                         showToast(data.detail || '上传失败');
                     }
                 })
-                .catch(() => showToast('上传失败'));
+                .catch(() => { removeUploadBar(barEl); showToast('上传失败'); });
             };
             input.click();
         }
@@ -908,6 +905,45 @@
         }
 
         function showToast(msg) { const t=document.getElementById('toast'); t.textContent=msg; t.style.display='block'; setTimeout(()=>t.style.display='none',2000); }
+
+        // ---------- 通用上传（带进度条） ----------
+        function uploadWithProgress(url, formData, progressEl) {
+            return new Promise(function(resolve, reject) {
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', url);
+                xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+                xhr.upload.onprogress = function(e) {
+                    if (e.lengthComputable && progressEl) {
+                        const p = Math.round(e.loaded / e.total * 100);
+                        const pct = progressEl.querySelector('.up-percent');
+                        const bar = progressEl.querySelector('.up-bar');
+                        if (pct) pct.textContent = p + '%';
+                        if (bar) bar.style.width = p + '%';
+                    }
+                };
+                xhr.onload = function() {
+                    try {
+                        const data = JSON.parse(xhr.responseText);
+                        resolve({ ok: xhr.status >= 200 && xhr.status < 300, data: data, status: xhr.status });
+                    } catch (err) { reject(err); }
+                };
+                xhr.onerror = function() { reject(new Error('网络错误')); };
+                xhr.send(formData);
+            });
+        }
+        function createUploadBar(container, fileName) {
+            if (!container) container = document.body;
+            const id = 'upbar-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6);
+            container.insertAdjacentHTML('beforeend',
+                '<div id="' + id + '" style="display:flex;align-items:center;gap:8px;margin-top:10px;padding:8px 10px;background:#e3f2fd;border-radius:8px;font-size:13px;">' +
+                '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:52%;color:#1976d2;">📤 ' + (fileName || '上传中') + '</span>' +
+                '<span class="up-percent" style="color:#1976d2;font-weight:600;min-width:36px;text-align:right;">0%</span>' +
+                '<div style="flex:1;height:6px;background:#e0e0e0;border-radius:3px;overflow:hidden;">' +
+                '<div class="up-bar" style="height:100%;width:0%;background:#2196f3;transition:width .25s;"></div></div></div>');
+            return document.getElementById(id);
+        }
+        function removeUploadBar(el) { if (el && el.parentNode) el.parentNode.removeChild(el); }
+
         function showLoading(show) { document.getElementById('loading').style.display=show?'flex':'none'; }
 
         // ---------- 普通用户录入物资 ----------
@@ -957,10 +993,10 @@
             if (file.size > 5 * 1024 * 1024) { showToast('图片不能超过5MB'); return; }
             const formData = new FormData();
             formData.append('file', file);
-            showToast('正在上传图片...');
-            fetch('/api/upload', { method:'POST', headers:{'Authorization':'Bearer '+token}, body:formData })
-            .then(res=>res.json())
-            .then(data=>{
+            const barEl = createUploadBar((input.closest && input.closest('.form-group')) || document.body, file.name);
+            uploadWithProgress('/api/upload', formData, barEl)
+            .then(({data})=>{
+                removeUploadBar(barEl);
                 if (data.url) {
                     newMatImage = data.url;
                     document.getElementById('newMatImgPreview').src = URL.createObjectURL(file);
@@ -970,7 +1006,7 @@
                     showToast('图片上传成功');
                 } else showToast(data.detail||'上传失败');
             })
-            .catch(()=>showToast('上传失败'));
+            .catch(()=>{ removeUploadBar(barEl); showToast('上传失败'); });
             input.value='';
         }
         function removeNewMatImg() {
@@ -1039,6 +1075,12 @@
         }
         function onMSkillFileSelected(input) {
             const f = input.files[0];
+            if (f && f.size > 500 * 1024 * 1024) {
+                showToast('文件不能超过500MB');
+                input.value = '';
+                document.getElementById('mSkillFileName').textContent = '未选择文件';
+                return;
+            }
             document.getElementById('mSkillFileName').textContent = f ? f.name + ' (' + mFormatSize(f.size) + ')' : '未选择文件';
         }
 
@@ -1046,15 +1088,15 @@
             const input = document.getElementById('mSkillFile');
             const file = input.files[0];
             if (!file) { showToast('请先选择文件'); return; }
-            showLoading(true);
+            if (file.size > 500 * 1024 * 1024) { showToast('文件不能超过500MB'); return; }
             const formData = new FormData();
             formData.append('file', file);
             formData.append('title', document.getElementById('mSkillTitle').value.trim());
             formData.append('description', document.getElementById('mSkillDesc').value.trim());
-            fetch('/api/skills/upload', { method:'POST', headers:{'Authorization':'Bearer '+token}, body:formData })
-            .then(res=>res.json().then(d=>({ok:res.ok, d})))
+            const barEl = createUploadBar(document.getElementById('mSkillUploadBar'), file.name);
+            uploadWithProgress('/api/skills/upload', formData, barEl)
             .then(({ok, d})=>{
-                showLoading(false);
+                removeUploadBar(barEl);
                 if (ok && d.success) {
                     showToast('上传成功');
                     closeSkillUpload();
@@ -1063,7 +1105,7 @@
                     showToast(d.detail || '上传失败');
                 }
             })
-            .catch(()=>{ showLoading(false); showToast('上传失败'); });
+            .catch(()=>{ removeUploadBar(barEl); showToast('上传失败'); });
         }
 
         function loadMSkills() {
@@ -1317,16 +1359,19 @@
             const formData = new FormData();
             if (title) formData.append('title', title);
             formData.append('description', desc);
-            if (fileInput.files[0]) formData.append('file', fileInput.files[0]);
-            showLoading(true);
-            fetch('/api/skills/' + id, { method:'PUT', headers:{'Authorization':'Bearer '+token}, body:formData })
-            .then(res=>res.json().then(d=>({ok:res.ok, d})))
+            let barEl = null;
+            if (fileInput.files[0]) {
+                if (fileInput.files[0].size > 500 * 1024 * 1024) { showToast('文件不能超过500MB'); return; }
+                formData.append('file', fileInput.files[0]);
+                barEl = createUploadBar(document.getElementById('mSkillEditBar'), fileInput.files[0].name);
+            }
+            uploadWithProgress('/api/skills/' + id, formData, barEl)
             .then(({ok, d})=>{
-                showLoading(false);
+                if (barEl) removeUploadBar(barEl);
                 if (ok && d.success) { showToast('保存成功'); closeMSkillEdit(); loadMSkills(); }
                 else showToast(d.detail || '保存失败');
             })
-            .catch(()=>{ showLoading(false); showToast('保存失败'); });
+            .catch(()=>{ if (barEl) removeUploadBar(barEl); showToast('保存失败'); });
         }
 
         // ---------- 个人设置 ----------

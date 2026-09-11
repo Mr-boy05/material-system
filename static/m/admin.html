@@ -385,7 +385,7 @@
         <div class="form-group"><label>主办方</label><input type="text" id="activityOrganizer" placeholder="如：城治学生会文娱部"></div>
         <div class="form-group"><label>活动文件夹（WPS云文档链接）</label><input type="text" id="activityFolder" placeholder="粘贴WPS云文档分享链接"></div>
         <div class="form-group"><label>备注</label><textarea id="activityRemark" rows="2" style="width:100%;padding:10px;border:2px solid #e8e8e8;border-radius:8px;resize:vertical;"></textarea></div>
-        <div class="form-group"><label>活动文件（单个≤50MB，支持多选）</label>
+        <div class="form-group"><label>活动文件（单个≤500MB，支持多选）</label>
             <button type="button" class="btn-full ghost" style="margin:0 0 8px 0;padding:12px;" onclick="document.getElementById('mobActivityFile').click()">📁 选择文件上传</button>
             <input type="file" id="mobActivityFile" style="display:none" multiple onchange="uploadMobActivityFiles(this.files)">
             <div id="mobActivityFileList"></div>
@@ -470,6 +470,47 @@ if (!token || currentUser.role !== 'admin' || !sessionLoggedIn) {
 function showToast(msg) {
     const t = document.getElementById('toast');
     t.textContent = msg;
+
+// 通用上传（带进度条）
+function uploadWithProgress(url, formData, progressEl, extraHeaders) {
+    return new Promise(function(resolve, reject) {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', url);
+        xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+        if (extraHeaders) {
+            Object.keys(extraHeaders).forEach(function(k){ xhr.setRequestHeader(k, extraHeaders[k]); });
+        }
+        xhr.upload.onprogress = function(e) {
+            if (e.lengthComputable && progressEl) {
+                const p = Math.round(e.loaded / e.total * 100);
+                const pct = progressEl.querySelector('.up-percent');
+                const bar = progressEl.querySelector('.up-bar');
+                if (pct) pct.textContent = p + '%';
+                if (bar) bar.style.width = p + '%';
+            }
+        };
+        xhr.onload = function() {
+            try {
+                const data = JSON.parse(xhr.responseText);
+                resolve({ ok: xhr.status >= 200 && xhr.status < 300, data: data, status: xhr.status });
+            } catch (err) { reject(err); }
+        };
+        xhr.onerror = function() { reject(new Error('网络错误')); };
+        xhr.send(formData);
+    });
+}
+function createUploadBar(container, fileName) {
+    if (!container) container = document.body;
+    const id = 'upbar-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6);
+    container.insertAdjacentHTML('beforeend',
+        '<div id="' + id + '" style="display:flex;align-items:center;gap:8px;margin-top:10px;padding:8px 10px;background:#e3f2fd;border-radius:8px;font-size:13px;">' +
+        '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:52%;color:#1976d2;">📤 ' + (fileName || '上传中') + '</span>' +
+        '<span class="up-percent" style="color:#1976d2;font-weight:600;min-width:36px;text-align:right;">0%</span>' +
+        '<div style="flex:1;height:6px;background:#e0e0e0;border-radius:3px;overflow:hidden;">' +
+        '<div class="up-bar" style="height:100%;width:0%;background:#2196f3;transition:width .25s;"></div></div></div>');
+    return document.getElementById(id);
+}
+function removeUploadBar(el) { if (el && el.parentNode) el.parentNode.removeChild(el); }
     t.style.display = 'block';
     setTimeout(() => t.style.display = 'none', 2000);
 }
@@ -888,10 +929,10 @@ function uploadNewMatImg(input) {
     if (file.size > 5 * 1024 * 1024) { showToast('图片不能超过5MB'); return; }
     const formData = new FormData();
     formData.append('file', file);
-    showToast('正在上传图片...');
-    fetch('/api/upload', { method:'POST', headers:{'Authorization':'Bearer '+token}, body:formData })
-    .then(res=>res.json())
-    .then(data=>{
+    const barEl = createUploadBar((input.closest && input.closest('.form-group')) || document.body, file.name);
+    uploadWithProgress('/api/upload', formData, barEl)
+    .then(({data})=>{
+        removeUploadBar(barEl);
         if (data.url) {
             newMatImage = data.url;
             document.getElementById('newMatImgPreview').src = URL.createObjectURL(file);
@@ -901,7 +942,7 @@ function uploadNewMatImg(input) {
             showToast('图片上传成功');
         } else showToast(data.detail||'上传失败');
     })
-    .catch(()=>showToast('上传失败'));
+    .catch(()=>{ removeUploadBar(barEl); showToast('上传失败'); });
     input.value='';
 }
 
@@ -1173,12 +1214,13 @@ function importMobUsers(input) {
     if (!file) return;
     const formData = new FormData();
     formData.append('file', file);
-    showToast('正在导入...');
-    fetch('/api/users/import', { method:'POST', headers:{'Authorization':'Bearer '+token}, body:formData })
-    .then(r=>r.json()).then(d=>{
-        if (d.success) { showToast('导入成功'); loadUsers(); }
-        else showToast(d.detail || '导入失败');
-    }).catch(()=>showToast('导入失败'));
+    const barEl = createUploadBar(document.body, file.name);
+    uploadWithProgress('/api/users/import', formData, barEl)
+    .then(({ok, data})=>{
+        removeUploadBar(barEl);
+        if (ok && data.success) { showToast('导入成功'); loadUsers(); }
+        else showToast(data.detail || '导入失败');
+    }).catch(()=>{ removeUploadBar(barEl); showToast('导入失败'); });
     input.value = '';
 }
 
@@ -1212,12 +1254,14 @@ function importExcel(input) {
     if (!file) return;
     const formData = new FormData();
     formData.append('file', file);
-    showToast('正在导入...');
-    api('/api/materials/import', {method: 'POST', body: formData}).then(res => res.json()).then(data => {
+    const barEl = createUploadBar(document.body, file.name);
+    uploadWithProgress('/api/materials/import', formData, barEl)
+    .then(({data}) => {
+        removeUploadBar(barEl);
         alert(data.message + (data.errors && data.errors.length ? '\n部分行失败：' + data.errors.map(e => '第'+e.row+'行').join(',') : ''));
         loadMaterials();
         loadDashboard();
-    }).catch(() => showToast('导入失败'));
+    }).catch(() => { removeUploadBar(barEl); showToast('导入失败'); });
     input.value = '';
 }
 
@@ -1314,8 +1358,8 @@ function removeMobActivityFile(index) {
 function uploadMobActivityFiles(files) {
     if (!files || !files.length) return;
     Array.from(files).forEach(file => {
-        if (file.size > 50 * 1024 * 1024) {
-            showToast('文件 ' + file.name + ' 超过50MB');
+        if (file.size > 500 * 1024 * 1024) {
+            showToast('文件 ' + file.name + ' 超过500MB');
             return;
         }
         const list = document.getElementById('mobActivityFileList');
