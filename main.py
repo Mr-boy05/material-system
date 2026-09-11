@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "3.6.0"
+VERSION = "3.7.0"
 VERSION_DATE = "2026-09-11"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
@@ -53,6 +53,7 @@ from io import BytesIO
 # ==================== 配置 ====================
 DATABASE_FILE = os.environ.get("DATABASE_FILE", "data/material.db")
 UPLOAD_DIR = os.environ.get("UPLOAD_DIR", "static/uploads")
+MAX_UPLOAD_SIZE = 500 * 1024 * 1024  # 活动/技能文档上传上限：500MB
 SECRET_KEY = os.environ.get("SECRET_KEY", "material-system-secret-key-change-me-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 24 * 7
@@ -2554,14 +2555,11 @@ def delete_activity(activity_id: str, conn=Depends(get_db), user=Depends(get_cur
     conn.commit()
     return {"success": True, "message": "活动已删除（已同步删除对应活动规划）" if linked_plan_id else "活动已删除"}
 
-# 活动文件上传（小文件，限制50MB）
+# 活动文件上传（上限500MB，流式写入，支持大文件）
 @app.post("/api/activities/upload")
 async def upload_activity_file(file: UploadFile = File(...), user=Depends(get_current_user)):
     if not file.filename:
         raise HTTPException(status_code=400, detail="请选择文件")
-    content = await file.read()
-    if len(content) > 50 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="文件大小不能超过50MB，大文件请使用WPS云文档链接")
     # 确保上传目录存在
     upload_dir = os.path.join(os.path.dirname(DATABASE_FILE), "uploads", "activities")
     os.makedirs(upload_dir, exist_ok=True)
@@ -2569,11 +2567,28 @@ async def upload_activity_file(file: UploadFile = File(...), user=Depends(get_cu
     ext = os.path.splitext(file.filename)[1]
     unique_name = f"{uuid.uuid4()}{ext}"
     file_path = os.path.join(upload_dir, unique_name)
-    with open(file_path, "wb") as f:
-        f.write(content)
+    size = 0
+    try:
+        with open(file_path, "wb") as f:
+            while True:
+                chunk = await file.read(1024 * 1024)
+                if not chunk:
+                    break
+                size += len(chunk)
+                if size > MAX_UPLOAD_SIZE:
+                    raise HTTPException(status_code=413, detail=f"文件大小不能超过{MAX_UPLOAD_SIZE // (1024 * 1024)}MB")
+                f.write(chunk)
+    except HTTPException:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        raise
+    except Exception:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        raise
     # 返回可访问的URL
     file_url = f"/uploads/activities/{unique_name}"
-    return {"success": True, "url": file_url, "filename": file.filename, "size": len(content)}
+    return {"success": True, "url": file_url, "filename": file.filename, "size": size}
 
 # ==================== 活动规划（部门时间线） ====================
 class ActivityPlanCreate(BaseModel):
@@ -2950,16 +2965,32 @@ def upload_skill_file(
     ext = os.path.splitext(file.filename)[1] or ""
     stored_name = f"{uuid.uuid4().hex}{ext}"
     filepath = os.path.join(SKILL_DIR, stored_name)
-    content = file.file.read()
-    with open(filepath, "wb") as f:
-        f.write(content)
+    size = 0
+    try:
+        with open(filepath, "wb") as f:
+            while True:
+                chunk = file.file.read(1024 * 1024)
+                if not chunk:
+                    break
+                size += len(chunk)
+                if size > MAX_UPLOAD_SIZE:
+                    raise HTTPException(status_code=413, detail=f"文件大小不能超过{MAX_UPLOAD_SIZE // (1024 * 1024)}MB")
+                f.write(chunk)
+    except HTTPException:
+        if os.path.exists(filepath):
+            os.remove(filepath)
+        raise
+    except Exception:
+        if os.path.exists(filepath):
+            os.remove(filepath)
+        raise
     file_id = str(uuid.uuid4())
     display_title = title.strip() if title.strip() else os.path.splitext(file.filename)[0]
     cur = conn.cursor()
     cur.execute("""
         INSERT INTO skill_files (id, title, original_name, stored_name, file_size, file_type, description, uploader, uploader_id)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (file_id, display_title, file.filename, stored_name, len(content), ext.lower(), description.strip(),
+    """, (file_id, display_title, file.filename, stored_name, size, ext.lower(), description.strip(),
           user.get("real_name", "") or user.get("username", ""), user["id"]))
     conn.commit()
     return {"success": True, "message": "上传成功", "id": file_id, "title": display_title}
@@ -3036,15 +3067,31 @@ def update_skill_file(
             ext = os.path.splitext(file.filename)[1] or ""
             new_stored = f"{uuid.uuid4().hex}{ext}"
             new_path = os.path.join(SKILL_DIR, new_stored)
-            content = file.file.read()
-            with open(new_path, "wb") as f:
-                f.write(content)
+            size = 0
+            try:
+                with open(new_path, "wb") as f:
+                    while True:
+                        chunk = file.file.read(1024 * 1024)
+                        if not chunk:
+                            break
+                        size += len(chunk)
+                        if size > MAX_UPLOAD_SIZE:
+                            raise HTTPException(status_code=413, detail=f"文件大小不能超过{MAX_UPLOAD_SIZE // (1024 * 1024)}MB")
+                        f.write(chunk)
+            except HTTPException:
+                if os.path.exists(new_path):
+                    os.remove(new_path)
+                raise
+            except Exception:
+                if os.path.exists(new_path):
+                    os.remove(new_path)
+                raise
             # 删除旧文件
             old_path = os.path.join(SKILL_DIR, row["stored_name"])
             if os.path.exists(old_path):
                 os.remove(old_path)
             updates.extend(["original_name=?", "stored_name=?", "file_size=?", "file_type=?"])
-            params.extend([file.filename, new_stored, len(content), ext.lower()])
+            params.extend([file.filename, new_stored, size, ext.lower()])
         if updates:
             params.append(file_id)
             cur.execute(f"UPDATE skill_files SET {', '.join(updates)} WHERE id=?", params)
