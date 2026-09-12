@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "3.7.2"
+VERSION = "3.7.3"
 VERSION_DATE = "2026-09-11"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
@@ -109,6 +109,11 @@ def init_db():
         os.makedirs(db_dir, exist_ok=True)
     conn = sqlite3.connect(DATABASE_FILE)
     conn.row_factory = sqlite3.Row
+    # WAL 模式：提升并发读写能力（持久化到数据库文件）
+    try:
+        conn.execute("PRAGMA journal_mode=WAL")
+    except Exception:
+        pass
     c = conn.cursor()
 
     # 用户表
@@ -380,7 +385,9 @@ init_db()
 
 # ==================== 数据库连接 ====================
 def get_db():
-    conn = sqlite3.connect(DATABASE_FILE)
+    # check_same_thread=False：FastAPI 用线程池执行同步接口，连接可能跨线程使用
+    # timeout=30：并发写时等待数据库锁，避免 "database is locked"
+    conn = sqlite3.connect(DATABASE_FILE, check_same_thread=False, timeout=30)
     conn.row_factory = sqlite3.Row
     try:
         yield conn
