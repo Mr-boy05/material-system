@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>城治学生会物资管理系统</title>
+<link rel="icon" href="/static/favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+
     <script>
         // 设备检测：手机访问自动跳转到手机端（除非指定 desktop=1）
         (function() {
@@ -907,10 +910,10 @@
 
         function showToast(msg) { const t=document.getElementById('toast'); t.textContent=msg; t.style.display='block'; setTimeout(()=>t.style.display='none',2000); }
         // ---------- 通用上传（带进度条） ----------
-        function uploadWithProgress(url, formData, progressEl, extraHeaders) {
+        function uploadWithProgress(url, formData, progressEl, extraHeaders, method) {
             return new Promise(function(resolve, reject) {
                 const xhr = new XMLHttpRequest();
-                xhr.open('POST', url);
+                xhr.open(method || 'POST', url);
                 xhr.setRequestHeader('Authorization', 'Bearer ' + token);
                 if (extraHeaders) {
                     Object.keys(extraHeaders).forEach(function(k){ xhr.setRequestHeader(k, extraHeaders[k]); });
@@ -1276,7 +1279,7 @@
                 formData.append('file', fileInput.files[0]);
                 barEl = createUploadBar(document.getElementById('editSkillBar'), fileInput.files[0].name);
             }
-            uploadWithProgress('/api/skills/' + fileId, formData, barEl)
+            uploadWithProgress('/api/skills/' + fileId, formData, barEl, null, 'PUT')
             .then(({ok, d})=>{
                 if (barEl) removeUploadBar(barEl);
                 if (ok && d.success) { showToast('保存成功'); closeSkillEdit(); loadSkills(); }
