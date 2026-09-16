@@ -477,6 +477,12 @@
             <h3 id="planModalTitle">新增活动规划</h3>
             <input type="hidden" id="planId">
             <div class="form-group"><label>活动名称 <span class="req">*</span></label><input type="text" id="planTitle" placeholder="如：迎新晚会"></div>
+            <div class="form-group"><label>活动类型 <span class="req">*</span></label>
+                <select id="planType" style="padding:8px 12px;border:1px solid #ddd;border-radius:6px;width:100%;background:#fff;">
+                    <option value="activity">🎉 活动</option>
+                    <option value="meeting">📋 例会</option>
+                </select>
+            </div>
             <div class="form-group"><label>所属部门</label>
                 <select id="planDept" style="padding:8px 12px;border:1px solid #ddd;border-radius:6px;width:100%;background:#fff;">
                     <option value="">请选择部门</option>
@@ -1113,7 +1119,7 @@
                     html += '<div class="plan-item ' + side + '">';
                     html += '<div class="plan-dot"></div>';
                     html += '<div class="plan-card">';
-                    html += '<div class="p-top"><span class="p-title">' + esc(p.title) + '</span><span class="p-badge ' + st.cls + '">' + st.text + '</span></div>';
+                    html += '<div class="p-top"><span class="p-title">' + esc(p.title) + '</span><span class="p-badge ' + (p.plan_type === 'meeting' ? 'dept-tag' : 'type-tag') + '" style="' + (p.plan_type === 'meeting' ? 'background:#e3f2fd;color:#1565c0;border-color:#bbdefb;' : 'background:#f3e5f5;color:#7b1fa2;border-color:#e1bee7;') + '">' + (p.plan_type === 'meeting' ? '📋 例会' : '🎉 活动') + '</span><span class="p-badge ' + st.cls + '">' + st.text + '</span></div>';
                     if (p.department) html += '<div class="p-dept">🏢 ' + esc(p.department) + '</div>';
                     html += '<div class="p-meta">';
                     html += '<span>📅 ' + (p.plan_date || '') + '</span>';
@@ -1162,6 +1168,7 @@
             document.getElementById('planModalTitle').textContent = plan ? '编辑活动规划' : '新增活动规划';
             document.getElementById('planId').value = plan ? plan.id : '';
             document.getElementById('planTitle').value = plan ? plan.title : '';
+            document.getElementById('planType').value = plan ? (plan.plan_type || 'activity') : 'activity';
             document.getElementById('planDept').value = plan ? (plan.department||'') : '';
             document.getElementById('planDate').value = plan ? (plan.plan_date||'') : '';
             document.getElementById('planLocation').value = plan ? (plan.location||'') : '';
@@ -1179,6 +1186,7 @@
             const id = document.getElementById('planId').value;
             const body = {
                 title: document.getElementById('planTitle').value.trim(),
+                plan_type: document.getElementById('planType').value,
                 department: document.getElementById('planDept').value,
                 plan_date: document.getElementById('planDate').value,
                 location: document.getElementById('planLocation').value.trim(),

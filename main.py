@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "3.7.3"
+VERSION = "3.8.0"
 VERSION_DATE = "2026-09-11"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
@@ -332,6 +332,8 @@ def init_db():
     add_column_if_not_exists("attendance", "leave", "TEXT DEFAULT '[]'")
     # 活动规划是否已同步到活动记录（0=未同步 1=已同步）
     add_column_if_not_exists("activity_plans", "synced", "INTEGER DEFAULT 0")
+    # 活动规划类型：activity=活动, meeting=例会
+    add_column_if_not_exists("activity_plans", "plan_type", "TEXT DEFAULT 'activity'")
     # 双向关联：规划同步生成的活动记录ID / 活动记录来源规划ID（用于联动删除）
     add_column_if_not_exists("activity_plans", "activity_id", "TEXT DEFAULT ''")
     add_column_if_not_exists("activities", "plan_id", "TEXT DEFAULT ''")
@@ -2605,6 +2607,7 @@ class ActivityPlanCreate(BaseModel):
     location: str = ""
     description: str = ""
     status: str = "planned"
+    plan_type: str = "activity"  # activity=活动, meeting=例会
 
 class ActivityPlanUpdate(BaseModel):
     title: Optional[str] = None
@@ -2612,6 +2615,7 @@ class ActivityPlanUpdate(BaseModel):
     plan_date: Optional[str] = None
     location: Optional[str] = None
     description: Optional[str] = None
+    plan_type: Optional[str] = None
     status: Optional[str] = None
 
 @app.get("/api/activity-plans")
@@ -2658,12 +2662,13 @@ def create_activity_plan(req: ActivityPlanCreate, conn=Depends(get_db), user=Dep
     if not req.plan_date.strip():
         raise HTTPException(status_code=400, detail="请选择计划日期")
     plan_id = str(uuid.uuid4())
+    plan_type = req.plan_type if req.plan_type in ("activity", "meeting") else "activity"
     cur = conn.cursor()
     cur.execute("""
-        INSERT INTO activity_plans (id, title, department, plan_date, location, description, status, creator_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO activity_plans (id, title, department, plan_date, location, description, status, plan_type, creator_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (plan_id, req.title.strip(), req.department.strip(), req.plan_date.strip(),
-          req.location.strip(), req.description.strip(), req.status, user["id"]))
+          req.location.strip(), req.description.strip(), req.status, plan_type, user["id"]))
     conn.commit()
     return {"success": True, "message": "活动规划已创建", "id": plan_id}
 
@@ -2690,6 +2695,9 @@ def update_activity_plan(plan_id: str, req: ActivityPlanUpdate, conn=Depends(get
         updates.append("description=?"); params.append(req.description.strip())
     if req.status is not None:
         updates.append("status=?"); params.append(req.status)
+    if req.plan_type is not None:
+        if req.plan_type in ("activity", "meeting"):
+            updates.append("plan_type=?"); params.append(req.plan_type)
     if updates:
         params.append(plan_id)
         cur.execute(f"UPDATE activity_plans SET {', '.join(updates)} WHERE id=?", params)
@@ -2746,8 +2754,19 @@ def complete_activity_plan(plan_id: str, req: ActivityPlanComplete, conn=Depends
         INSERT INTO activities (id, title, start_time, location, organizer, description, status, creator_id, plan_id)
         VALUES (?, ?, ?, ?, ?, ?, 'completed', ?, ?)
     """, (act_id, title, plan_date, location, department, description, plan["creator_id"], plan_id))
+    # 3. 同步生成考勤记录（活动/例会都会归纳到考勤记录，人员名单可后续在考勤记录中补录）
+    plan_type = plan["plan_type"] if "plan_type" in plan.keys() else "activity"
+    if plan_type not in ("activity", "meeting"):
+        plan_type = "activity"
+    att_id = str(uuid.uuid4())
+    cur.execute("""
+        INSERT INTO attendance (id, title, type, activity_id, date, attendees, absentees, leave, remark, creator_id)
+        VALUES (?, ?, ?, ?, ?, '[]', '[]', '[]', ?, ?)
+    """, (att_id, title, plan_type, act_id, plan_date,
+          f"由活动规划自动同步（{department or '未填部门'} · {plan_date}）",
+          plan["creator_id"]))
     conn.commit()
-    return {"success": True, "message": "活动已标记完成，并已生成活动记录", "activity_id": act_id}
+    return {"success": True, "message": "活动已标记完成，已同步到活动记录和考勤记录", "activity_id": act_id}
 
 # ==================== 考勤记录 ====================
 class AttendanceCreate(BaseModel):

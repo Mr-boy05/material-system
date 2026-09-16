@@ -319,6 +319,7 @@
             <div class="modal-title" id="mPlanModalTitle">新增活动规划</div>
             <input type="hidden" id="mPlanId">
             <div class="form-group"><label>活动名称 <span class="req">*</span></label><input type="text" id="mPlanTitle" placeholder="如：迎新晚会"></div>
+            <div class="form-group"><label>活动类型 <span class="req">*</span></label><select id="mPlanType" style="padding:11px;border:1px solid #e5e7f0;border-radius:10px;width:100%;background:#fff;font-size:14px;"><option value="activity">🎉 活动</option><option value="meeting">📋 例会</option></select></div>
             <div class="form-group"><label>所属部门</label><select id="mPlanDept" style="padding:11px;border:1px solid #e5e7f0;border-radius:10px;width:100%;background:#fff;font-size:14px;"><option value="">请选择部门</option></select></div>
             <div class="form-group"><label>计划日期 <span class="req">*</span></label><input type="date" id="mPlanDate" style="padding:11px;border:1px solid #e5e7f0;border-radius:10px;width:100%;background:#fff;font-size:14px;"></div>
             <div class="form-group"><label>活动地点</label><input type="text" id="mPlanLocation" placeholder="如：学术报告厅"></div>
@@ -1209,7 +1210,7 @@
                     const st = MPLAN_STATUS[p.status] || MPLAN_STATUS.planned;
                     const canEdit = (curUser.role==='admin') || (p.creator_id===curUser.id);
                     html += '<div class="mplan-item"><div class="dot"></div><div class="mplan-card">';
-                    html += '<div class="t"><span class="name">' + mplanEsc(p.title) + '</span><span class="mplan-badge ' + st.c + '">' + st.t + '</span></div>';
+                    html += '<div class="t"><span class="name">' + mplanEsc(p.title) + '</span><span style="font-size:11px;padding:2px 8px;border-radius:10px;border:1px solid;' + (p.plan_type === 'meeting' ? 'background:#e3f2fd;color:#1565c0;border-color:#bbdefb;' : 'background:#f3e5f5;color:#7b1fa2;border-color:#e1bee7;') + '">' + (p.plan_type === 'meeting' ? '📋 例会' : '🎉 活动') + '</span><span class="mplan-badge ' + st.c + '">' + st.t + '</span></div>';
                     if (p.department) html += '<div class="dept">🏢 ' + mplanEsc(p.department) + '</div>';
                     html += '<div class="meta">';
                     html += '<span>📅 ' + (p.plan_date || '') + '</span>';
@@ -1237,6 +1238,7 @@
             document.getElementById('mPlanModalTitle').textContent = plan ? '编辑活动规划' : '新增活动规划';
             document.getElementById('mPlanId').value = plan ? plan.id : '';
             document.getElementById('mPlanTitle').value = plan ? plan.title : '';
+            document.getElementById('mPlanType').value = plan ? (plan.plan_type || 'activity') : 'activity';
             document.getElementById('mPlanDept').value = plan ? (plan.department||'') : '';
             document.getElementById('mPlanDate').value = plan ? (plan.plan_date||'') : '';
             document.getElementById('mPlanLocation').value = plan ? (plan.location||'') : '';
@@ -1251,6 +1253,7 @@
             const id = document.getElementById('mPlanId').value;
             const body = {
                 title: document.getElementById('mPlanTitle').value.trim(),
+                plan_type: document.getElementById('mPlanType').value,
                 department: document.getElementById('mPlanDept').value,
                 plan_date: document.getElementById('mPlanDate').value,
                 location: document.getElementById('mPlanLocation').value.trim(),
