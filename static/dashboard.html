@@ -117,9 +117,42 @@ body::before {
 
 .empty-tip { text-align:center; color:#5c73a8; font-size:12px; padding:14px 0; }
 .footer { text-align:center; color:#3d5177; font-size:11px; margin-top:26px; letter-spacing:1px; line-height:1.8; }
+
+/* ===== 鼠标交互 ===== */
+.cursor-glow {
+    position:fixed; width:420px; height:420px; border-radius:50%; pointer-events:none; z-index:2;
+    background:radial-gradient(circle, rgba(79,195,247,0.10) 0%, rgba(79,195,247,0.04) 40%, transparent 70%);
+    transform:translate(-50%,-50%); transition:opacity 0.3s; opacity:0;
+}
+.kpi { cursor:pointer; transition:transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.25s, border-color 0.25s; }
+.kpi:hover { transform:translateY(-4px) scale(1.02); border-color:rgba(79,195,247,0.55); box-shadow:0 8px 28px rgba(0,0,0,0.35), 0 0 24px rgba(79,195,247,0.18); }
+.kpi:active { transform:scale(0.97); }
+.kpi .num { transition:transform 0.25s; }
+.kpi:hover .num { transform:scale(1.06); }
+.panel { transition:border-color 0.25s, box-shadow 0.25s; }
+.panel:hover { border-color:rgba(79,195,247,0.35); box-shadow:0 6px 26px rgba(0,0,0,0.28), 0 0 18px rgba(79,195,247,0.08); }
+.hbar { cursor:default; border-radius:8px; padding:3px 6px; transition:background 0.18s; }
+.hbar:hover { background:rgba(79,195,247,0.09); }
+.hbar .name { transition:color 0.18s; }
+.hbar:hover .name { color:#e8f2ff; }
+.legend .lg { transition:background 0.18s, transform 0.18s; border-radius:8px; padding:4px 6px; cursor:default; }
+.legend .lg:hover { background:rgba(79,195,247,0.10); transform:translateX(3px); }
+.mini { transition:transform 0.2s, border-color 0.2s, box-shadow 0.2s; cursor:default; }
+.mini:hover { transform:translateY(-3px); border-color:rgba(79,195,247,0.4); box-shadow:0 4px 16px rgba(0,0,0,0.25); }
+.mini .n { transition:transform 0.2s; }
+.mini:hover .n { transform:scale(1.08); }
+.chart-tip {
+    position:fixed; z-index:99; display:none; pointer-events:none;
+    background:rgba(10,20,48,0.92); border:1px solid rgba(79,195,247,0.4); border-radius:8px;
+    padding:7px 12px; font-size:12px; color:#dbe7ff; box-shadow:0 6px 20px rgba(0,0,0,0.4);
+    white-space:nowrap; backdrop-filter:blur(4px);
+}
+.chart-tip .v { color:#4fc3f7; font-weight:700; font-size:15px; }
 </style>
 </head>
 <body>
+<div class="cursor-glow" id="cursorGlow"></div>
+<div class="chart-tip" id="chartTip"></div>
 <div class="wrap">
     <div class="header">
         <a class="back" href="/">← 返回</a>
@@ -131,12 +164,12 @@ body::before {
 
     <!-- KPI -->
     <div class="kpi-grid">
-        <div class="kpi blue"><div class="ico">📦</div><div class="num" id="kpiMat">-</div><div class="lbl">物资总数</div></div>
-        <div class="kpi green"><div class="ico">✅</div><div class="num" id="kpiAvail">-</div><div class="lbl">当前可领取</div></div>
-        <div class="kpi orange"><div class="ico">🔄</div><div class="num" id="kpiBorrow">-</div><div class="lbl">累计借出(次)</div></div>
-        <div class="kpi purple"><div class="ico">🗓️</div><div class="num" id="kpiPlan">-</div><div class="lbl">活动规划</div></div>
-        <div class="kpi pink"><div class="ico">📚</div><div class="num" id="kpiSkill">-</div><div class="lbl">技能文档</div></div>
-        <div class="kpi blue"><div class="ico">👥</div><div class="num" id="kpiMember">-</div><div class="lbl">活跃成员</div></div>
+        <div class="kpi blue" onclick="loadData(true)" title="点击立即刷新"><div class="ico">📦</div><div class="num" id="kpiMat">-</div><div class="lbl">物资总数</div></div>
+        <div class="kpi green" onclick="loadData(true)" title="点击立即刷新"><div class="ico">✅</div><div class="num" id="kpiAvail">-</div><div class="lbl">当前可领取</div></div>
+        <div class="kpi orange" onclick="loadData(true)" title="点击立即刷新"><div class="ico">🔄</div><div class="num" id="kpiBorrow">-</div><div class="lbl">累计借出(次)</div></div>
+        <div class="kpi purple" onclick="loadData(true)" title="点击立即刷新"><div class="ico">🗓️</div><div class="num" id="kpiPlan">-</div><div class="lbl">活动规划</div></div>
+        <div class="kpi pink" onclick="loadData(true)" title="点击立即刷新"><div class="ico">📚</div><div class="num" id="kpiSkill">-</div><div class="lbl">技能文档</div></div>
+        <div class="kpi blue" onclick="loadData(true)" title="点击立即刷新"><div class="ico">👥</div><div class="num" id="kpiMember">-</div><div class="lbl">活跃成员</div></div>
     </div>
 
     <!-- 第二行：库存环形 + 借用 + 趋势 -->
@@ -192,7 +225,7 @@ body::before {
         </div>
     </div>
 
-    <div class="footer">城治学生会综合管理系统 · 数据每 60 秒自动刷新 · © 2026 重庆超大城市数字化治理学院</div>
+    <div class="footer">城治学生会综合管理系统 · 数据每 60 秒自动刷新<span id="refreshTime" style="color:#4fc3f7;margin-left:10px;">点击上方数字卡片可手动刷新</span> · © 2026 重庆超大城市数字化治理学院</div>
 </div>
 
 <script>
@@ -269,16 +302,151 @@ function renderHBars(el, data, colors){
     var html = data.map(function(d, i){
         var pct = max ? (d.cnt/max*100) : 0;
         var c = colors[i % colors.length];
-        return '<div class="hbar"><div class="row"><span class="name">'+d.name+'</span>'+
+        return '<div class="hbar" title="'+d.name+'：'+d.cnt+'"><div class="row"><span class="name">'+d.name+'</span>'+
             '<div class="track"><div class="fill" style="width:'+Math.max(pct,3)+'%;background:linear-gradient(90deg,'+c+','+c+'88);box-shadow:0 0 8px '+c+'66;"></div></div>'+
             '<span class="val">'+d.cnt+'</span></div></div>';
     }).join('');
     el.innerHTML = html;
 }
 
+/* ===== 鼠标跟随光晕 ===== */
+var glow = document.getElementById('cursorGlow');
+document.addEventListener('mousemove', function(e){
+    glow.style.opacity = '1';
+    glow.style.left = e.clientX + 'px';
+    glow.style.top = e.clientY + 'px';
+});
+document.addEventListener('mouseleave', function(){ glow.style.opacity = '0'; });
+
+/* ===== 通用 tooltip ===== */
+var chartTip = document.getElementById('chartTip');
+function showTip(x, y, html){
+    chartTip.innerHTML = html;
+    chartTip.style.display = 'block';
+    var w = chartTip.offsetWidth, h = chartTip.offsetHeight;
+    var px = x + 14, py = y + 14;
+    if (px + w > window.innerWidth - 8) px = x - w - 14;
+    if (py + h > window.innerHeight - 8) py = y - h - 14;
+    chartTip.style.left = px + 'px';
+    chartTip.style.top = py + 'px';
+}
+function hideTip(){ chartTip.style.display = 'none'; }
+
+/* ===== 柱状图 hover（趋势图） ===== */
+var trendData = null;
+function drawBarsHover(){
+    var canvas = document.getElementById('barTrend');
+    if (!canvas || !trendData || !trendData.labels.length) return;
+    var ctx = canvas.getContext('2d');
+    var dpr = window.devicePixelRatio || 1;
+    var W = canvas.clientWidth, H = canvas.clientHeight;
+    var padB = 18, padT = 8;
+    var n = trendData.labels.length;
+    var bw = Math.min(40, (W / n) * 0.5);
+    var gap = (W - n*bw) / (n + 1);
+    canvas.addEventListener('mousemove', function(e){
+        var rect = canvas.getBoundingClientRect();
+        var x = e.clientX - rect.left;
+        var y = e.clientY - rect.top;
+        var idx = -1;
+        for (var i=0;i<n;i++){
+            var bx = gap + i*(bw+gap);
+            if (x >= bx && x <= bx+bw){ idx = i; break; }
+        }
+        if (idx >= 0 && y >= padT && y <= H-padB){
+            // 高亮重绘
+            drawBars(canvas, trendData.labels, trendData.values, '#4fc3f7');
+            ctx = canvas.getContext('2d');
+            ctx.save();
+            ctx.shadowColor = '#4fc3f7'; ctx.shadowBlur = 14;
+            var hh = (trendData.values[idx]/trendData.max)*(H-padB-padT);
+            var bx2 = gap + idx*(bw+gap);
+            var g = ctx.createLinearGradient(0, H-padB-hh, 0, H-padB);
+            g.addColorStop(0, '#8bd8ff'); g.addColorStop(1, 'rgba(79,195,247,0.45)');
+            ctx.fillStyle = g;
+            ctx.beginPath();
+            if (ctx.roundRect) ctx.roundRect(bx2-2, H-padB-hh, bw+4, hh, 5); else ctx.rect(bx2-2, H-padB-hh, bw+4, hh);
+            ctx.fill();
+            ctx.restore();
+            showTip(e.clientX, e.clientY,
+                '<div>'+trendData.labels[idx]+'</div><div class="v">'+trendData.values[idx]+' 次</div>');
+        } else {
+            hideTip();
+            drawBars(canvas, trendData.labels, trendData.values, '#4fc3f7');
+        }
+    });
+    canvas.addEventListener('mouseleave', function(){
+        hideTip();
+        drawBars(canvas, trendData.labels, trendData.values, '#4fc3f7');
+    });
+}
+
+/* ===== 环形图 hover（库存状态） ===== */
+var ringInfo = null;
+function drawRingHover(){
+    var canvas = document.getElementById('ringStock');
+    if (!canvas || !ringInfo) return;
+    var ctx = canvas.getContext('2d');
+    var dpr = window.devicePixelRatio || 1;
+    var size = 150;
+    var cx = size/2, cy = size/2, r = size/2 - 10;
+    function segAt(x, y){
+        var dx = x - cx, dy = y - cy;
+        var dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < r-8 || dist > r+8) return -1;
+        var ang = Math.atan2(dy, dx);
+        if (ang < -Math.PI/2) ang += Math.PI*2;
+        var start = -Math.PI/2;
+        for (var i=0;i<ringInfo.parts.length;i++){
+            var a = (ringInfo.parts[i]/ringInfo.total)*Math.PI*2;
+            if (a <= 0) continue;
+            var end = start + a;
+            if (ang >= start-0.01 && ang <= end+0.01) return i;
+            start = end;
+        }
+        return -1;
+    }
+    canvas.addEventListener('mousemove', function(e){
+        var rect = canvas.getBoundingClientRect();
+        var scale = size / rect.width;
+        var x = (e.clientX - rect.left) * scale;
+        var y = (e.clientY - rect.top) * scale;
+        var idx = segAt(x, y);
+        if (idx >= 0){
+            drawRing(canvas, ringInfo.parts, ringInfo.colors, ringInfo.total);
+            ctx = canvas.getContext('2d');
+            var start = -Math.PI/2;
+            for (var i=0;i<idx;i++){
+                start += (ringInfo.parts[i]/ringInfo.total)*Math.PI*2;
+            }
+            var a2 = (ringInfo.parts[idx]/ringInfo.total)*Math.PI*2;
+            ctx.beginPath(); ctx.arc(cx,cy,r,start,start+a2);
+            ctx.strokeStyle = ringInfo.colors[idx]; ctx.lineWidth = 19; ctx.lineCap = 'round';
+            ctx.shadowColor = ringInfo.colors[idx]; ctx.shadowBlur = 18;
+            ctx.stroke(); ctx.shadowBlur = 0;
+            showTip(e.clientX, e.clientY,
+                '<div>'+ringInfo.names[idx]+'</div><div class="v">'+ringInfo.parts[idx]+' 件</div>');
+        } else {
+            hideTip();
+            drawRing(canvas, ringInfo.parts, ringInfo.colors, ringInfo.total);
+        }
+    });
+    canvas.addEventListener('mouseleave', function(){
+        hideTip();
+        drawRing(canvas, ringInfo.parts, ringInfo.colors, ringInfo.total);
+    });
+}
+
 function fmt(arr){ return arr.map(function(x){ return {name:x.loc||'未分类', cnt:x.cnt}; }); }
 
-function loadData(){
+var lastRefresh = '--:--:--';
+function loadData(manual){
+    if (manual){
+        var n = new Date();
+        var p2 = function(x){ return x<10?'0'+x:x; };
+        lastRefresh = p2(n.getHours())+':'+p2(n.getMinutes())+':'+p2(n.getSeconds());
+        document.getElementById('refreshTime').textContent = '最后刷新 ' + lastRefresh;
+    }
     fetch('/api/stats/overview', { headers:{'Authorization':'Bearer '+token} })
     .then(function(res){ return res.json(); })
     .then(function(d){
@@ -292,7 +460,9 @@ function loadData(){
         var ss = d.stock_status;
         var stockParts = [ss.ok, ss.low, ss.out];
         var stockColors = ['#4ade80', '#ffd166', '#ff6b6b'];
+        ringInfo = { parts: stockParts, colors: stockColors, names: ['充足', '偏低', '为零'], total: d.material_count };
         drawRing(document.getElementById('ringStock'), stockParts, stockColors, d.material_count);
+        drawRingHover();
         document.getElementById('ringStockV').textContent = d.material_count;
         document.getElementById('stockLegend').innerHTML = [
             ['充足', ss.ok, '#4ade80'],
@@ -318,7 +488,9 @@ function loadData(){
 
         var labels = d.borrow_trend.map(function(t){ return t.date.slice(5); });
         var vals = d.borrow_trend.map(function(t){ return t.count; });
+        trendData = { labels: labels, values: vals, max: Math.max.apply(null, vals.concat([1])) };
         drawBars(document.getElementById('barTrend'), labels, vals, '#4fc3f7');
+        drawBarsHover();
 
         var depts = (d.dept_dist||[]).map(function(x){ return {name:x.dept, cnt:x.cnt}; });
         renderHBars(document.getElementById('deptBars'), depts, ['#4fc3f7','#7c4dff','#4ade80','#ffd166','#ff6b6b','#f472b6']);
