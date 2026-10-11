@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "3.8.2"
+VERSION = "3.8.3"
 VERSION_DATE = "2026-09-11"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
@@ -126,6 +126,7 @@ def init_db():
             phone TEXT DEFAULT '',
             email TEXT DEFAULT '',
             department TEXT DEFAULT '',
+            cohort TEXT DEFAULT '',
             role TEXT DEFAULT 'user',
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
@@ -296,6 +297,22 @@ def init_db():
     """)
     c.execute("CREATE INDEX IF NOT EXISTS idx_activity_plans_date ON activity_plans(plan_date)")
 
+    # 届别表（学生会届数分类，如第二届/第三届）
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS cohorts (
+            id TEXT PRIMARY KEY,
+            name TEXT UNIQUE NOT NULL,
+            sort_order INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    _default_cohorts = ["第二届", "第三届"]
+    for _idx, _cn in enumerate(_default_cohorts):
+        _ex = c.execute("SELECT id FROM cohorts WHERE name=?", (_cn,)).fetchone()
+        if not _ex:
+            c.execute("INSERT INTO cohorts (id, name, sort_order) VALUES (?,?,?)",
+                      (str(uuid.uuid4()), _cn, _idx))
+
     # 索引
     c.execute("CREATE INDEX IF NOT EXISTS idx_materials_qr ON materials(qr_code)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_transactions_material ON transactions(material_id)")
@@ -324,6 +341,8 @@ def init_db():
     add_column_if_not_exists("users", "phone", "TEXT DEFAULT ''")
     add_column_if_not_exists("users", "email", "TEXT DEFAULT ''")
     add_column_if_not_exists("users", "department", "TEXT DEFAULT ''")
+    # 届别（如：第二届学生会 / 第三届学生会）
+    add_column_if_not_exists("users", "cohort", "TEXT DEFAULT ''")
     # 用户审核状态：approved=正常, pending=待审核, rejected=已拒绝, disabled=已禁用
     add_column_if_not_exists("users", "status", "TEXT DEFAULT 'approved'")
     add_column_if_not_exists("sessions", "device", "TEXT DEFAULT 'pc'")
@@ -424,6 +443,7 @@ class UserCreateRequest(BaseModel):
     phone: str = ""
     email: str = ""
     department: str = ""
+    cohort: str = ""
     role: str = "user"
 
 class UserUpdateRequest(BaseModel):
@@ -432,6 +452,7 @@ class UserUpdateRequest(BaseModel):
     phone: Optional[str] = None
     email: Optional[str] = None
     department: Optional[str] = None
+    cohort: Optional[str] = None
     role: Optional[str] = None
     password: Optional[str] = None
 
@@ -530,7 +551,7 @@ def get_current_user(authorization: str = Header(None), token: str = Query(None)
     cur.execute("SELECT 1 FROM sessions WHERE token = ?", (jwt_token,))
     if cur.fetchone() is None:
         raise HTTPException(status_code=401, detail="登录已失效，请重新登录")
-    cur.execute("SELECT id, username, real_name, phone, email, department, role, status FROM users WHERE id = ?", (user_id,))
+    cur.execute("SELECT id, username, real_name, phone, email, department, cohort, role, status FROM users WHERE id = ?", (user_id,))
     user = cur.fetchone()
     if user is None:
         raise credentials_exception
@@ -721,7 +742,7 @@ def list_users(conn=Depends(get_db), user=Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="只有管理员可以查看用户")
     cur = conn.cursor()
     cur.execute("""
-        SELECT id, username, real_name, phone, email, department, role, status, created_at
+        SELECT id, username, real_name, phone, email, department, cohort, role, status, created_at
         FROM users ORDER BY created_at DESC
     """)
     return [dict(u) for u in cur.fetchall()]
@@ -741,9 +762,9 @@ def create_user(req: UserCreateRequest, conn=Depends(get_db), user=Depends(get_c
     real_name = req.real_name if req.real_name else username
     user_id = str(uuid.uuid4())
     cur.execute("""
-        INSERT INTO users (id, username, password_hash, real_name, phone, email, department, role, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'approved')
-    """, (user_id, username, hash_password(password), real_name, req.phone, req.email, req.department, req.role))
+        INSERT INTO users (id, username, password_hash, real_name, phone, email, department, cohort, role, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved')
+    """, (user_id, username, hash_password(password), real_name, req.phone, req.email, req.department, req.cohort, req.role))
     conn.commit()
     return {"success": True, "message": "用户创建成功", "user_id": user_id}
 
@@ -778,6 +799,9 @@ def update_user(user_id: str, req: UserUpdateRequest, conn=Depends(get_db), user
     if req.department is not None:
         updates.append("department = ?")
         params.append(req.department)
+    if req.cohort is not None:
+        updates.append("cohort = ?")
+        params.append(req.cohort)
     if req.role is not None:
         if req.role not in ("admin", "user"):
             raise HTTPException(status_code=400, detail="角色只能是 admin 或 user")
@@ -831,10 +855,83 @@ def update_profile(req: UserUpdateRequest, conn=Depends(get_db), user=Depends(ge
         cur.execute(f"UPDATE users SET {', '.join(updates)} WHERE id = ?", params)
         conn.commit()
         # 更新localStorage中的用户信息
-        cur.execute("SELECT id, username, real_name, phone, email, department, role FROM users WHERE id = ?", (user["id"],))
+        cur.execute("SELECT id, username, real_name, phone, email, department, cohort, role FROM users WHERE id = ?", (user["id"],))
         updated = cur.fetchone()
         return {"success": True, "message": "个人信息已更新", "user": dict(updated)}
     return {"success": True, "message": "没有需要更新的内容"}
+
+# ==================== 届别管理 ====================
+class CohortCreate(BaseModel):
+    name: str
+
+class CohortUpdate(BaseModel):
+    name: Optional[str] = None
+
+@app.get("/api/cohorts")
+def list_cohorts(conn=Depends(get_db), user=Depends(get_current_user)):
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT c.id, c.name, c.sort_order, c.created_at,
+               (SELECT COUNT(*) FROM users u WHERE u.cohort = c.name) as user_count
+        FROM cohorts c
+        ORDER BY c.sort_order ASC, c.created_at ASC
+    """)
+    return [dict(r) for r in cur.fetchall()]
+
+@app.post("/api/cohorts")
+def create_cohort(req: CohortCreate, conn=Depends(get_db), user=Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="只有管理员可以管理届别")
+    name = req.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="届别名不能为空")
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM cohorts WHERE name=?", (name,))
+    if cur.fetchone():
+        raise HTTPException(status_code=400, detail="该届别已存在")
+    cid = str(uuid.uuid4())
+    cur.execute("SELECT COUNT(*) as n FROM cohorts")
+    cnt = cur.fetchone()["n"]
+    cur.execute("INSERT INTO cohorts (id, name, sort_order) VALUES (?,?,?)", (cid, name, cnt))
+    conn.commit()
+    return {"success": True, "message": "届别已创建", "id": cid}
+
+@app.put("/api/cohorts/{cohort_id}")
+def update_cohort(cohort_id: str, req: CohortUpdate, conn=Depends(get_db), user=Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="只有管理员可以管理届别")
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM cohorts WHERE id=?", (cohort_id,))
+    row = cur.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="届别不存在")
+    new_name = (req.name or "").strip()
+    if not new_name:
+        raise HTTPException(status_code=400, detail="届别名不能为空")
+    cur.execute("SELECT id FROM cohorts WHERE name=? AND id!=?", (new_name, cohort_id))
+    if cur.fetchone():
+        raise HTTPException(status_code=400, detail="该届别已存在")
+    old_name = row["name"]
+    # 同步修改用户表中的届别
+    cur.execute("UPDATE users SET cohort=? WHERE cohort=?", (new_name, old_name))
+    cur.execute("UPDATE cohorts SET name=? WHERE id=?", (new_name, cohort_id))
+    conn.commit()
+    return {"success": True, "message": "届别已更新"}
+
+@app.delete("/api/cohorts/{cohort_id}")
+def delete_cohort(cohort_id: str, conn=Depends(get_db), user=Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="只有管理员可以管理届别")
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM cohorts WHERE id=?", (cohort_id,))
+    row = cur.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="届别不存在")
+    # 该届用户届别置空，保留用户
+    cur.execute("UPDATE users SET cohort='' WHERE cohort=?", (row["name"],))
+    cur.execute("DELETE FROM cohorts WHERE id=?", (cohort_id,))
+    conn.commit()
+    return {"success": True, "message": "届别已删除，该届成员已归入未设置届别"}
 
 @app.delete("/api/users/{user_id}")
 def delete_user(user_id: str, conn=Depends(get_db), user=Depends(get_current_user)):

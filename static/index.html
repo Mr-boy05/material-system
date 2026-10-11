@@ -378,7 +378,7 @@
         <div class="page" id="page-users">
             <div class="page-title">人员管理</div>
             <!-- 用户统计卡片 -->
-            <div class="stat-cards" style="display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin-bottom:20px;">
+            <div class="stat-cards" style="display:grid;grid-template-columns:repeat(5,1fr);gap:15px;margin-bottom:20px;">
                 <div class="stat-card active" style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:20px;border-radius:12px;" onclick="setUserFilter('all')" title="点击查看全部用户">
                     <span class="arrow">🔍</span>
                     <div style="font-size:28px;font-weight:700;" id="statTotalUsers">0</div>
@@ -399,6 +399,11 @@
                     <div style="font-size:28px;font-weight:700;" id="statDeptCount">0</div>
                     <div style="font-size:13px;opacity:0.9;margin-top:4px;">涉及部门 · 点击浏览</div>
                 </div>
+                <div class="stat-card" style="background:linear-gradient(135deg,#fa709a,#fee140);color:white;padding:20px;border-radius:12px;" onclick="setUserFilter('cohortList')" title="点击按届别浏览">
+                    <span class="arrow">🔍</span>
+                    <div style="font-size:28px;font-weight:700;" id="statCohortCount">0</div>
+                    <div style="font-size:13px;opacity:0.9;margin-top:4px;">涉及届别 · 点击浏览</div>
+                </div>
             </div>
             <div class="toolbar">
                 <span style="color:#666;font-size:13px;" id="userCount">共 0 人</span>
@@ -410,6 +415,7 @@
                     <button class="btn" style="background:#fff3e0;color:#f57c00;" onclick="exportUsers()">📊 导出用户</button>
                     <button class="btn btn-danger" onclick="batchDeleteUsers()">🗑️ 批量删除</button>
                     <button class="btn btn-primary" onclick="openUserModal()">+ 新增用户</button>
+                    <button class="btn" style="background:#f3e5f5;color:#7b1fa2;" onclick="openCohortManager()">🎓 管理届别</button>
                 </div>
             </div>
             <div class="user-filter-bar" id="userFilterBar" style="display:none;">
@@ -689,12 +695,29 @@
             <div class="form-group"><label>用户名 <span class="req">*</span></label><input type="text" id="editUsername" placeholder="可输入中文或英文"></div>
             <div class="form-group"><label>真实姓名</label><input type="text" id="editRealName" placeholder="不填则与用户名相同"></div>
             <div class="form-group"><label>部门</label><select id="editDepartment"><option value="">请选择部门</option><option value="办公室">办公室</option><option value="学习部">学习部</option><option value="体育部">体育部</option><option value="文娱部">文娱部</option><option value="志工部">志工部</option><option value="宣传部">宣传部</option><option value="马列部">马列部</option><option value="组织部">组织部</option><option value="权益部">权益部</option><option value="社团部">社团部</option><option value="主席团">主席团</option><option value="副书记">副书记</option><option value="老师">老师</option></select></div>
+            <div class="form-group"><label>届别</label><select id="editCohort"><option value="">请选择届别</option></select></div>
             <div class="form-group"><label>电话</label><input type="tel" id="editPhone" placeholder="请输入电话号码"></div>
             <div class="form-group"><label>邮箱</label><input type="email" id="editEmail" placeholder="用于忘记密码找回"></div>
             <div class="form-group"><label>角色</label><select id="editRole"><option value="user">普通用户</option><option value="admin">管理员</option></select></div>
             <div class="form-group"><label>密码</label><input type="password" id="editPassword" placeholder="新增默认123456，编辑留空不修改"></div>
             <div class="error-msg" id="userModalError" style="display:none;margin-top:0;"></div>
             <div class="modal-actions"><button class="btn-cancel" onclick="closeUserModal()">取消</button><button class="btn-submit" onclick="submitUser()">确认保存</button></div>
+        </div>
+    </div>
+
+    <!-- 届别管理弹窗 -->
+    <div class="modal-mask" id="cohortModal" onclick="if(event.target===this)closeCohortManager()">
+        <div class="modal" style="max-width:560px;">
+            <h3>🎓 届别管理</h3>
+            <div style="font-size:13px;color:#666;background:#f6f7ff;border:1px solid #e4e6f8;padding:8px 12px;border-radius:8px;margin-bottom:14px;">按学生会届数分类成员（如：第二届学生会、第三届学生会）。新增一届后，即可在人员管理中为成员设置届别。</div>
+            <div style="display:flex;gap:8px;margin-bottom:14px;">
+                <input type="text" id="newCohortName" placeholder="输入新届别名称，如：第四届" style="flex:1;padding:9px 12px;border:1px solid #ddd;border-radius:8px;">
+                <button class="btn btn-primary" onclick="saveCohort()">＋ 新增</button>
+            </div>
+            <div id="cohortList" style="max-height:420px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;">
+                <div style="text-align:center;color:#999;padding:20px;">加载中...</div>
+            </div>
+            <div class="modal-actions" style="margin-top:16px;"><button class="btn-cancel" onclick="closeCohortManager()">关闭</button></div>
         </div>
     </div>
 
@@ -2047,7 +2070,8 @@
 
         // ===== 用户管理：按部门分类 + 统计卡片点击筛选 =====
         let allUsers = [];
-        let userFilter = { type: 'all' };  // all / role(admin|user) / deptList / dept(部门名)
+        let allCohorts = [];
+        let userFilter = { type: 'all' };  // all / role(admin|user) / deptList / dept(部门名) / cohortList / cohort(届别名)
 
         function userRow(u) {
             const roleColor = u.role==='admin' ? '#f5576c' : '#4facfe';
@@ -2067,6 +2091,7 @@
                 <div class="info">
                     <div class="name">${u.real_name || u.username}</div>
                     <div class="acc">@${u.username}${u.phone ? ' · ' + esc(u.phone) : ''}${u.email ? ' · ' + esc(u.email) : ''}</div>
+                    ${u.cohort ? `<div class="acc" style="color:#7b1fa2;font-weight:600;">🎓 ${esc(u.cohort)}</div>` : ''}
                 </div>
                 <div class="tags">
                     <span style="background:${roleColor};color:#fff;">${roleText}</span>
@@ -2091,6 +2116,8 @@
             else if (type === 'role') userFilter = { type: 'role', role: val };
             else if (type === 'deptList') userFilter = { type: 'deptList' };
             else if (type === 'dept') userFilter = { type: 'dept', dept: val };
+            else if (type === 'cohortList') userFilter = { type: 'cohortList' };
+            else if (type === 'cohort') userFilter = { type: 'cohort', cohort: val };
             // 卡片选中态
             const cards = document.querySelectorAll('#page-users .stat-card');
             cards.forEach(c=>c.classList.remove('active'));
@@ -2098,6 +2125,8 @@
             else if (type === 'role') cards[val === 'admin' ? 1 : 2].classList.add('active');
             else if (type === 'deptList') cards[3].classList.add('active');
             else if (type === 'dept') cards[3].classList.add('active');
+            else if (type === 'cohortList') cards[4].classList.add('active');
+            else if (type === 'cohort') cards[4].classList.add('active');
             renderUsers();
         }
 
@@ -2108,10 +2137,12 @@
             const adminCount = allUsers.filter(u=>u.role==='admin').length;
             const normalCount = allUsers.length - adminCount;
             const depts = new Set(allUsers.map(u=>u.department).filter(d=>d));
+            const cohortsSet = new Set(allUsers.map(u=>u.cohort).filter(c=>c));
             document.getElementById('statTotalUsers').textContent = allUsers.length;
             document.getElementById('statAdminUsers').textContent = adminCount;
             document.getElementById('statNormalUsers').textContent = normalCount;
             document.getElementById('statDeptCount').textContent = depts.size;
+            document.getElementById('statCohortCount').textContent = cohortsSet.size;
             // 筛选状态条
             const bar = document.getElementById('userFilterBar');
             const chip = document.getElementById('userFilterChip');
@@ -2121,7 +2152,9 @@
                 bar.style.display = 'flex';
                 if (f.type === 'role') chip.textContent = (f.role === 'admin' ? '管理员' : '普通用户') + '（' + allUsers.filter(u=>u.role===f.role).length + ' 人）';
                 else if (f.type === 'deptList') chip.textContent = '按部门浏览';
-                else if (f.type === 'dept') chip.textContent = f.dept + '（' + allUsers.filter(u=>(u.department||'')===f.dept).length + ' 人）';
+                else if (f.type === 'dept') chip.textContent = f.dept + '（' + allUsers.filter(u=>(u.department||'未设置部门')===f.dept).length + ' 人）';
+                else if (f.type === 'cohortList') chip.textContent = '按届别浏览';
+                else if (f.type === 'cohort') chip.textContent = f.cohort + '（' + allUsers.filter(u=>(u.cohort||'未设置届别')===f.cohort).length + ' 人）';
             }
             if (!allUsers.length) { list.innerHTML = '<div class="empty" style="grid-column:1/-1;">暂无用户</div>'; return; }
 
@@ -2155,10 +2188,41 @@
                 return;
             }
 
+            // 届别概览视图
+            if (f.type === 'cohortList') {
+                const cohortMap = {};
+                allUsers.forEach(u => {
+                    const c = u.cohort || '未设置届别';
+                    (cohortMap[c] = cohortMap[c] || []).push(u);
+                });
+                const names = Object.keys(cohortMap).sort();
+                let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;">';
+                const cColors = ['linear-gradient(135deg,#7b1fa2,#e040fb)','linear-gradient(135deg,#f093fb,#f5576c)','linear-gradient(135deg,#4facfe,#00f2fe)','linear-gradient(135deg,#43e97b,#38f9d7)','linear-gradient(135deg,#fa709a,#fee140)'];
+                names.forEach(c => {
+                    const members = cohortMap[c];
+                    const admins = members.filter(u=>u.role==='admin').length;
+                    const ci = names.indexOf(c) % cColors.length;
+                    html += `<div class="dept-ov-card" onclick="setUserFilter('cohort','${escJs(c)}')">
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <div style="width:46px;height:46px;border-radius:12px;background:${cColors[ci]};color:white;display:flex;align-items:center;justify-content:center;font-size:22px;">🎓</div>
+                            <div style="flex:1;min-width:0;">
+                                <div style="font-size:15px;font-weight:700;color:#333;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(c)}</div>
+                                <div style="font-size:12px;color:#999;margin-top:3px;">${members.length} 人 · 管理员 ${admins} 人</div>
+                            </div>
+                            <div style="font-size:18px;color:#ccc;">›</div>
+                        </div>
+                    </div>`;
+                });
+                html += '</div>';
+                list.innerHTML = html;
+                return;
+            }
+
             // 筛选
             let users = allUsers;
             if (f.type === 'role') users = allUsers.filter(u=>u.role===f.role);
-            else if (f.type === 'dept') users = allUsers.filter(u=>(u.department||'')===f.dept);
+            else if (f.type === 'dept') users = allUsers.filter(u=>(u.department||'未设置部门')===f.dept);
+            else if (f.type === 'cohort') users = allUsers.filter(u=>(u.cohort||'未设置届别')===f.cohort);
             if (!users.length) { list.innerHTML = '<div class="empty" style="grid-column:1/-1;">暂无用户</div>'; return; }
 
             // 按部门分组（横向排版：每部门一列）
@@ -2209,6 +2273,7 @@
                     </div>
                     <div style="background:#fafafa;padding:15px;border-radius:10px;font-size:14px;color:#666;line-height:2;">
                         ${u.department ? `<div>🏛️ 部门：${u.department}</div>` : '<div>🏛️ 部门：未设置</div>'}
+                        ${u.cohort ? `<div>🎓 届别：${u.cohort}</div>` : '<div>🎓 届别：未设置</div>'}
                         ${u.phone ? `<div>📱 电话：${u.phone}</div>` : '<div>📱 电话：未设置</div>'}
                         ${u.email ? `<div>📧 邮箱：${u.email}</div>` : '<div>📧 邮箱：未设置</div>'}
                         <div>📅 注册时间：${new Date(u.created_at).toLocaleString('zh-CN')}</div>
@@ -3160,6 +3225,7 @@
             document.getElementById('editUsername').readOnly = false;
             document.getElementById('editRealName').value = '';
             document.getElementById('editDepartment').value = '';
+            loadCohorts('editCohort');
             document.getElementById('editPhone').value = '';
             document.getElementById('editEmail').value = '';
             document.getElementById('editRole').value = 'user';
@@ -3180,6 +3246,7 @@
                 document.getElementById('editUsername').readOnly = true;
                 document.getElementById('editRealName').value = u.real_name || '';
                 document.getElementById('editDepartment').value = u.department || '';
+                loadCohorts('editCohort').then(()=>{ document.getElementById('editCohort').value = u.cohort || ''; });
                 document.getElementById('editPhone').value = u.phone || '';
                 document.getElementById('editEmail').value = u.email || '';
                 document.getElementById('editRole').value = u.role;
@@ -3193,11 +3260,105 @@
             document.getElementById('userModal').style.display = 'none';
         }
 
+        // ===== 届别管理 =====
+        function loadCohorts(selectId) {
+            return fetch('/api/cohorts', { headers:{'Authorization':'Bearer '+token} })
+            .then(res=>res.json())
+            .then(data=>{
+                allCohorts = Array.isArray(data) ? data : [];
+                if (selectId) {
+                    const sel = document.getElementById(selectId);
+                    const cur = sel.value;
+                    sel.innerHTML = '<option value="">请选择届别</option>' + allCohorts.map(c=>`<option value="${escJs(c.name)}">${esc(c.name)}</option>`).join('');
+                    sel.value = cur;
+                }
+                return allCohorts;
+            })
+            .catch(()=>{ allCohorts = []; return allCohorts; });
+        }
+
+        function openCohortManager() {
+            document.getElementById('newCohortName').value = '';
+            document.getElementById('cohortModal').style.display = 'flex';
+            renderCohortList();
+        }
+        function closeCohortManager() {
+            document.getElementById('cohortModal').style.display = 'none';
+        }
+        function renderCohortList() {
+            const box = document.getElementById('cohortList');
+            box.innerHTML = '<div style="text-align:center;color:#999;padding:20px;">加载中...</div>';
+            loadCohorts().then(cohorts=>{
+                if (!cohorts.length) {
+                    box.innerHTML = '<div style="text-align:center;color:#999;padding:30px;">暂无届别，请先新增（如：第四届）</div>';
+                    return;
+                }
+                box.innerHTML = cohorts.map(c=>{
+                    const used = c.user_count || 0;
+                    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid #eee;border-radius:10px;background:#fff;">
+                        <div style="width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#7b1fa2,#e040fb);color:white;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">🎓</div>
+                        <div style="flex:1;min-width:0;">
+                            <div id="cohName_${c.id}" style="font-size:14px;font-weight:600;color:#333;">${esc(c.name)}</div>
+                            <div style="font-size:12px;color:#999;margin-top:2px;">${used} 位成员</div>
+                        </div>
+                        <input id="cohEdit_${c.id}" type="text" style="display:none;flex:1;padding:7px 10px;border:1px solid #ccc;border-radius:8px;" value="${escJs(c.name)}">
+                        <button class="btn btn-sm" style="padding:6px 12px;font-size:12px;color:#7b1fa2;border:1px solid #e1bee7;background:#fdf3ff;border-radius:8px;cursor:pointer;" onclick="toggleEditCohort('${c.id}')" id="cohEditBtn_${c.id}">✏️ 编辑</button>
+                        <button class="btn btn-sm" style="display:none;padding:6px 12px;font-size:12px;color:#fff;background:#7b1fa2;border:none;border-radius:8px;cursor:pointer;" onclick="saveEditCohort('${c.id}')" id="cohSaveBtn_${c.id}">保存</button>
+                        <button class="btn btn-sm" style="padding:6px 12px;font-size:12px;color:#d32f2f;border:1px solid #ffcdd2;background:#fff5f5;border-radius:8px;cursor:pointer;" onclick="deleteCohort('${c.id}')">🗑️</button>
+                    </div>`;
+                }).join('');
+            });
+        }
+        function toggleEditCohort(id) {
+            const nameEl = document.getElementById('cohName_' + id);
+            const inp = document.getElementById('cohEdit_' + id);
+            const btn = document.getElementById('cohEditBtn_' + id);
+            const save = document.getElementById('cohSaveBtn_' + id);
+            const editing = inp.style.display === 'flex';
+            if (editing) {
+                inp.style.display = 'none'; nameEl.style.display = 'block';
+                btn.textContent = '✏️ 编辑'; save.style.display = 'none';
+            } else {
+                inp.style.display = 'flex'; nameEl.style.display = 'none';
+                btn.textContent = '取消'; save.style.display = 'inline-block';
+            }
+        }
+        function saveEditCohort(id) {
+            const name = document.getElementById('cohEdit_' + id).value.trim();
+            if (!name) { showToast('届别名不能为空'); return; }
+            fetch('/api/cohorts/' + id, { method:'PUT', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({ name }) })
+            .then(res=>res.json().then(d=>({ok:res.ok,data:d})))
+            .then(({ok,data})=>{
+                if (ok) { showToast('届别已更新'); renderCohortList(); loadUsers(); }
+                else showToast(data.detail || '更新失败');
+            });
+        }
+        function saveCohort() {
+            const name = document.getElementById('newCohortName').value.trim();
+            if (!name) { showToast('请输入届别名称'); return; }
+            fetch('/api/cohorts', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({ name }) })
+            .then(res=>res.json().then(d=>({ok:res.ok,data:d})))
+            .then(({ok,data})=>{
+                if (ok) { document.getElementById('newCohortName').value=''; showToast('届别已创建'); renderCohortList(); }
+                else showToast(data.detail || '创建失败');
+            });
+        }
+        function deleteCohort(id) {
+            if (!confirm('确认删除该届别？该届别下的成员将归入「未设置届别」，用户不会被删除。')) return;
+            fetch('/api/cohorts/' + id, { method:'DELETE', headers:{'Authorization':'Bearer '+token} })
+            .then(res=>res.json().then(d=>({ok:res.ok,data:d})))
+            .then(({ok,data})=>{
+                if (ok) { showToast('届别已删除'); renderCohortList(); loadUsers(); }
+                else showToast(data.detail || '删除失败');
+            });
+        }
+
         function submitUser() {
             const id = document.getElementById('editUserId').value;
             const username = document.getElementById('editUsername').value.trim();
             const real_name = document.getElementById('editRealName').value.trim();
             const department = document.getElementById('editDepartment').value.trim();
+            const cohort = document.getElementById('editCohort').value.trim();
             const phone = document.getElementById('editPhone').value.trim();
             const email = document.getElementById('editEmail').value.trim();
             const role = document.getElementById('editRole').value;
@@ -3212,7 +3373,7 @@
             }
 
             if (id) {
-                const body = { real_name, department, phone, email, role };
+                const body = { real_name, department, cohort, phone, email, role };
                 if (password) body.password = password;
                 fetch('/api/users/'+id, { method:'PUT', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify(body) })
                 .then(res=>res.json().then(d=>({ok:res.ok,data:d})))
@@ -3221,7 +3382,7 @@
                     else { errEl.textContent = data.detail||'保存失败'; errEl.style.display='block'; }
                 });
             } else {
-                fetch('/api/users', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({username, password:password||'123456', real_name, department, phone, email, role}) })
+                fetch('/api/users', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({username, password:password||'123456', real_name, department, cohort, phone, email, role}) })
                 .then(res=>res.json().then(d=>({ok:res.ok,data:d})))
                 .then(({ok,data})=>{
                     if (ok) { showToast('用户创建成功'); closeUserModal(); loadUsers(); }

@@ -345,6 +345,7 @@
         <div class="form-group"><label>密码</label><input type="text" id="newUserPwd" value="123456"></div>
         <div class="form-group"><label>电话</label><input type="text" id="newUserPhone" placeholder="选填"></div>
         <div class="form-group"><label>角色</label><select id="newUserRole"><option value="user">普通用户</option><option value="admin">管理员</option></select></div>
+        <div class="form-group"><label>届别</label><select id="newUserCohort"><option value="">请选择届别</option></select></div>
         <button class="btn-full" onclick="addUser()">确认添加</button>
         <button class="btn-full ghost" onclick="closeModal('addUserModal')">取消</button>
     </div>
@@ -1108,6 +1109,20 @@ function showAddUser() {
     document.getElementById('addUserModal').classList.add('show');
 }
 
+let mobCohorts = [];
+async function loadMobCohorts() {
+    try {
+        const res = await api('/api/cohorts', {});
+        const list = await res.json();
+        mobCohorts = Array.isArray(list) ? list : [];
+        const sel = document.getElementById('newUserCohort');
+        sel.innerHTML = '<option value="">请选择届别</option>' + mobCohorts.map(c=>`<option value="${c.name}">${c.name}</option>`).join('');
+    } catch(e) { mobCohorts = []; }
+}
+// 打开添加用户弹窗前加载届别
+const _origShowAddUser = window.showAddUser ? window.showAddUser : null;
+window.addEventListener('DOMContentLoaded', loadMobCohorts);
+
 async function addUser() {
     const username = document.getElementById('newUserName').value.trim();
     if (!username) { showToast('请输入用户名'); return; }
@@ -1116,7 +1131,8 @@ async function addUser() {
         real_name: document.getElementById('newUserReal').value.trim() || username,
         password: document.getElementById('newUserPwd').value || '123456',
         phone: document.getElementById('newUserPhone').value.trim(),
-        role: document.getElementById('newUserRole').value
+        role: document.getElementById('newUserRole').value,
+        cohort: document.getElementById('newUserCohort').value.trim()
     };
     try {
         const res = await api('/api/users', {
