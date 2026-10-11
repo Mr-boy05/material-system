@@ -220,6 +220,42 @@
         .user-row .audit { flex-basis:100%; display:flex; gap:6px; }
         .user-row .audit button { flex:1; font-size:12px; padding:5px 8px; border-radius:8px; border:none; cursor:pointer; color:#fff; }
         .user-row:has(.audit) { flex-wrap:wrap; }
+        /* 人员管理板块 Tab */
+        .users-tabs { display:flex; gap:10px; margin-bottom:18px; border-bottom:2px solid #eef0f8; padding-bottom:10px; }
+        .users-tabs .utab {
+            padding:9px 22px; border-radius:10px; cursor:pointer; font-size:14px; font-weight:600;
+            color:#888; background:#f4f5fa; border:1px solid transparent; transition:all 0.2s; user-select:none;
+        }
+        .users-tabs .utab:hover { color:#667eea; background:#eef0fb; }
+        .users-tabs .utab.active { color:#fff; background:linear-gradient(135deg,#667eea,#764ba2); box-shadow:0 4px 12px rgba(102,126,234,0.35); }
+        /* 通讯录工具栏 */
+        .contact-toolbar { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:14px; }
+        .cohort-tabs { display:flex; gap:8px; flex-wrap:wrap; }
+        .cohort-tabs .ctab {
+            padding:7px 16px; border-radius:20px; cursor:pointer; font-size:13px; font-weight:600;
+            color:#555; background:#f0f1f6; border:1px solid #e4e6f0; transition:all 0.2s; user-select:none;
+        }
+        .cohort-tabs .ctab:hover { color:#7b1fa2; background:#f9efff; border-color:#e1bee7; }
+        .cohort-tabs .ctab.active { color:#fff; background:linear-gradient(135deg,#7b1fa2,#e040fb); border-color:transparent; box-shadow:0 3px 10px rgba(123,31,162,0.3); }
+        .contact-toolbar input {
+            flex:1; min-width:200px; padding:9px 14px; border:1px solid #ddd; border-radius:10px; font-size:13px; outline:none; transition:border 0.2s;
+        }
+        .contact-toolbar input:focus { border-color:#667eea; box-shadow:0 0 0 3px rgba(102,126,234,0.12); }
+        /* 通讯录表格（仿 Excel） */
+        .table-wrap { overflow-x:auto; border:1px solid #e3e6ee; border-radius:12px; background:#fff; box-shadow:0 2px 10px rgba(0,0,0,0.04); }
+        .contact-table { width:100%; border-collapse:collapse; font-size:13px; min-width:860px; }
+        .contact-table thead th {
+            background:linear-gradient(180deg,#3f51b5,#303f9f); color:#fff; padding:11px 12px; text-align:left;
+            font-weight:600; white-space:nowrap; border-right:1px solid rgba(255,255,255,0.15); position:sticky; top:0;
+        }
+        .contact-table thead th:last-child { border-right:none; }
+        .contact-table tbody td { padding:10px 12px; border-bottom:1px solid #eef0f6; border-right:1px solid #f2f4fa; color:#444; vertical-align:middle; }
+        .contact-table tbody td:last-child { border-right:none; }
+        .contact-table tbody tr:nth-child(even) { background:#f8f9fe; }
+        .contact-table tbody tr:hover { background:#eef0ff; }
+        .contact-table tbody tr { transition:background 0.15s; }
+        .contact-table .op-btn { padding:4px 12px; font-size:12px; border-radius:6px; cursor:pointer; border:none; background:#667eea; color:#fff; transition:opacity 0.15s; }
+        .contact-table .op-btn:hover { opacity:0.85; }
         .dept-ov-card { cursor:pointer; transition:transform 0.2s, box-shadow 0.2s; background:white; border-radius:14px; padding:18px; box-shadow:0 2px 8px rgba(0,0,0,0.06); }
         .dept-ov-card:hover { transform:translateY(-3px); box-shadow:0 6px 16px rgba(0,0,0,0.12); }
         .dept-ov-card:active { transform:scale(0.98); }
@@ -377,53 +413,82 @@
         <!-- 人员管理 -->
         <div class="page" id="page-users">
             <div class="page-title">人员管理</div>
-            <!-- 用户统计卡片 -->
-            <div class="stat-cards" style="display:grid;grid-template-columns:repeat(5,1fr);gap:15px;margin-bottom:20px;">
-                <div class="stat-card active" style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:20px;border-radius:12px;" onclick="setUserFilter('all')" title="点击查看全部用户">
-                    <span class="arrow">🔍</span>
-                    <div style="font-size:28px;font-weight:700;" id="statTotalUsers">0</div>
-                    <div style="font-size:13px;opacity:0.9;margin-top:4px;">总用户数 · 点击查看</div>
-                </div>
-                <div class="stat-card" style="background:linear-gradient(135deg,#f093fb,#f5576c);color:white;padding:20px;border-radius:12px;" onclick="setUserFilter('role','admin')" title="点击只看管理员">
-                    <span class="arrow">🔍</span>
-                    <div style="font-size:28px;font-weight:700;" id="statAdminUsers">0</div>
-                    <div style="font-size:13px;opacity:0.9;margin-top:4px;">管理员 · 点击查看</div>
-                </div>
-                <div class="stat-card" style="background:linear-gradient(135deg,#4facfe,#00f2fe);color:white;padding:20px;border-radius:12px;" onclick="setUserFilter('role','user')" title="点击只看普通用户">
-                    <span class="arrow">🔍</span>
-                    <div style="font-size:28px;font-weight:700;" id="statNormalUsers">0</div>
-                    <div style="font-size:13px;opacity:0.9;margin-top:4px;">普通用户 · 点击查看</div>
-                </div>
-                <div class="stat-card" style="background:linear-gradient(135deg,#43e97b,#38f9d7);color:white;padding:20px;border-radius:12px;" onclick="setUserFilter('deptList')" title="点击按部门浏览">
-                    <span class="arrow">🔍</span>
-                    <div style="font-size:28px;font-weight:700;" id="statDeptCount">0</div>
-                    <div style="font-size:13px;opacity:0.9;margin-top:4px;">涉及部门 · 点击浏览</div>
-                </div>
-                <div class="stat-card" style="background:linear-gradient(135deg,#fa709a,#fee140);color:white;padding:20px;border-radius:12px;" onclick="setUserFilter('cohortList')" title="点击按届别浏览">
-                    <span class="arrow">🔍</span>
-                    <div style="font-size:28px;font-weight:700;" id="statCohortCount">0</div>
-                    <div style="font-size:13px;opacity:0.9;margin-top:4px;">涉及届别 · 点击浏览</div>
-                </div>
+            <!-- 板块切换 -->
+            <div class="users-tabs">
+                <div class="utab active" id="utabContact" onclick="showUsersTab('contact')">📒 学生干部通讯录</div>
+                <div class="utab" id="utabAdmin" onclick="showUsersTab('admin')">⚙️ 系统用户管理</div>
             </div>
-            <div class="toolbar">
-                <span style="color:#666;font-size:13px;" id="userCount">共 0 人</span>
-                <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                    <button class="btn" style="background:#f0f0f0;color:#666;" onclick="toggleAllUserCheck()">☑️ 全选/取消</button>
-                    <button class="btn" style="background:#e3f2fd;color:#1976d2;" onclick="downloadUserTemplate()">📥 下载模板</button>
-                    <button class="btn" style="background:#e8f5e9;color:#388e3c;" onclick="document.getElementById('userImportFile').click()">📤 导入用户</button>
-                    <input type="file" id="userImportFile" accept=".xlsx,.xls" style="display:none" onchange="importUsers(this)">
-                    <button class="btn" style="background:#fff3e0;color:#f57c00;" onclick="exportUsers()">📊 导出用户</button>
-                    <button class="btn btn-danger" onclick="batchDeleteUsers()">🗑️ 批量删除</button>
-                    <button class="btn btn-primary" onclick="openUserModal()">+ 新增用户</button>
-                    <button class="btn" style="background:#f3e5f5;color:#7b1fa2;" onclick="openCohortManager()">🎓 管理届别</button>
+
+            <!-- 板块一：学生干部通讯录（表格排版） -->
+            <div id="contactView">
+                <div class="contact-toolbar">
+                    <div class="cohort-tabs" id="contactCohortTabs"></div>
+                    <input type="text" id="contactSearch" placeholder="🔍 搜索姓名/账号/部门/电话" oninput="contactQuery=this.value;renderContacts()">
                 </div>
+                <div class="table-wrap">
+                    <table class="contact-table">
+                        <thead>
+                            <tr>
+                                <th style="width:52px;">序号</th><th>姓名</th><th>账号</th><th>部门</th><th>届别</th><th>联系电话</th><th>角色</th><th>状态</th><th style="width:88px;">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="contactBody">
+                            <tr><td colspan="9" class="empty">加载中...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div style="color:#999;font-size:12px;margin-top:10px;" id="contactCount"></div>
             </div>
-            <div class="user-filter-bar" id="userFilterBar" style="display:none;">
-                <span>当前查看：</span><span class="chip" id="userFilterChip">全部用户</span>
-                <span style="margin-left:auto;"><span class="clear" onclick="setUserFilter('all')">✕ 清除筛选，查看全部</span></span>
-            </div>
-            <div id="userList">
-                <div class="empty" style="grid-column:1/-1;">加载中...</div>
+
+            <!-- 板块二：系统用户管理（原功能保留） -->
+            <div id="userAdminView" style="display:none;">
+                <div class="stat-cards" style="display:grid;grid-template-columns:repeat(5,1fr);gap:15px;margin-bottom:20px;">
+                    <div class="stat-card active" style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:20px;border-radius:12px;" onclick="setUserFilter('all')" title="点击查看全部用户">
+                        <span class="arrow">🔍</span>
+                        <div style="font-size:28px;font-weight:700;" id="statTotalUsers">0</div>
+                        <div style="font-size:13px;opacity:0.9;margin-top:4px;">总用户数 · 点击查看</div>
+                    </div>
+                    <div class="stat-card" style="background:linear-gradient(135deg,#f093fb,#f5576c);color:white;padding:20px;border-radius:12px;" onclick="setUserFilter('role','admin')" title="点击只看管理员">
+                        <span class="arrow">🔍</span>
+                        <div style="font-size:28px;font-weight:700;" id="statAdminUsers">0</div>
+                        <div style="font-size:13px;opacity:0.9;margin-top:4px;">管理员 · 点击查看</div>
+                    </div>
+                    <div class="stat-card" style="background:linear-gradient(135deg,#4facfe,#00f2fe);color:white;padding:20px;border-radius:12px;" onclick="setUserFilter('role','user')" title="点击只看普通用户">
+                        <span class="arrow">🔍</span>
+                        <div style="font-size:28px;font-weight:700;" id="statNormalUsers">0</div>
+                        <div style="font-size:13px;opacity:0.9;margin-top:4px;">普通用户 · 点击查看</div>
+                    </div>
+                    <div class="stat-card" style="background:linear-gradient(135deg,#43e97b,#38f9d7);color:white;padding:20px;border-radius:12px;" onclick="setUserFilter('deptList')" title="点击按部门浏览">
+                        <span class="arrow">🔍</span>
+                        <div style="font-size:28px;font-weight:700;" id="statDeptCount">0</div>
+                        <div style="font-size:13px;opacity:0.9;margin-top:4px;">涉及部门 · 点击浏览</div>
+                    </div>
+                    <div class="stat-card" style="background:linear-gradient(135deg,#fa709a,#fee140);color:white;padding:20px;border-radius:12px;" onclick="setUserFilter('cohortList')" title="点击按届别浏览">
+                        <span class="arrow">🔍</span>
+                        <div style="font-size:28px;font-weight:700;" id="statCohortCount">0</div>
+                        <div style="font-size:13px;opacity:0.9;margin-top:4px;">涉及届别 · 点击浏览</div>
+                    </div>
+                </div>
+                <div class="toolbar">
+                    <span style="color:#666;font-size:13px;" id="userCount">共 0 人</span>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <button class="btn" style="background:#f0f0f0;color:#666;" onclick="toggleAllUserCheck()">☑️ 全选/取消</button>
+                        <button class="btn" style="background:#e3f2fd;color:#1976d2;" onclick="downloadUserTemplate()">📥 下载模板</button>
+                        <button class="btn" style="background:#e8f5e9;color:#388e3c;" onclick="document.getElementById('userImportFile').click()">📤 导入用户</button>
+                        <input type="file" id="userImportFile" accept=".xlsx,.xls" style="display:none" onchange="importUsers(this)">
+                        <button class="btn" style="background:#fff3e0;color:#f57c00;" onclick="exportUsers()">📊 导出用户</button>
+                        <button class="btn btn-danger" onclick="batchDeleteUsers()">🗑️ 批量删除</button>
+                        <button class="btn btn-primary" onclick="openUserModal()">+ 新增用户</button>
+                        <button class="btn" style="background:#f3e5f5;color:#7b1fa2;" onclick="openCohortManager()">🎓 管理届别</button>
+                    </div>
+                </div>
+                <div class="user-filter-bar" id="userFilterBar" style="display:none;">
+                    <span>当前查看：</span><span class="chip" id="userFilterChip">全部用户</span>
+                    <span style="margin-left:auto;"><span class="clear" onclick="setUserFilter('all')">✕ 清除筛选，查看全部</span></span>
+                </div>
+                <div id="userList">
+                    <div class="empty" style="grid-column:1/-1;">加载中...</div>
+                </div>
             </div>
         </div>
 
@@ -2072,6 +2137,9 @@
         let allUsers = [];
         let allCohorts = [];
         let userFilter = { type: 'all' };  // all / role(admin|user) / deptList / dept(部门名) / cohortList / cohort(届别名)
+        let userAdminTab = 'contact';      // contact=通讯录 / admin=用户管理
+        let contactCohort = 'all';         // 通讯录届别过滤 all/届别/未设置届别
+        let contactQuery = '';             // 通讯录搜索词
 
         function userRow(u) {
             const roleColor = u.role==='admin' ? '#f5576c' : '#4facfe';
@@ -2101,12 +2169,69 @@
             </div>`;
         }
 
+        // ===== 人员管理：通讯录 / 用户管理 板块切换 =====
+        function showUsersTab(tab) {
+            userAdminTab = tab;
+            document.getElementById('utabContact').classList.toggle('active', tab==='contact');
+            document.getElementById('utabAdmin').classList.toggle('active', tab==='admin');
+            document.getElementById('contactView').style.display = tab==='contact' ? 'block' : 'none';
+            document.getElementById('userAdminView').style.display = tab==='admin' ? 'block' : 'none';
+            if (tab==='contact') renderContacts();
+        }
+
+        function renderCohortTabs() {
+            const box = document.getElementById('contactCohortTabs');
+            if (!box) return;
+            const tabs = [{k:'all', label:'全部'}].concat(allCohorts.map(c=>({k:c.name, label:c.name})));
+            // 有未设置届别的用户时追加一项
+            if (allUsers.some(u=>!u.cohort)) tabs.push({k:'未设置届别', label:'未设置届别'});
+            box.innerHTML = tabs.map(t=>`<span class="ctab${contactCohort===t.k?' active':''}" onclick="contactCohort='${escJs(t.k)}';renderCohortTabs();renderContacts();">${esc(t.label)}</span>`).join('');
+        }
+
+        function renderContacts() {
+            const body = document.getElementById('contactBody');
+            renderCohortTabs();
+            let users = allUsers.slice();
+            if (contactCohort !== 'all') {
+                users = users.filter(u=>(u.cohort||'未设置届别')===contactCohort);
+            }
+            const q = contactQuery.trim().toLowerCase();
+            if (q) {
+                users = users.filter(u=>{
+                    return [u.real_name||'', u.username||'', u.department||'', u.phone||''].some(v=>v.toLowerCase().includes(q));
+                });
+            }
+            document.getElementById('contactCount').textContent = '共 ' + users.length + ' 位成员';
+            if (!users.length) {
+                body.innerHTML = '<tr><td colspan="9" class="empty">暂无成员</td></tr>';
+                return;
+            }
+            const roleTxt = r=> r==='admin' ? '管理员' : '普通用户';
+            const stMap = { pending:['待审核','#ff9800'], approved:['正常','#4caf50'], rejected:['已拒绝','#f44336'], disabled:['已禁用','#9e9e9e'] };
+            body.innerHTML = users.map((u,i)=>{
+                const st = stMap[u.status] || ['正常','#4caf50'];
+                return `<tr style="cursor:pointer;" onclick="viewUserDetail('${u.id}')">
+                    <td style="color:#999;">${i+1}</td>
+                    <td style="font-weight:600;color:#333;">${esc(u.real_name || u.username)}</td>
+                    <td style="color:#666;">@${esc(u.username)}</td>
+                    <td>${u.department ? esc(u.department) : '<span style="color:#bbb;">—</span>'}</td>
+                    <td>${u.cohort ? `<span style="color:#7b1fa2;font-weight:600;">${esc(u.cohort)}</span>` : '<span style="color:#bbb;">—</span>'}</td>
+                    <td>${u.phone ? esc(u.phone) : '<span style="color:#bbb;">—</span>'}</td>
+                    <td><span style="font-size:11px;padding:2px 10px;border-radius:10px;background:${u.role==='admin' ? '#f5576c' : '#4facfe'};color:#fff;">${roleTxt(u.role)}</span></td>
+                    <td><span style="font-size:11px;padding:2px 10px;border-radius:10px;background:${st[1]}22;color:${st[1]};font-weight:600;">● ${st[0]}</span></td>
+                    <td><button class="op-btn" onclick="event.stopPropagation();viewUserDetail('${u.id}')">详情</button></td>
+                </tr>`;
+            }).join('');
+        }
+
         function loadUsers() {
             fetch('/api/users', { headers:{'Authorization':'Bearer '+token} })
             .then(res=>res.json())
             .then(data=>{
                 allUsers = data;
                 renderUsers();
+                renderContacts();
+                loadCohorts().then(()=>renderContacts());
             })
             .catch(()=>{ document.getElementById('userList').innerHTML='<div class="empty" style="grid-column:1/-1;">加载失败</div>'; });
         }
