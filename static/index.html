@@ -424,6 +424,10 @@
                 <div class="contact-toolbar">
                     <div class="cohort-tabs" id="contactCohortTabs"></div>
                     <input type="text" id="contactSearch" placeholder="🔍 搜索姓名/账号/部门/电话" oninput="contactQuery=this.value;renderContacts()">
+                    <div style="display:flex;gap:8px;flex-shrink:0;">
+                        <button class="btn" style="background:#e3f2fd;color:#1976d2;" onclick="downloadUserTemplate()">📥 下载模板</button>
+                        <button class="btn" style="background:#e8f5e9;color:#388e3c;" onclick="document.getElementById('userImportFile').click()">📤 导入用户</button>
+                    </div>
                 </div>
                 <div class="table-wrap">
                     <table class="contact-table">

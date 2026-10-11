@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "3.8.4"
+VERSION = "3.8.5"
 VERSION_DATE = "2026-09-11"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
@@ -1006,15 +1006,15 @@ def download_user_template(user=Depends(get_current_user)):
     ws = wb.active
     ws.title = "用户导入模板"
     # 表头
-    headers = ["用户名*", "真实姓名", "部门", "电话", "邮箱", "初始密码"]
+    headers = ["用户名*", "真实姓名", "部门", "届别", "电话", "邮箱", "初始密码"]
     for col, h in enumerate(headers, 1):
         cell = ws.cell(row=1, column=col, value=h)
         cell.font = openpyxl.styles.Font(bold=True, color="FFFFFF")
         cell.fill = openpyxl.styles.PatternFill(start_color="667EEA", end_color="667EEA", fill_type="solid")
     # 示例数据
     examples = [
-        ["zhangsan", "张三", "办公室", "13800138000", "zhangsan@example.com", "123456"],
-        ["lisi", "李四", "学习部", "13900139000", "lisi@example.com", "123456"],
+        ["zhangsan", "张三", "办公室", "第三届", "13800138000", "zhangsan@example.com", "123456"],
+        ["lisi", "李四", "学习部", "第三届", "13900139000", "lisi@example.com", "123456"],
     ]
     for row_idx, row_data in enumerate(examples, 2):
         for col_idx, val in enumerate(row_data, 1):
@@ -1025,14 +1025,15 @@ def download_user_template(user=Depends(get_current_user)):
         "1. 用户名必填，不能重复，支持中文或英文",
         "2. 真实姓名不填则与用户名相同",
         "3. 部门可选：办公室/学习部/体育部/文娱部/志工部/宣传部/马列部/组织部/权益部/社团部/主席团/副书记",
-        "4. 初始密码不填则默认123456",
-        "5. 邮箱用于忘记密码找回，建议填写",
-        "6. 带*为必填项",
+        "4. 届别可选：第二届/第三届等（与人员管理中的届别一致，可先添加届别再导入）",
+        "5. 初始密码不填则默认123456",
+        "6. 邮箱用于忘记密码找回，建议填写",
+        "7. 带*为必填项",
     ]
     for i, note in enumerate(notes, 6):
         ws.cell(row=i, column=1, value=note)
     # 列宽
-    widths = [15, 12, 12, 15, 25, 12]
+    widths = [15, 12, 12, 12, 15, 25, 12]
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
     wb.save(output)
@@ -1070,14 +1071,15 @@ def import_users(file: UploadFile = File(...), conn=Depends(get_db), user=Depend
                 continue
             real_name = str(row[1]).strip() if row[1] else username
             department = str(row[2]).strip() if row[2] else ""
-            phone = str(row[3]).strip() if row[3] else ""
-            email = str(row[4]).strip() if row[4] else ""
-            password = str(row[5]).strip() if row[5] else "123456"
+            cohort = str(row[3]).strip() if len(row) > 3 and row[3] else ""
+            phone = str(row[4]).strip() if len(row) > 4 and row[4] else ""
+            email = str(row[5]).strip() if len(row) > 5 and row[5] else ""
+            password = str(row[6]).strip() if len(row) > 6 and row[6] else "123456"
             user_id = str(uuid.uuid4())
             cur.execute("""
-                INSERT INTO users (id, username, password_hash, real_name, phone, email, department, role, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?, 'user', 'approved')
-            """, (user_id, username, hash_password(password), real_name, phone, email, department))
+                INSERT INTO users (id, username, password_hash, real_name, phone, email, department, cohort, role, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'user', 'approved')
+            """, (user_id, username, hash_password(password), real_name, phone, email, department, cohort))
             imported += 1
         # 继续读取后面的行（如果有更多数据）
         for row_idx, row in enumerate(ws.iter_rows(min_row=5, values_only=True), 5):
@@ -1090,14 +1092,15 @@ def import_users(file: UploadFile = File(...), conn=Depends(get_db), user=Depend
                 continue
             real_name = str(row[1]).strip() if row[1] else username
             department = str(row[2]).strip() if row[2] else ""
-            phone = str(row[3]).strip() if row[3] else ""
-            email = str(row[4]).strip() if row[4] else ""
-            password = str(row[5]).strip() if row[5] else "123456"
+            cohort = str(row[3]).strip() if len(row) > 3 and row[3] else ""
+            phone = str(row[4]).strip() if len(row) > 4 and row[4] else ""
+            email = str(row[5]).strip() if len(row) > 5 and row[5] else ""
+            password = str(row[6]).strip() if len(row) > 6 and row[6] else "123456"
             user_id = str(uuid.uuid4())
             cur.execute("""
-                INSERT INTO users (id, username, password_hash, real_name, phone, email, department, role, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?, 'user', 'approved')
-            """, (user_id, username, hash_password(password), real_name, phone, email, department))
+                INSERT INTO users (id, username, password_hash, real_name, phone, email, department, cohort, role, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'user', 'approved')
+            """, (user_id, username, hash_password(password), real_name, phone, email, department, cohort))
             imported += 1
         conn.commit()
         return {"success": True, "message": f"成功导入 {imported} 个用户", "imported": imported, "skipped": skipped}
