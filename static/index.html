@@ -237,6 +237,67 @@
         }
         .cohort-tabs .ctab:hover { color:#7b1fa2; background:#f9efff; border-color:#e1bee7; }
         .cohort-tabs .ctab.active { color:#fff; background:linear-gradient(135deg,#7b1fa2,#e040fb); border-color:transparent; box-shadow:0 3px 10px rgba(123,31,162,0.3); }
+
+        /* ===== 玻璃文件夹卡片 ===== */
+        .folder-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:20px; margin-top:10px; }
+        .gfolder {
+            position:relative; border-radius:20px; cursor:pointer;
+            transition:transform .4s cubic-bezier(.2,.8,.2,1);
+            user-select:none;
+        }
+        .gfolder:hover { transform:translateY(-4px); }
+        .gf-back {
+            border-radius:20px; padding:20px; min-height:180px;
+            position:relative; overflow:hidden;
+            box-shadow:0 10px 30px rgba(0,0,0,.12), inset 0 1px 0 rgba(255,255,255,.6);
+        }
+        .gfolder[data-art="aurora"] .gf-back { background:linear-gradient(135deg,#667eea 0%,#764ba2 50%,#f093fb 100%); }
+        .gfolder[data-art="ember"] .gf-back { background:linear-gradient(135deg,#f5576c 0%,#f093fb 50%,#4facfe 100%); }
+        .gfolder[data-art="dusk"] .gf-back { background:linear-gradient(135deg,#4facfe 0%,#00f2fe 50%,#43e97b 100%); }
+        .gfolder[data-art="glacier"] .gf-back { background:linear-gradient(135deg,#a8edea 0%,#fed6e3 100%); }
+        .gfolder[data-art="verdant"] .gf-back { background:linear-gradient(135deg,#56ab2f 0%,#a8e063 100%); }
+        .gfolder[data-art="plum"] .gf-back { background:linear-gradient(135deg,#7b1fa2 0%,#e040fb 100%); }
+        .gfolder[data-art="ocean"] .gf-back { background:linear-gradient(135deg,#2193b0 0%,#6dd5ed 100%); }
+        .gfolder[data-art="sunset"] .gf-back { background:linear-gradient(135deg,#ee9ca7 0%,#ffdde1 100%); }
+        .gfolder[data-art="forest"] .gf-back { background:linear-gradient(135deg,#134e5e 0%,#71b280 100%); }
+        .gfolder[data-art="rose"] .gf-back { background:linear-gradient(135deg,#eb3349 0%,#f45c43 100%); }
+        .gfolder[data-art="night"] .gf-back { background:linear-gradient(135deg,#0f2027 0%,#203a4c 50%,#2c5364 100%); }
+        .gf-back::after {
+            content:''; position:absolute; inset:0;
+            background:radial-gradient(circle at 80% 20%, rgba(255,255,255,.25), transparent 60%);
+            pointer-events:none;
+        }
+        .gf-label { position:relative; z-index:2; }
+        .gf-label .gf-title { font-size:18px; font-weight:700; color:#fff; text-shadow:0 2px 8px rgba(0,0,0,.2); }
+        .gf-label .gf-meta { font-size:13px; color:rgba(255,255,255,.85); margin-top:4px; }
+        .gf-count {
+            position:absolute; top:16px; right:16px; z-index:2;
+            background:rgba(255,255,255,.25); backdrop-filter:blur(10px);
+            border-radius:20px; padding:4px 14px; color:#fff; font-size:13px; font-weight:700;
+        }
+        .gf-members {
+            max-height:0; overflow:hidden; transition:max-height .5s cubic-bezier(.2,.8,.2,1);
+            background:rgba(255,255,255,.85); backdrop-filter:blur(20px);
+            border-radius:0 0 20px 20px; margin-top:-8px; padding:0 16px;
+        }
+        .gfolder.open .gf-members { max-height:800px; padding:16px; }
+        .gf-member {
+            display:flex; align-items:center; gap:10px; padding:8px 10px;
+            border-radius:10px; cursor:pointer; transition:background .15s;
+        }
+        .gf-member:hover { background:#f0f2ff; }
+        .gf-member .av {
+            width:34px; height:34px; border-radius:50%; color:#fff;
+            display:flex; align-items:center; justify-content:center;
+            font-size:14px; font-weight:600; flex-shrink:0;
+        }
+        .gf-member .mn { font-size:14px; font-weight:600; color:#333; }
+        .gf-member .mp { font-size:11px; color:#999; }
+        .gfolder .gf-arrow {
+            position:absolute; bottom:14px; right:16px; z-index:2;
+            color:#fff; font-size:18px; transition:transform .3s;
+        }
+        .gfolder.open .gf-arrow { transform:rotate(180deg); }
         .contact-toolbar input {
             flex:1; min-width:200px; padding:9px 14px; border:1px solid #ddd; border-radius:10px; font-size:13px; outline:none; transition:border 0.2s;
         }
@@ -429,18 +490,7 @@
                         <button class="btn" style="background:#e8f5e9;color:#388e3c;" onclick="document.getElementById('userImportFile').click()">📤 导入用户</button>
                     </div>
                 </div>
-                <div class="table-wrap">
-                    <table class="contact-table">
-                        <thead>
-                            <tr>
-                                <th style="width:52px;">序号</th><th>姓名</th><th>账号</th><th>部门</th><th>届别</th><th>联系电话</th><th>角色</th><th>状态</th><th style="width:88px;">操作</th>
-                            </tr>
-                        </thead>
-                        <tbody id="contactBody">
-                            <tr><td colspan="9" class="empty">加载中...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
+                <div class="folder-grid" id="contactBody"></div>
                 <div style="color:#999;font-size:12px;margin-top:10px;" id="contactCount"></div>
             </div>
 
@@ -2212,25 +2262,46 @@
             }
             document.getElementById('contactCount').textContent = '共 ' + users.length + ' 位成员';
             if (!users.length) {
-                body.innerHTML = '<tr><td colspan="9" class="empty">暂无成员</td></tr>';
+                body.innerHTML = '<div style="grid-column:1/-1;color:#999;text-align:center;padding:40px;">暂无成员</div>';
                 return;
             }
-            const roleTxt = r=> r==='admin' ? '管理员' : '普通用户';
-            const stMap = { pending:['待审核','#ff9800'], approved:['正常','#4caf50'], rejected:['已拒绝','#f44336'], disabled:['已禁用','#9e9e9e'] };
-            body.innerHTML = users.map((u,i)=>{
-                const st = stMap[u.status] || ['正常','#4caf50'];
-                return `<tr style="cursor:pointer;" onclick="viewUserDetail('${u.id}')">
-                    <td style="color:#999;">${i+1}</td>
-                    <td style="font-weight:600;color:#333;">${esc(u.real_name || u.username)}</td>
-                    <td style="color:#666;">@${esc(u.username)}</td>
-                    <td>${u.department ? esc(u.department) : '<span style="color:#bbb;">—</span>'}</td>
-                    <td>${u.cohort ? `<span style="color:#7b1fa2;font-weight:600;">${esc(u.cohort)}</span>` : '<span style="color:#bbb;">—</span>'}</td>
-                    <td>${u.phone ? esc(u.phone) : '<span style="color:#bbb;">—</span>'}</td>
-                    <td><span style="font-size:11px;padding:2px 10px;border-radius:10px;background:${u.role==='admin' ? '#f5576c' : '#4facfe'};color:#fff;">${roleTxt(u.role)}</span></td>
-                    <td><span style="font-size:11px;padding:2px 10px;border-radius:10px;background:${st[1]}22;color:${st[1]};font-weight:600;">● ${st[0]}</span></td>
-                    <td><button class="op-btn" onclick="event.stopPropagation();viewUserDetail('${u.id}')">详情</button></td>
-                </tr>`;
-            }).join('');
+            var deptMap = {};
+            users.forEach(function(u){
+                var d = u.department || '未分配部门';
+                if (!deptMap[d]) deptMap[d] = [];
+                deptMap[d].push(u);
+            });
+            var depts = Object.keys(deptMap).sort();
+            var avatarColors = ['#667eea','#f5576c','#4facfe','#56ab2f','#7b1fa2','#2193b0','#ee9ca7','#134e5e','#eb3349','#0f2027','#ff9800','#00bcd4'];
+            var FOLDER_ARTS = ['aurora','ember','dusk','glacier','verdant','plum','ocean','sunset','forest','rose','night'];
+            var html = '';
+            depts.forEach(function(dept, di){
+                var members = deptMap[dept];
+                var art = FOLDER_ARTS[di % FOLDER_ARTS.length];
+                html += '<div class="gfolder" data-art="' + art + '" onclick="this.classList.toggle('open')">';
+                html += '<div class="gf-back">';
+                html += '<div class="gf-count">' + members.length + '人</div>';
+                html += '<div class="gf-label">';
+                html += '<div class="gf-title">' + esc(dept) + '</div>';
+                html += '<div class="gf-meta">' + (contactCohort==='all' ? '全部届别' : esc(contactCohort)) + ' · 点击展开</div>';
+                html += '</div>';
+                html += '<div class="gf-arrow">&#9660;</div>';
+                html += '</div>';
+                html += '<div class="gf-members">';
+                members.forEach(function(u, ui){
+                    var c = avatarColors[ui % avatarColors.length];
+                    var name = u.real_name || u.username || '?';
+                    var initial = name.charAt(0);
+                    html += '<div class="gf-member" onclick="event.stopPropagation();viewUserDetail(\'' + u.id + '\')">';
+                    html += '<div class="av" style="background:' + c + ';">' + esc(initial) + '</div>';
+                    html += '<div><div class="mn">' + esc(name) + '</div>';
+                    html += '<div class="mp">@' + esc(u.username) + (u.phone ? ' · ' + esc(u.phone) : '') + '</div></div>';
+                    html += '</div>';
+                });
+                html += '</div>';
+                html += '</div>';
+            });
+            body.innerHTML = html;
         }
 
         function loadUsers() {
