@@ -894,7 +894,7 @@
                 </div>
                 <!-- 届别筛选 + 搜索框 -->
                 <div style="display:flex;gap:8px;margin-bottom:10px;">
-                    <select id="attendanceCohortFilter" onchange="renderAttendanceUserList()" style="padding:8px 10px;border:2px solid #e8e8e8;border-radius:8px;font-size:13px;background:white;flex-shrink:0;">
+                    <select id="attendanceCohortFilter" onchange="renderAttendanceUserList()" style="padding:8px 10px;border:2px solid #e8e8e8;border-radius:8px;font-size:13px;background:white;flex-shrink:0;width:110px;">
                         <option value="">全部届别</option>
                     </select>
                     <input type="text" id="attendanceUserSearch" placeholder="🔍 搜索姓名/部门..." oninput="renderAttendanceUserList()" style="flex:1;padding:8px 12px;border:2px solid #e8e8e8;border-radius:8px;font-size:13px;box-sizing:border-box;">
@@ -2959,7 +2959,7 @@
                     const cohortSel = document.getElementById('attendanceCohortFilter');
                     if (cohortSel) {
                         const cur = cohortSel.value;
-                        cohortSel.innerHTML = '<option value=">全部届别</option>' + cohortSet.map(c=>'<option value="'+c+'">'+c+'</option>').join('');
+                        cohortSel.innerHTML = '<option value="">全部届别</option>' + cohortSet.map(c=>'<option value="'+c+'">'+c+'</option>').join('');
                         cohortSel.value = cur;
                     }
                 renderAttendanceUserList();
