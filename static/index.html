@@ -336,6 +336,19 @@
         .modal-content { animation:modalFade 0.15s ease-out; }
         @keyframes modalFade { from { opacity:0; } to { opacity:1; } }
 
+    
+        /* === Interactive Hover Button 动效 === */
+        .btn { position:relative; overflow:hidden; z-index:1; }
+        .btn::before { content:''; position:absolute; left:50%; top:50%; width:0; height:0; border-radius:50%; background:rgba(255,255,255,0.15); transform:translate(-50%,-50%); transition:width 0.4s cubic-bezier(0.4,0,0.2,1), height 0.4s cubic-bezier(0.4,0,0.2,1); z-index:-1; }
+        .btn:hover::before { width:300px; height:300px; }
+        .btn:active { transform:scale(0.96); transition:transform 0.1s; }
+        .btn-primary { background:#4f46e5; color:white; }
+        .btn-primary::before { background:rgba(255,255,255,0.2); }
+        .btn-primary:hover { background:#4338ca; transform:translateY(-2px); }
+        .btn-danger { background:#ef4444; color:white; }
+        .btn-danger::before { background:rgba(255,255,255,0.2); }
+        .btn-danger:hover { background:#dc2626; transform:translateY(-2px); }
+
     </style>
 </head>
 <body>
