@@ -325,6 +325,31 @@
         .user-filter-bar .clear { cursor:pointer; color:#667eea; font-weight:600; text-decoration:underline; }
         .user-filter-bar .clear:hover { color:#4a5fd0; }
     
+    
+        /* === Layui 风格微交互 === */
+        /* 按钮按压缩放 */
+        .btn:active { transform:scale(0.96); }
+        /* 侧边栏导航项过渡 */
+        .sidebar .nav-item { transition:all 0.25s cubic-bezier(0.4,0,0.2,1); }
+        .sidebar .nav-item:hover { padding-left:24px; }
+        /* 表格行进入动画 */
+        @keyframes rowIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+        tbody tr { animation:rowIn 0.3s ease-out; }
+        /* 卡片/表格 hover 微浮 */
+        table { transition:box-shadow 0.3s; }
+        table:hover { box-shadow:0 4px 20px rgba(0,0,0,0.08); }
+        /* 输入框 focus 平滑 */
+        input, select, textarea { transition:border-color 0.2s, box-shadow 0.2s; }
+        /* Toast 提示 */
+        .lay-toast { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%) scale(0.8); background:rgba(0,0,0,0.78); color:white; padding:14px 28px; border-radius:12px; font-size:14px; z-index:9999; opacity:0; transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events:none; display:flex; align-items:center; gap:8px; backdrop-filter:blur(10px); box-shadow:0 8px 32px rgba(0,0,0,0.3); }
+        .lay-toast.show { opacity:1; transform:translate(-50%,-50%) scale(1); }
+        .lay-toast .toast-icon { font-size:18px; }
+        /* 弹层平滑 */
+        .modal { animation:modalFade 0.2s ease-out; }
+        .modal-content { animation:modalPop 0.25s cubic-bezier(0.34,1.56,0.64,1); }
+        @keyframes modalFade { from { opacity:0; } to { opacity:1; } }
+        @keyframes modalPop { from { opacity:0; transform:scale(0.92) translateY(10px); } to { opacity:1; transform:scale(1) translateY(0); } }
+
     </style>
 </head>
 <body>
@@ -3832,6 +3857,33 @@
         for(var i=0;i<particles.length;i++){for(var j=i+1;j<particles.length;j++){var dx=particles[i].x-particles[j].x,dy=particles[i].y-particles[j].y,d=Math.sqrt(dx*dx+dy*dy);if(d<120){ctx.beginPath();ctx.moveTo(particles[i].x,particles[i].y);ctx.lineTo(particles[j].x,particles[j].y);ctx.strokeStyle='rgba(120,140,255,'+(0.15*(1-d/120))+')';ctx.stroke();}}}
         requestAnimationFrame(draw);}
       draw();
+    })();
+    </script>
+
+
+    <script>
+    // Layui 风格 Toast
+    function layToast(msg, icon){
+      icon = icon || '✓';
+      var old = document.querySelector('.lay-toast');
+      if(old) old.remove();
+      var t = document.createElement('div');
+      t.className = 'lay-toast';
+      t.innerHTML = '<span class="toast-icon">'+icon+'</span><span>'+msg+'</span>';
+      document.body.appendChild(t);
+      requestAnimationFrame(function(){ t.classList.add('show'); });
+      setTimeout(function(){ t.classList.remove('show'); setTimeout(function(){ t.remove(); }, 300); }, 1800);
+    }
+    // 拦截 alert 改为 toast（仅纯文本短消息）
+    (function(){
+      var _alert = window.alert;
+      window.alert = function(msg){
+        if(typeof msg === 'string' && msg.length < 40){
+          layToast(msg, 'ℹ️');
+        } else {
+          _alert(msg);
+        }
+      };
     })();
     </script>
 
