@@ -2278,7 +2278,7 @@
             depts.forEach(function(dept, di){
                 var members = deptMap[dept];
                 var art = FOLDER_ARTS[di % FOLDER_ARTS.length];
-                html += '<div class="gfolder" data-art="' + art + '" onclick="this.classList.toggle('open')">';
+                html += '<div class="gfolder" data-art="' + art + '" onclick="this.classList.toggle(\'open\')">';
                 html += '<div class="gf-back">';
                 html += '<div class="gf-count">' + members.length + '人</div>';
                 html += '<div class="gf-label">';
