@@ -30,7 +30,7 @@
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
-        body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; background:#f5f7fa; min-height:100vh; display:flex; }
+        body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; background:#f8fafc; min-height:100vh; display:flex; }
 
         /* 左侧导航 */
         .sidebar { width:256px; background:#1a1a2e; color:white; display:flex; flex-direction:column; position:fixed; left:12px; top:12px; bottom:12px; border-radius:12px; overflow-y:auto; overflow-x:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06); }
@@ -48,7 +48,7 @@
         .sidebar .dropdown-menu.show { display:block; }
         .sidebar .dropdown-item { padding:10px 20px 10px 50px; cursor:pointer; font-size:13px; display:flex; align-items:center; gap:8px; transition:all 0.2s; color:rgba(255,255,255,0.6); }
         .sidebar .dropdown-item:hover { background:rgba(255,255,255,0.08); color:white; }
-        .sidebar .dropdown-item.active { background:rgba(102,126,234,0.2); color:white; }
+        .sidebar .dropdown-item.active { background:rgba(59,130,246,0.15); color:white; }
         .sidebar .dropdown-item .icon { font-size:15px; width:18px; text-align:center; }
         .sidebar .user-box { padding:16px 20px; border-top:1px solid rgba(255,255,255,0.1); }
         .sidebar .user-box .name { font-size:14px; font-weight:600; }
@@ -82,10 +82,10 @@
 
         .toolbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
         .btn { padding:8px 16px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:500; border:none; transition:background-color 0.15s, color 0.15s; }
-        .btn-primary { background:#667eea; color:white; }
-        .btn-primary:hover { background:#5568d3; }
-        .btn-danger { background:#ef5350; color:white; }
-        .btn-danger:hover { background:#e53935; }
+        .btn-primary { background:#3b82f6; color:white; }
+        .btn-primary:hover { background:#2563eb; }
+        .btn-danger { background:#ef4444; color:white; }
+        .btn-danger:hover { background:#dc2626; }
         .btn-sm { padding:5px 12px; font-size:12px; }
 
         table { width:100%; background:white; border-radius:12px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06); border:1px solid #e4e4e7; border-collapse:collapse; }
@@ -95,9 +95,9 @@
         .mat-img { width:44px; height:44px; border-radius:6px; object-fit:cover; background:#eee; }
         .mat-img-ph { width:44px; height:44px; border-radius:6px; background:#e8eaf6; display:flex; align-items:center; justify-content:center; font-size:20px; }
         .stock-badge { display:inline-block; padding:3px 10px; border-radius:10px; font-size:11px; font-weight:600; }
-        .stock-ok { background:#e8f5e9; color:#2e7d32; }
-        .stock-low { background:#fff3e0; color:#e65100; }
-        .stock-out { background:#ffebee; color:#c62828; }
+        .stock-ok { background:#d1fae5; color:#10b981; }
+        .stock-low { background:#fef3c7; color:#f59e0b; }
+        .stock-out { background:#fee2e2; color:#ef4444; }
         .status-active { background:#fff3e0; color:#e65100; padding:3px 10px; border-radius:10px; font-size:11px; }
         .status-completed { background:#e8f5e9; color:#2e7d32; padding:3px 10px; border-radius:10px; font-size:11px; }
         .status-issued { background:#e3f2fd; color:#1565c0; padding:3px 10px; border-radius:10px; font-size:11px; }
