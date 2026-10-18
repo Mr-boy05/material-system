@@ -2960,7 +2960,13 @@
                     if (cohortSel) {
                         const cur = cohortSel.value;
                         cohortSel.innerHTML = '<option value="">全部届别</option>' + cohortSet.map(c=>'<option value="'+c+'">'+c+'</option>').join('');
-                        cohortSel.value = cur;
+                        // 如果是例会考勤且用户没手动选过，默认选中最新一届
+                        const curType = document.getElementById('attendanceType')?.value || 'meeting';
+                        if (curType === 'meeting' && cohortSel.options.length > 1) {
+                            cohortSel.value = cohortSel.options[cohortSel.options.length - 1].value;
+                        } else {
+                            cohortSel.value = cur;
+                        }
                     }
                 renderAttendanceUserList();
             });
@@ -3131,6 +3137,16 @@
         function onAttendanceTypeChange() {
             const type = document.getElementById('attendanceType').value;
             document.getElementById('activitySelectGroup').style.display = type === 'activity' ? 'block' : 'none';
+            // 例会考勤默认只看最新一届，活动考勤看全部
+            const sel = document.getElementById('attendanceCohortFilter');
+            if (sel && sel.options.length > 1) {
+                if (type === 'meeting') {
+                    sel.value = sel.options[sel.options.length - 1].value;
+                } else {
+                    sel.value = '';
+                }
+            }
+            renderAttendanceUserList();
         }
 
         function editAttendance(id) {
