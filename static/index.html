@@ -892,8 +892,13 @@
                     <button type="button" class="attendance-tab active" data-tab="leave" onclick="switchAttendanceTab('leave')" style="flex:1;padding:8px;border:none;border-radius:6px;cursor:pointer;font-size:13px;background:#ff9800;color:white;">🏖️ 请假</button>
                     <button type="button" class="attendance-tab" data-tab="absent" onclick="switchAttendanceTab('absent')" style="flex:1;padding:8px;border:none;border-radius:6px;cursor:pointer;font-size:13px;background:transparent;color:#666;">❌ 缺席</button>
                 </div>
-                <!-- 搜索框 -->
-                <input type="text" id="attendanceUserSearch" placeholder="🔍 搜索姓名/部门..." oninput="renderAttendanceUserList()" style="width:100%;padding:8px 12px;border:2px solid #e8e8e8;border-radius:8px;font-size:13px;margin-bottom:10px;box-sizing:border-box;">
+                <!-- 届别筛选 + 搜索框 -->
+                <div style="display:flex;gap:8px;margin-bottom:10px;">
+                    <select id="attendanceCohortFilter" onchange="renderAttendanceUserList()" style="padding:8px 10px;border:2px solid #e8e8e8;border-radius:8px;font-size:13px;background:white;flex-shrink:0;">
+                        <option value="">全部届别</option>
+                    </select>
+                    <input type="text" id="attendanceUserSearch" placeholder="🔍 搜索姓名/部门..." oninput="renderAttendanceUserList()" style="flex:1;padding:8px 12px;border:2px solid #e8e8e8;border-radius:8px;font-size:13px;box-sizing:border-box;">
+                </div>
                 <!-- 人员列表 -->
                 <div id="attendanceUserList" style="max-height:280px;overflow-y:auto;border:2px solid #e8e8e8;border-radius:8px;padding:10px;">
                     <div style="color:#999;text-align:center;padding:10px;">加载中...</div>
@@ -2949,6 +2954,14 @@
             .then(res=>res.json())
             .then(data=>{
                 allUsersForAttendance = data;
+                    // 填充届别筛选下拉
+                    const cohortSet = [...new Set(data.map(u=>u.cohort).filter(Boolean))].sort();
+                    const cohortSel = document.getElementById('attendanceCohortFilter');
+                    if (cohortSel) {
+                        const cur = cohortSel.value;
+                        cohortSel.innerHTML = '<option value=">全部届别</option>' + cohortSet.map(c=>'<option value="'+c+'">'+c+'</option>').join('');
+                        cohortSel.value = cur;
+                    }
                 renderAttendanceUserList();
             });
         }
@@ -2971,9 +2984,12 @@
             const list = document.getElementById('attendanceUserList');
             const search = (document.getElementById('attendanceUserSearch')?.value || '').toLowerCase();
             const deptMap = {};
+            const cohortFilter = document.getElementById('attendanceCohortFilter')?.value || '';
             allUsersForAttendance.forEach(u=>{
                 // 老师不参与考勤
                 if (u.department === '老师') return;
+                // 届别筛选
+                if (cohortFilter && (u.cohort || '') !== cohortFilter) return;
                 const dept = u.department || '未分配部门';
                 if (!deptMap[dept]) deptMap[dept] = [];
                 const match = !search || (u.real_name || u.username || '').toLowerCase().includes(search) || dept.toLowerCase().includes(search);
@@ -3092,6 +3108,8 @@
             document.getElementById('attendanceDate').value = new Date().toISOString().slice(0,10);
             document.getElementById('attendanceRemark').value = '';
             document.getElementById('attendanceUserSearch').value = '';
+            const cohortSel = document.getElementById('attendanceCohortFilter');
+            if (cohortSel) cohortSel.value = '';
             userAttendanceStatus = {};
             currentAttendanceTab = 'leave';
             switchAttendanceTab('leave');
@@ -3128,6 +3146,8 @@
                 document.getElementById('attendanceDate').value = a.date || '';
                 document.getElementById('attendanceRemark').value = a.remark || '';
                 document.getElementById('attendanceUserSearch').value = '';
+                const cohortSel2 = document.getElementById('attendanceCohortFilter');
+                if (cohortSel2) cohortSel2.value = '';
                 // 恢复人员状态：只有请假和缺席需要标记，其余默认参加
                 userAttendanceStatus = {};
                 (a.leave || []).forEach(u=>userAttendanceStatus[u.id] = 'leave');
