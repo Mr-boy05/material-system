@@ -6,193 +6,226 @@
     <title>城治学生会物资管理系统 - 登录</title>
 <link rel="icon" href="/static/favicon.png" type="image/png">
 <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
-
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
+        html, body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #000;
             min-height: 100vh;
-            display: flex;
-            align-items: center;
+            overflow: hidden;
+            color: #fff;
+        }
+        #bgCanvas {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 0;
+        }
+        .bg-overlay {
+            position: fixed; inset: 0; z-index: 1;
+            background: radial-gradient(circle at center, rgba(0,0,0,0.6) 0%, rgba(0,0,0,1) 100%);
+            pointer-events: none;
+        }
+        /* 顶部浮动导航 */
+        .topbar {
+            position: fixed; top: 24px; left: 50%; transform: translateX(-50%);
+            z-index: 20;
+            display: flex; align-items: center; gap: 20px;
+            padding: 10px 24px;
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(31,31,31,0.55);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            width: calc(100% - 32px);
+            max-width: 560px;
             justify-content: center;
         }
-        .login-box {
-            background: white;
-            padding: 40px;
-            border-radius: 16px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            width: 360px;
+        .topbar .brand {
+            display: flex; align-items: center; gap: 8px;
+            color: #fff; font-weight: 600; font-size: 14px; letter-spacing: 0.5px;
         }
-        .login-box h1 {
+        .topbar .brand img { height: 24px; border-radius: 4px; }
+        .topbar a {
+            color: #999; text-decoration: none; font-size: 13px;
+            transition: color 0.2s;
+        }
+        .topbar a:hover { color: #fff; }
+        /* 主容器 */
+        .main {
+            position: relative; z-index: 10;
+            min-height: 100vh;
+            display: flex; align-items: center; justify-content: center;
+            padding: 100px 20px 40px;
+        }
+        .login-card {
+            width: 100%; max-width: 380px;
             text-align: center;
-            color: #333;
+        }
+        .logo-row {
+            display: flex; align-items: center; justify-content: center; gap: 10px;
             margin-bottom: 8px;
-            font-size: 24px;
         }
-        .login-box .subtitle {
-            text-align: center;
-            color: #999;
-            margin-bottom: 30px;
-            font-size: 14px;
+        .logo-row img.school { height: 44px; opacity: 0.9; }
+        .logo-row img.sys { height: 28px; border-radius: 6px; }
+        .title {
+            font-size: 28px; font-weight: 700; letter-spacing: -0.5px;
+            margin-bottom: 6px;
         }
-        .form-group {
-            margin-bottom: 18px;
+        .subtitle {
+            font-size: 15px; color: rgba(255,255,255,0.55); font-weight: 300;
+            margin-bottom: 36px;
         }
-        .form-group label {
-            display: block;
-            color: #555;
-            margin-bottom: 8px;
-            font-size: 14px;
-        }
+        .form-group { margin-bottom: 16px; }
         .form-group input {
             width: 100%;
-            padding: 12px 16px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 15px;
-            transition: border-color 0.3s;
-        }
-        .form-group input:focus {
+            padding: 14px 22px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 999px;
+            font-size: 14px; color: #fff;
+            text-align: center;
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            transition: border-color 0.2s, background 0.2s;
             outline: none;
-            border-color: #667eea;
         }
+        .form-group input::placeholder { color: rgba(255,255,255,0.3); }
+        .form-group input:focus {
+            border-color: rgba(255,255,255,0.35);
+            background: rgba(255,255,255,0.08);
+        }
+        .remember-row {
+            display: flex; align-items: center; justify-content: center;
+            gap: 6px; margin: 6px 0 20px;
+            font-size: 13px; color: rgba(255,255,255,0.5);
+        }
+        .remember-row input { accent-color: #fff; width: 14px; height: 14px; cursor: pointer; }
         .btn-login {
             width: 100%;
             padding: 14px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: #fff;
+            color: #000;
             border: none;
-            border-radius: 8px;
-            font-size: 16px;
+            border-radius: 999px;
+            font-size: 15px; font-weight: 600;
             cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: transform 0.15s, box-shadow 0.2s, opacity 0.2s;
         }
         .btn-login:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 24px rgba(255,255,255,0.15);
         }
         .btn-login:active { transform: translateY(0); }
         .error-msg {
-            color: #e74c3c;
-            font-size: 14px;
-            text-align: center;
-            margin-top: 12px;
-            display: none;
-        }
-        .success-msg {
-            color: #2e7d32;
-            font-size: 14px;
-            text-align: center;
-            margin-top: 12px;
-            display: none;
-        }
-        .tip {
-            text-align: center;
-            margin-top: 20px;
-            color: #aaa;
-            font-size: 12px;
+            color: #ff6b6b; font-size: 13px; text-align: center;
+            margin-top: 14px; display: none;
         }
         .links {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 16px;
+            display: flex; justify-content: center; gap: 18px;
+            margin-top: 22px;
         }
         .links a {
-            color: #667eea;
-            text-decoration: none;
-            font-size: 13px;
+            color: rgba(255,255,255,0.4); text-decoration: none; font-size: 12px;
+            transition: color 0.2s;
         }
-        .links a:hover { text-decoration: underline; }
-
-        /* 修改密码弹窗 */
+        .links a:hover { color: rgba(255,255,255,0.8); }
+        .tip {
+            text-align: center; margin-top: 24px;
+            color: rgba(255,255,255,0.25); font-size: 11px;
+        }
+        /* 弹窗 */
         .modal-mask {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.5);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.7); z-index: 1000;
+            align-items: center; justify-content: center;
+            backdrop-filter: blur(4px);
         }
         .modal {
-            background: white;
-            border-radius: 14px;
+            background: #141414;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
             padding: 28px;
-            width: 380px;
-            max-width: 90%;
-            max-height: 90vh;
-            overflow-y: auto;
+            width: 380px; max-width: 92%;
+            max-height: 90vh; overflow-y: auto;
+            color: #fff;
         }
         .modal h3 {
-            margin-bottom: 20px;
-            color: #333;
-            font-size: 18px;
-            text-align: center;
+            margin-bottom: 20px; font-size: 17px; text-align: center;
         }
-        .modal-actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 10px;
+        .modal .form-group label {
+            display: block; font-size: 12px; color: rgba(255,255,255,0.5);
+            margin-bottom: 6px; padding-left: 8px;
         }
+        .modal .form-group input {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 10px 14px; color: #fff;
+            font-size: 14px; width: 100%;
+            outline: none;
+        }
+        .modal-actions { display: flex; gap: 10px; margin-top: 16px; }
         .btn-cancel {
-            flex: 1;
-            padding: 12px;
-            background: #f0f0f0;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            color: #666;
+            flex: 1; padding: 11px; background: rgba(255,255,255,0.08);
+            border: none; border-radius: 10px; cursor: pointer;
+            font-size: 14px; color: #ccc;
         }
         .btn-submit {
-            flex: 1;
-            padding: 12px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
+            flex: 1; padding: 11px; background: #fff; color: #000;
+            border: none; border-radius: 10px; cursor: pointer;
+            font-size: 14px; font-weight: 600;
+        }
+        .send-code-btn {
+            padding: 0 14px; background: #fff; color: #000;
+            border: none; border-radius: 10px; cursor: pointer;
+            font-size: 12px; white-space: nowrap; font-weight: 600;
         }
     </style>
 </head>
 <body>
-    <div class="login-box">
-        <div style="text-align:center;margin-bottom:20px;">
-            <img src="/static/college_logo_color.png" alt="重庆超大城市数字化治理学院" style="max-width:100%;height:auto;max-height:50px;object-fit:contain;margin-bottom:12px;">
-            <div style="display:flex;align-items:center;justify-content:center;gap:8px;">
-                <img src="/static/logo.png" alt="系统logo" style="height:28px;object-fit:contain;border-radius:6px;">
-                <span style="font-size:16px;font-weight:700;color:#1a1a2e;letter-spacing:1px;">城治学生会综合管理系统</span>
+    <canvas id="bgCanvas"></canvas>
+    <div class="bg-overlay"></div>
+
+    <div class="topbar">
+        <div class="brand">
+            <img src="/static/logo.png" alt="logo">
+            <span>城治学生会综合管理系统</span>
+        </div>
+        <a href="/m/login">手机端 →</a>
+    </div>
+
+    <div class="main">
+        <div class="login-card">
+            <div class="logo-row">
+                <img class="school" src="/static/college_logo_color.png" alt="重庆超大城市数字化治理学院">
             </div>
+            <div class="title">Welcome Back</div>
+            <div class="subtitle">城治学生会综合管理系统</div>
+
+            <div class="form-group">
+                <input type="text" id="username" placeholder="请输入账号" autocomplete="username">
+            </div>
+            <div class="form-group">
+                <input type="password" id="password" placeholder="请输入密码" autocomplete="current-password">
+            </div>
+            <div class="remember-row">
+                <input type="checkbox" id="autoLogin">
+                <label for="autoLogin" style="cursor:pointer;margin:0;">自动登录（7天内免输入）</label>
+            </div>
+            <button class="btn-login" onclick="doLogin()">登 录</button>
+            <div class="error-msg" id="errorMsg"></div>
+            <div class="links">
+                <a href="javascript:void(0)" onclick="openChangePwd()">修改密码</a>
+                <a href="javascript:void(0)" onclick="openForgotPwd()">忘记密码</a>
+                <a href="/m/login">手机端</a>
+            </div>
+            <div class="tip">默认管理员：admin / admin123</div>
         </div>
-        <h1 style="font-size:16px;margin-bottom:6px;color:#666;font-weight:500;">管理后台登录</h1>
-        <div class="form-group">
-            <label>账号</label>
-            <input type="text" id="username" placeholder="请输入账号">
-        </div>
-        <div class="form-group">
-            <label>密码</label>
-            <input type="password" id="password" placeholder="请输入密码">
-        </div>
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;font-size:13px;color:#666;">
-            <input type="checkbox" id="autoLogin" style="width:16px;height:16px;cursor:pointer;">
-            <label for="autoLogin" style="cursor:pointer;margin:0;">自动登录（7天内免输入）</label>
-        </div>
-        <button class="btn-login" onclick="doLogin()">登 录</button>
-        <div class="error-msg" id="errorMsg"></div>
-        <div class="links">
-            <a href="javascript:void(0)" onclick="openChangePwd()">🔑 修改密码</a>
-            <a href="javascript:void(0)" onclick="openForgotPwd()">❓ 忘记密码</a>
-            <a href="/m/login">📱 手机端 →</a>
-        </div>
-        <div class="tip">默认管理员：admin / admin123</div>
     </div>
 
     <!-- 修改密码弹窗 -->
     <div class="modal-mask" id="pwdModal">
         <div class="modal">
-            <h3>🔑 修改密码</h3>
+            <h3>修改密码</h3>
             <div class="form-group">
                 <label>账号</label>
                 <input type="text" id="pwdUsername" placeholder="请输入账号">
@@ -210,7 +243,7 @@
                 <input type="password" id="pwdConfirm" placeholder="请再次输入新密码">
             </div>
             <div class="error-msg" id="pwdError" style="display:none;margin-top:0;"></div>
-            <div class="success-msg" id="pwdSuccess" style="display:none;margin-top:0;"></div>
+            <div class="error-msg" id="pwdSuccess" style="display:none;margin-top:0;color:#4caf50;"></div>
             <div class="modal-actions">
                 <button class="btn-cancel" onclick="closeChangePwd()">取消</button>
                 <button class="btn-submit" onclick="submitChangePwd()">确认修改</button>
@@ -221,8 +254,7 @@
     <!-- 忘记密码弹窗 -->
     <div class="modal-mask" id="forgotModal">
         <div class="modal">
-            <h3>❓ 忘记密码</h3>
-            <p style="color:#999;font-size:13px;margin-bottom:16px;">通过绑定的邮箱接收验证码重置密码</p>
+            <h3>忘记密码</h3>
             <div class="form-group">
                 <label>绑定邮箱</label>
                 <input type="email" id="forgotEmail" placeholder="请输入绑定的邮箱">
@@ -230,8 +262,8 @@
             <div class="form-group">
                 <label>验证码</label>
                 <div style="display:flex;gap:8px;">
-                    <input type="text" id="forgotCode" placeholder="请输入6位验证码" style="flex:1;">
-                    <button id="sendCodeBtn" onclick="sendResetCode()" style="padding:0 16px;background:#667eea;color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px;white-space:nowrap;">发送验证码</button>
+                    <input type="text" id="forgotCode" placeholder="6位验证码" style="flex:1;">
+                    <button id="sendCodeBtn" class="send-code-btn" onclick="sendResetCode()">发送验证码</button>
                 </div>
             </div>
             <div class="form-group">
@@ -243,7 +275,7 @@
                 <input type="password" id="forgotConfirmPwd" placeholder="请再次输入新密码">
             </div>
             <div class="error-msg" id="forgotError" style="display:none;margin-top:0;"></div>
-            <div class="success-msg" id="forgotSuccess" style="display:none;margin-top:0;"></div>
+            <div class="error-msg" id="forgotSuccess" style="display:none;margin-top:0;color:#4caf50;"></div>
             <div class="modal-actions">
                 <button class="btn-cancel" onclick="closeForgotPwd()">取消</button>
                 <button class="btn-submit" onclick="submitResetPwd()">重置密码</button>
@@ -252,18 +284,60 @@
     </div>
 
     <script>
+        // ===== 粒子背景动画 =====
+        (function() {
+            const canvas = document.getElementById('bgCanvas');
+            const ctx = canvas.getContext('2d');
+            let w, h, dots = [];
+            const DOTS = [];
+            function resize() {
+                w = canvas.width = window.innerWidth;
+                h = canvas.height = window.innerHeight;
+            }
+            window.addEventListener('resize', resize);
+            resize();
+            const SPACING = 28;
+            for (let x = SPACING/2; x < w; x += SPACING) {
+                for (let y = SPACING/2; y < h; y += SPACING) {
+                    DOTS.push({
+                        x, y,
+                        phase: Math.random() * Math.PI * 2,
+                        speed: 0.3 + Math.random() * 0.5,
+                        size: 1.5 + Math.random() * 1.5
+                    });
+                }
+            }
+            let t = 0;
+            function draw() {
+                t += 0.016;
+                ctx.clearRect(0, 0, w, h);
+                // 从中心向外扩散的波纹
+                const cx = w / 2, cy = h / 2;
+                DOTS.forEach(d => {
+                    const dist = Math.sqrt((d.x - cx) ** 2 + (d.y - cy) ** 2);
+                    const wave = Math.sin(dist * 0.02 - t * d.speed);
+                    const alpha = 0.15 + Math.max(0, wave) * 0.5;
+                    ctx.beginPath();
+                    ctx.arc(d.x, d.y, d.size, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+                    ctx.fill();
+                });
+                requestAnimationFrame(draw);
+            }
+            draw();
+        })();
+
+        // ===== 登录逻辑 =====
         function doLogin(force) {
             const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value;
             const errorMsg = document.getElementById('errorMsg');
             errorMsg.style.display = 'none';
-
             if (!username || !password) {
                 errorMsg.textContent = '请输入账号和密码';
                 errorMsg.style.display = 'block';
                 return;
             }
-
             fetch('/api/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -274,22 +348,18 @@
                 if (ok) {
                     localStorage.setItem('token', data.token);
                     localStorage.setItem('user', JSON.stringify(data));
-                    // 自动登录：保存凭据（处理中文用户名）
                     if (document.getElementById('autoLogin').checked) {
                         const cred = btoa(encodeURIComponent(username) + ':' + encodeURIComponent(password));
                         localStorage.setItem('auto_login_cred', cred);
                     } else {
                         localStorage.removeItem('auto_login_cred');
                     }
-                    // 检测到另一端已在线时提示"请不要同时登录"
                     if (data.other_device_online) {
                         showOtherDeviceTip(data.other_device === 'pc' ? '电脑端' : '手机端');
                     }
-                    // 记录本次会话已登录（关闭浏览器重开需重新登录）
                     sessionStorage.setItem('session_logged_in', '1');
                     window.location.href = '/';
                 } else {
-                    // 设备数已满：提示是否强制登录
                     if (data.detail && data.detail.indexOf('最多允许两台设备') >= 0) {
                         if (confirm('该账号已在电脑端和手机端同时登录。\n\n点击【确定】将强制登录，并自动退出最早登录的设备；\n点击【取消】请先在其他设备上退出登录。')) {
                             doLogin(true);
@@ -300,15 +370,14 @@
                     errorMsg.style.display = 'block';
                 }
             })
-            .catch(err => {
+            .catch(() => {
                 errorMsg.textContent = '网络错误，请重试';
                 errorMsg.style.display = 'block';
             });
         }
 
-        // 页面加载时检查自动登录
+        // 自动登录填充
         (function() {
-            // 有保存的自动登录凭据 → 自动填充账号密码，用户手动点击登录后进入
             const cred = localStorage.getItem('auto_login_cred');
             localStorage.removeItem('just_logged_out');
             if (cred) {
@@ -340,11 +409,7 @@
             document.getElementById('pwdSuccess').style.display = 'none';
             document.getElementById('pwdModal').style.display = 'flex';
         }
-
-        function closeChangePwd() {
-            document.getElementById('pwdModal').style.display = 'none';
-        }
-
+        function closeChangePwd() { document.getElementById('pwdModal').style.display = 'none'; }
         function submitChangePwd() {
             const username = document.getElementById('pwdUsername').value.trim();
             const old_password = document.getElementById('pwdOld').value;
@@ -352,25 +417,16 @@
             const confirm_password = document.getElementById('pwdConfirm').value;
             const errEl = document.getElementById('pwdError');
             const sucEl = document.getElementById('pwdSuccess');
-            errEl.style.display = 'none';
-            sucEl.style.display = 'none';
-
+            errEl.style.display = 'none'; sucEl.style.display = 'none';
             if (!username || !old_password || !new_password || !confirm_password) {
-                errEl.textContent = '请填写所有字段';
-                errEl.style.display = 'block';
-                return;
+                errEl.textContent = '请填写所有字段'; errEl.style.display = 'block'; return;
             }
             if (new_password.length < 4) {
-                errEl.textContent = '新密码至少4位';
-                errEl.style.display = 'block';
-                return;
+                errEl.textContent = '新密码至少4位'; errEl.style.display = 'block'; return;
             }
             if (new_password !== confirm_password) {
-                errEl.textContent = '两次输入的新密码不一致';
-                errEl.style.display = 'block';
-                return;
+                errEl.textContent = '两次输入的新密码不一致'; errEl.style.display = 'block'; return;
             }
-
             fetch('/api/change-password', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -386,14 +442,10 @@
                         document.getElementById('password').value = new_password;
                     }, 1500);
                 } else {
-                    errEl.textContent = data.detail || '修改失败';
-                    errEl.style.display = 'block';
+                    errEl.textContent = data.detail || '修改失败'; errEl.style.display = 'block';
                 }
             })
-            .catch(() => {
-                errEl.textContent = '网络错误，请重试';
-                errEl.style.display = 'block';
-            });
+            .catch(() => { errEl.textContent = '网络错误'; errEl.style.display = 'block'; });
         }
 
         // 忘记密码
@@ -408,24 +460,15 @@
             document.getElementById('sendCodeBtn').textContent = '发送验证码';
             document.getElementById('forgotModal').style.display = 'flex';
         }
-
-        function closeForgotPwd() {
-            document.getElementById('forgotModal').style.display = 'none';
-        }
-
+        function closeForgotPwd() { document.getElementById('forgotModal').style.display = 'none'; }
         let codeCountdown = 0;
         function sendResetCode() {
             const email = document.getElementById('forgotEmail').value.trim();
             const errEl = document.getElementById('forgotError');
             errEl.style.display = 'none';
-            if (!email) {
-                errEl.textContent = '请输入邮箱';
-                errEl.style.display = 'block';
-                return;
-            }
+            if (!email) { errEl.textContent = '请输入邮箱'; errEl.style.display = 'block'; return; }
             const btn = document.getElementById('sendCodeBtn');
-            btn.disabled = true;
-            btn.textContent = '发送中...';
+            btn.disabled = true; btn.textContent = '发送中...';
             fetch('/api/send-reset-code', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -434,33 +477,25 @@
             .then(res => res.json().then(data => ({ ok: res.ok, data })))
             .then(({ ok, data }) => {
                 if (ok) {
-                    btn.textContent = '已发送(60s)';
-                    codeCountdown = 60;
+                    btn.textContent = '已发送(60s)'; codeCountdown = 60;
                     const timer = setInterval(() => {
                         codeCountdown--;
                         if (codeCountdown <= 0) {
-                            clearInterval(timer);
-                            btn.disabled = false;
-                            btn.textContent = '重新发送';
+                            clearInterval(timer); btn.disabled = false; btn.textContent = '重新发送';
                         } else {
                             btn.textContent = `已发送(${codeCountdown}s)`;
                         }
                     }, 1000);
                 } else {
-                    btn.disabled = false;
-                    btn.textContent = '发送验证码';
-                    errEl.textContent = data.detail || '发送失败';
-                    errEl.style.display = 'block';
+                    btn.disabled = false; btn.textContent = '发送验证码';
+                    errEl.textContent = data.detail || '发送失败'; errEl.style.display = 'block';
                 }
             })
             .catch(() => {
-                btn.disabled = false;
-                btn.textContent = '发送验证码';
-                errEl.textContent = '网络错误，请重试';
-                errEl.style.display = 'block';
+                btn.disabled = false; btn.textContent = '发送验证码';
+                errEl.textContent = '网络错误'; errEl.style.display = 'block';
             });
         }
-
         function submitResetPwd() {
             const email = document.getElementById('forgotEmail').value.trim();
             const code = document.getElementById('forgotCode').value.trim();
@@ -468,25 +503,16 @@
             const confirm_password = document.getElementById('forgotConfirmPwd').value;
             const errEl = document.getElementById('forgotError');
             const sucEl = document.getElementById('forgotSuccess');
-            errEl.style.display = 'none';
-            sucEl.style.display = 'none';
-
+            errEl.style.display = 'none'; sucEl.style.display = 'none';
             if (!email || !code || !new_password || !confirm_password) {
-                errEl.textContent = '请填写所有字段';
-                errEl.style.display = 'block';
-                return;
+                errEl.textContent = '请填写所有字段'; errEl.style.display = 'block'; return;
             }
             if (new_password.length < 4) {
-                errEl.textContent = '新密码至少4位';
-                errEl.style.display = 'block';
-                return;
+                errEl.textContent = '新密码至少4位'; errEl.style.display = 'block'; return;
             }
             if (new_password !== confirm_password) {
-                errEl.textContent = '两次输入的新密码不一致';
-                errEl.style.display = 'block';
-                return;
+                errEl.textContent = '两次输入的新密码不一致'; errEl.style.display = 'block'; return;
             }
-
             fetch('/api/reset-password', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -502,30 +528,25 @@
                         document.getElementById('password').value = new_password;
                     }, 1500);
                 } else {
-                    errEl.textContent = data.detail || '重置失败';
-                    errEl.style.display = 'block';
+                    errEl.textContent = data.detail || '重置失败'; errEl.style.display = 'block';
                 }
             })
-            .catch(() => {
-                errEl.textContent = '网络错误，请重试';
-                errEl.style.display = 'block';
-            });
+            .catch(() => { errEl.textContent = '网络错误'; errEl.style.display = 'block'; });
         }
 
-        // 另一端已登录提示（"请不要同时登录"）
+        // 多设备提示
         function showOtherDeviceTip(otherName) {
             var overlay = document.createElement('div');
             overlay.id = 'otherDeviceTip';
-            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:99999;display:flex;align-items:center;justify-content:center;';
-            overlay.innerHTML = '<div style="background:#fff;border-radius:12px;padding:28px 32px;max-width:360px;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.18);">' +
+            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:99999;display:flex;align-items:center;justify-content:center;';
+            overlay.innerHTML = '<div style="background:#141414;border:1px solid rgba(255,255,255,.15);border-radius:16px;padding:28px 32px;max-width:360px;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.4);color:#fff;">' +
                 '<div style="font-size:40px;margin-bottom:10px;">📱</div>' +
-                '<div style="font-size:17px;font-weight:600;color:#1a1a1a;margin-bottom:8px;">当前账号已登录</div>' +
-                '<div style="font-size:14px;color:#666;line-height:1.7;margin-bottom:20px;">检测到【' + otherName + '】已登录同一账号，请勿多人同时登录，以免数据冲突。</div>' +
-                '<button onclick="this.closest(\'#otherDeviceTip\').remove()" style="background:#2f6bff;color:#fff;border:none;border-radius:8px;padding:10px 28px;font-size:15px;cursor:pointer;">我知道了</button>' +
+                '<div style="font-size:17px;font-weight:600;margin-bottom:8px;">当前账号已登录</div>' +
+                '<div style="font-size:14px;color:#999;line-height:1.7;margin-bottom:20px;">检测到【' + otherName + '】已登录同一账号，请勿多人同时登录。</div>' +
+                '<button onclick="this.closest(\'#otherDeviceTip\').remove()" style="background:#fff;color:#000;border:none;border-radius:999px;padding:10px 28px;font-size:14px;font-weight:600;cursor:pointer;">我知道了</button>' +
                 '</div>';
             document.body.appendChild(overlay);
         }
-
     </script>
 </body>
 </html>
