@@ -147,6 +147,41 @@
         .modal-mask { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center; padding:20px; box-sizing:border-box; }
         .modal { background:white; border-radius:16px; padding:20px 18px; width:100%; max-width:420px; max-height:85vh; overflow-y:auto; box-shadow:0 8px 30px rgba(0,0,0,0.2); }
         .modal-title { font-size:17px; font-weight:700; color:#333; margin-bottom:14px; }
+    
+        /* === 手机端交互增强 === */
+        /* 下拉刷新指示器 */
+        .ptr-indicator { position:fixed; top:0; left:0; right:0; height:0; overflow:hidden; display:flex; align-items:center; justify-content:center; z-index:200; transition:height 0.2s; color:#667eea; font-size:14px; font-weight:500; }
+        .ptr-indicator.pulling { height:50px; }
+        .ptr-indicator.refreshing { height:50px; }
+        .ptr-spinner { width:20px; height:20px; border:2px solid #e0e0e0; border-top-color:#667eea; border-radius:50%; animation:ptr-spin 0.8s linear infinite; margin-right:8px; }
+        @keyframes ptr-spin { to { transform:rotate(360deg); } }
+        /* 多选模式顶部栏 */
+        .sel-bar { position:fixed; top:0; left:0; right:0; background:#667eea; color:white; padding:12px 16px calc(12px + env(safe-area-inset-top)); display:none; align-items:center; justify-content:space-between; z-index:150; box-shadow:0 2px 12px rgba(102,126,234,0.4); }
+        .sel-bar.show { display:flex; }
+        .sel-bar .sel-count { font-size:15px; font-weight:600; }
+        .sel-bar .sel-actions { display:flex; gap:16px; font-size:14px; }
+        .sel-bar .sel-actions span { cursor:pointer; padding:4px 8px; }
+        .sel-bar .sel-actions .cancel { opacity:0.8; }
+        .mat-item.selectable { position:relative; }
+        .mat-item.selectable .check-ov { position:absolute; top:10px; right:10px; width:24px; height:24px; border-radius:50%; border:2px solid rgba(255,255,255,0.8); background:rgba(0,0,0,0.2); display:none; align-items:center; justify-content:center; color:white; font-size:14px; }
+        body.select-mode .mat-item.selectable .check-ov { display:flex; }
+        body.select-mode .mat-item.selected { background:rgba(102,126,234,0.12); border-color:#667eea; }
+        body.select-mode .mat-item.selected .check-ov { background:#667eea; border-color:#667eea; }
+        /* 全屏图片浏览 */
+        .img-viewer { position:fixed; inset:0; background:rgba(0,0,0,0.95); z-index:300; display:none; align-items:center; justify-content:center; touch-action:none; }
+        .img-viewer.show { display:flex; }
+        .img-viewer img { max-width:100%; max-height:100%; object-fit:contain; transition:transform 0.2s; }
+        .img-viewer .close-btn { position:absolute; top:calc(16px + env(safe-area-inset-top)); right:16px; width:36px; height:36px; border-radius:50%; background:rgba(255,255,255,0.15); color:white; display:flex; align-items:center; justify-content:center; font-size:18px; cursor:pointer; z-index:301; }
+        .img-viewer .img-hint { position:absolute; bottom:calc(20px + env(safe-area-inset-bottom)); left:0; right:0; text-align:center; color:rgba(255,255,255,0.5); font-size:12px; }
+        /* 无限滚动加载 */
+        .load-more { text-align:center; padding:16px; color:#999; font-size:13px; display:none; }
+        .load-more.show { display:block; }
+        .load-more .lm-spin { display:inline-block; width:16px; height:16px; border:2px solid #e0e0e0; border-top-color:#667eea; border-radius:50%; animation:ptr-spin 0.8s linear infinite; vertical-align:middle; margin-right:6px; }
+        /* 底部导航加大触控区 */
+        .bottom-nav-item { padding:8px 0 6px !important; min-height:52px; }
+        .bottom-nav-item .nav-icon { font-size:24px !important; }
+        .bottom-nav-item .nav-label { font-size:11px !important; }
+
     </style>
 </head>
 <body>
@@ -277,7 +312,15 @@
     <!-- 技能文档 -->
     <div class="page" id="page-skills">
         <div class="nav-bar"><div class="back" onclick="showPage('page-home')">←</div><div class="title">技能文档</div><div class="right admin-only" id="skillUploadBtn" onclick="openSkillUpload()" style="cursor:pointer;font-size:15px;">+ 上传</div></div>
-        <div id="mSkillList"><div style="text-align:center;padding:40px;color:#999;">加载中...</div></div>
+        <style>
+            .mskill-tabs{display:flex;gap:8px;overflow-x:auto;padding:12px 14px 2px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+            .mskill-tabs::-webkit-scrollbar{display:none;}
+            .mskill-tab{flex-shrink:0;padding:6px 14px;border-radius:18px;background:#fff;border:1px solid #e5e7f0;font-size:13px;color:#666;cursor:pointer;}
+            .mskill-tab.active{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border-color:transparent;}
+            .mskill-tag{display:inline-block;padding:2px 10px;border-radius:10px;font-size:11px;background:#eef2ff;color:#4f46e5;margin-bottom:6px;}
+        </style>
+        <div class="mskill-tabs" id="mSkillTabs"></div>
+        <div id="mSkillList" style="padding:10px 14px;"><div style="text-align:center;padding:40px;color:#999;">加载中...</div></div>
     </div>
 
     <!-- 活动规划页面 -->
@@ -308,7 +351,53 @@
             .mplan-card .ops button{padding:4px 13px;border-radius:7px;border:1px solid #e0e0e0;background:#fff;font-size:12px;cursor:pointer;color:#555;}
             .mplan-card .ops .del{color:#e53935;border-color:#f5c6c6;}
             .mplan-empty{text-align:center;color:#999;padding:60px 16px;font-size:13px;}
-        </style>
+        
+        /* === 暗色液态玻璃主题覆盖 === */
+        body { background:#0a0a12 !important; color:#e8e8ec !important; }
+        .page { background:transparent; }
+        .nav-bar { background:rgba(20,20,30,0.72) !important; backdrop-filter:blur(24px) saturate(180%); -webkit-backdrop-filter:blur(24px) saturate(180%); border-bottom:1px solid rgba(255,255,255,0.08); box-shadow:0 4px 24px rgba(0,0,0,0.3); }
+        .home-hero { background:radial-gradient(ellipse at top, rgba(102,126,234,0.25) 0%, rgba(10,10,18,0) 70%), rgba(15,15,25,0.6) !important; backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); }
+        .home-hero::before { background:rgba(102,126,234,0.12) !important; }
+        .home-hero::after { background:rgba(118,75,162,0.1) !important; }
+        .home-hero .role-tag { background:rgba(255,255,255,0.12) !important; border:1px solid rgba(255,255,255,0.15); }
+        .m-notice-bar { background:rgba(255,248,225,0.08) !important; border:1px solid rgba(255,224,130,0.2) !important; }
+        .m-notice-track { color:#ffd54f !important; }
+        .stat-card { background:rgba(255,255,255,0.06) !important; backdrop-filter:blur(20px) saturate(180%); -webkit-backdrop-filter:blur(20px) saturate(180%); border:1px solid rgba(255,255,255,0.08); box-shadow:0 4px 20px rgba(0,0,0,0.25) !important; }
+        .stat-card .num { color:#8c9eff !important; }
+        .stat-card .label { color:rgba(255,255,255,0.45) !important; }
+        .menu-section-title { color:rgba(255,255,255,0.5) !important; }
+        .menu-item { background:rgba(255,255,255,0.06) !important; backdrop-filter:blur(20px) saturate(180%); -webkit-backdrop-filter:blur(20px) saturate(180%); border:1px solid rgba(255,255,255,0.08) !important; box-shadow:0 4px 16px rgba(0,0,0,0.25) !important; }
+        .menu-item .label { color:#e8e8ec !important; }
+        .menu-item .desc { color:rgba(255,255,255,0.4) !important; }
+        .home-logout button { background:rgba(255,255,255,0.08) !important; border:1px solid rgba(255,255,255,0.12) !important; color:rgba(255,255,255,0.7) !important; backdrop-filter:blur(20px); }
+        .form-card { background:rgba(255,255,255,0.06) !important; backdrop-filter:blur(24px) saturate(180%); -webkit-backdrop-filter:blur(24px) saturate(180%); border:1px solid rgba(255,255,255,0.08); box-shadow:0 8px 32px rgba(0,0,0,0.3) !important; }
+        .form-group label { color:rgba(255,255,255,0.7) !important; }
+        .form-group input, .form-group select, .form-group textarea { background:rgba(255,255,255,0.06) !important; border:1.5px solid rgba(255,255,255,0.12) !important; color:#e8e8ec !important; }
+        .form-group input::placeholder, .form-group textarea::placeholder { color:rgba(255,255,255,0.3); }
+        .form-group input:focus, .form-group select:focus { background:rgba(255,255,255,0.1) !important; border-color:#8c9eff !important; box-shadow:0 0 0 3px rgba(140,158,255,0.15) !important; }
+        .form-group input[readonly] { background:rgba(255,255,255,0.03) !important; color:rgba(255,255,255,0.4) !important; }
+        .upload-area { border:2px dashed rgba(255,255,255,0.15) !important; background:rgba(255,255,255,0.04) !important; color:rgba(255,255,255,0.4) !important; }
+        .upload-area:active { border-color:#8c9eff !important; background:rgba(140,158,255,0.08) !important; }
+        .btn-primary { background:rgba(102,126,234,0.6) !important; backdrop-filter:blur(20px) saturate(180%); border:1px solid rgba(255,255,255,0.2) !important; box-shadow:0 4px 20px rgba(102,126,234,0.35), inset 0 1px 0 rgba(255,255,255,0.25) !important; }
+        .btn-danger { background:rgba(239,83,80,0.6) !important; backdrop-filter:blur(20px); border:1px solid rgba(255,255,255,0.15); }
+        .search-bar { background:rgba(15,15,25,0.8) !important; backdrop-filter:blur(24px); border-bottom:1px solid rgba(255,255,255,0.06); }
+        .search-bar input { background:rgba(255,255,255,0.06) !important; border:1.5px solid rgba(255,255,255,0.1) !important; color:#e8e8ec !important; }
+        .search-bar input:focus { background:rgba(255,255,255,0.1) !important; border-color:#8c9eff !important; }
+        .mat-item { background:rgba(255,255,255,0.06) !important; backdrop-filter:blur(20px); border:1px solid rgba(255,255,255,0.08) !important; box-shadow:0 4px 16px rgba(0,0,0,0.25) !important; }
+        .mat-item .name { color:#e8e8ec !important; }
+        .mat-item .code { color:rgba(255,255,255,0.5) !important; background:rgba(255,255,255,0.06) !important; }
+        .mat-item .stock { color:rgba(255,255,255,0.6) !important; }
+        .mat-item .stock span { color:#69f0ae !important; }
+        .mat-item .img-ph { background:linear-gradient(135deg, rgba(102,126,234,0.2), rgba(118,75,162,0.2)) !important; }
+        .detail-card { background:rgba(255,255,255,0.06) !important; backdrop-filter:blur(24px); border:1px solid rgba(255,255,255,0.08); box-shadow:0 8px 32px rgba(0,0,0,0.3) !important; }
+        .detail-row { border-bottom:1px solid rgba(255,255,255,0.06) !important; }
+        .detail-row .label { color:rgba(255,255,255,0.45) !important; }
+        .detail-row .value { color:#e8e8ec !important; }
+        /* 滚动条 */
+        ::-webkit-scrollbar { width:4px; }
+        ::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.15); border-radius:4px; }
+
+    </style>
         <div class="mplan-dept-tabs" id="mplanTabs"><div class="mplan-tab active" data-dept="" onclick="mplanFilter('')">全部</div></div>
         <div id="mplanTimeline" class="mplan-timeline"><div style="text-align:center;padding:40px;color:#999;">加载中...</div></div>
     </div>
@@ -349,6 +438,15 @@
                 <button class="btn-full ghost" style="flex:1;margin:0;" onclick="closeMCompletePlanModal()">取消</button>
                 <button class="btn-primary" style="flex:1;margin:0;" onclick="submitMCompletePlan()">确认完成并同步</button>
             </div>
+        </div>
+    </div>
+
+    <!-- 考勤记录（手机端，普通用户可见） -->
+    <div class="page" id="page-attendance-m">
+        <div class="nav-bar"><div class="back" onclick="showPage('page-home')">←</div><div class="title">考勤记录</div><div class="right admin-only" onclick="window.location.href='/m/admin'" style="cursor:pointer;font-size:15px;">+ 管理</div></div>
+        <div style="padding:12px 14px;">
+            <div style="color:rgba(255,255,255,0.45);font-size:12px;margin-bottom:10px;" id="mAttCount">共 0 条记录</div>
+            <div id="mAttList"><div style="text-align:center;padding:40px;color:#999;">加载中...</div></div>
         </div>
     </div>
 
@@ -436,6 +534,17 @@
             <div class="modal-title">编辑文档</div>
             <input type="hidden" id="mEditSkillId">
             <div class="form-group"><label>文档标题</label><input type="text" id="mEditSkillTitle" placeholder="不填则保持不变"></div>
+            <div class="form-group"><label>分类</label>
+                <select id="mEditSkillCategory" style="width:100%;padding:13px 15px;border:1.5px solid #e8e8e8;border-radius:12px;font-size:15px;background:#fff;">
+                    <option value="软件">📦 软件</option>
+                    <option value="音乐">🎵 音乐</option>
+                    <option value="视频">🎬 视频</option>
+                    <option value="文档">📄 文档</option>
+                    <option value="图片">🖼️ 图片</option>
+                    <option value="压缩包">🗜️ 压缩包</option>
+                    <option value="其他">📁 其他</option>
+                </select>
+            </div>
             <div class="form-group"><label>备注说明</label><input type="text" id="mEditSkillDesc" placeholder="不填则保持不变"></div>
             <div class="form-group"><label>更换文件（可选）</label><input type="file" id="mEditSkillFile"><div id="mEditSkillFileName" style="font-size:12px;color:#999;margin-top:4px;">未选择（保持原文件）</div></div>
             <div style="display:flex;gap:10px;margin-top:16px;">
@@ -451,6 +560,18 @@
         <div class="modal">
             <div class="modal-title">📤 上传文档</div>
             <div class="form-group"><label>文档标题</label><input type="text" id="mSkillTitle" placeholder="不填则用文件名"></div>
+            <div class="form-group"><label>分类</label>
+                <select id="mSkillCategory" style="width:100%;padding:13px 15px;border:1.5px solid #e8e8e8;border-radius:12px;font-size:15px;background:#fff;">
+                    <option value="">分类（自动识别）</option>
+                    <option value="软件">📦 软件</option>
+                    <option value="音乐">🎵 音乐</option>
+                    <option value="视频">🎬 视频</option>
+                    <option value="文档">📄 文档</option>
+                    <option value="图片">🖼️ 图片</option>
+                    <option value="压缩包">🗜️ 压缩包</option>
+                    <option value="其他">📁 其他</option>
+                </select>
+            </div>
             <div class="form-group"><label>备注说明</label><input type="text" id="mSkillDesc" placeholder="可选"></div>
             <div class="form-group"><label>选择文件 <span class="req">*</span></label>
                 <input type="file" id="mSkillFile" style="display:none" onchange="onMSkillFileSelected(this)">
@@ -495,6 +616,7 @@
                 { icon:'↩️', label:'物资归还', desc:'归还借出物资', page:'page-return' },
                 { icon:'📚', label:'技能文档', desc:'模板/资料下载', page:'page-skills' },
                 { icon:'🗓️', label:'活动', desc:'规划/时间线', page:'page-activity-plan' },
+                { icon:'✅', label:'考勤', desc:'部门参与情况', page:'page-attendance-m' },
                 { icon:'📊', label:'数据大屏', desc:'可视化数据总览', url:'/m/dashboard' },
             ];
             // 管理员额外显示"管理后台"入口
@@ -599,6 +721,7 @@
             if (id==='page-search') { document.getElementById('searchKeyword').value=''; doSearch(); }
             if (id==='page-skills') loadMSkills();
             if (id==='page-activity-plan') loadMPlans();
+            if (id==='page-attendance-m') loadMAttendance();
             if (id==='page-profile') loadProfile();
         }
         function switchTab(id) { showPage(id); }
@@ -1066,10 +1189,27 @@
             return (bytes/1048576).toFixed(1) + ' MB';
         }
 
+        const M_SKILL_CATS = ' + MCATS + ';
+        function mInferSkillCat(name) {
+            const ext = (name||'').split('.').pop().toLowerCase();
+            const map = {
+                exe:'软件',msi:'软件',apk:'软件',bat:'软件',cmd:'软件',iso:'软件',jar:'软件',
+                mp3:'音乐',wav:'音乐',flac:'音乐',aac:'音乐',ogg:'音乐',m4a:'音乐',
+                mp4:'视频',mkv:'视频',avi:'视频',mov:'视频',wmv:'视频',flv:'视频',webm:'视频',
+                pdf:'文档',doc:'文档',docx:'文档',xls:'文档',xlsx:'文档',ppt:'文档',pptx:'文档',txt:'文档',md:'文档',csv:'文档',
+                png:'图片',jpg:'图片',jpeg:'图片',gif:'图片',svg:'图片',webp:'图片',bmp:'图片',ico:'图片',
+                zip:'压缩包',rar:'压缩包','7z':'压缩包',tar:'压缩包',gz:'压缩包'
+            };
+            return map[ext] || '其他';
+        }
+        let mSkillFilter = '全部';
+        let mSkillAll = [];
         function openSkillUpload() {
             closeMSkillEdit();
             document.getElementById('mSkillTitle').value = '';
             document.getElementById('mSkillDesc').value = '';
+            const mcs = document.getElementById('mSkillCategory');
+            if (mcs) mcs.value = '';
             document.getElementById('mSkillFile').value = '';
             document.getElementById('mSkillFileName').textContent = '未选择文件';
             document.getElementById('mSkillUploadModal').classList.add('show');
@@ -1086,6 +1226,8 @@
                 return;
             }
             document.getElementById('mSkillFileName').textContent = f ? f.name + ' (' + mFormatSize(f.size) + ')' : '未选择文件';
+            const mcs = document.getElementById('mSkillCategory');
+            if (mcs && f && !mcs.value) mcs.value = mInferSkillCat(f.name);
         }
 
         function uploadMSkill() {
@@ -1097,6 +1239,7 @@
             formData.append('file', file);
             formData.append('title', document.getElementById('mSkillTitle').value.trim());
             formData.append('description', document.getElementById('mSkillDesc').value.trim());
+            formData.append('category', document.getElementById('mSkillCategory').value || mInferSkillCat(file.name));
             const barEl = createUploadBar(document.getElementById('mSkillUploadBar'), file.name);
             uploadWithProgress('/api/skills/upload', formData, barEl)
             .then(({ok, d})=>{
@@ -1118,221 +1261,48 @@
             fetch('/api/skills', { headers:{'Authorization':'Bearer '+token} })
             .then(res=>{ if(res.status===401){ window.location.href='/m/login'; return []; } return res.json(); })
             .then(data=>{
-                if (!data.length) {
-                    list.innerHTML = '<div style="text-align:center;padding:40px;color:#999;">暂无文件</div>';
-                    return;
+                mSkillAll = data.map(f=>({...f, category: f.category || mInferSkillCat(f.original_name)}));
+                const tabsEl = document.getElementById('mSkillTabs');
+                if (tabsEl) {
+                    const cats = ['全部'].concat(M_SKILL_CATS);
+                    tabsEl.innerHTML = cats.map(c=>
+                        '<div class="mskill-tab' + (mSkillFilter===c?' active':'') + '" onclick="mSetSkillFilter(\'' + c + '\')">' + c + '</div>'
+                    ).join('');
                 }
-                list.innerHTML = data.map(f=>{
-                    const edit = isAdmin ? `<button style="background:#ff9800;color:white;border:none;padding:6px 12px;border-radius:6px;font-size:12px;margin-left:6px;" onclick="openMSkillEdit('${f.id}','${f.title.replace(/'/g,"\\'")}','${(f.description||'').replace(/'/g,"\\'")}')">编辑</button>` : '';
-                    const del = isAdmin ? `<button style="background:#c62828;color:white;border:none;padding:6px 12px;border-radius:6px;font-size:12px;margin-left:6px;" onclick="deleteMSkill('${f.id}','${f.title.replace(/'/g,"\\'")}')">删除</button>` : '';
-                    return `<div class="mat-card" style="padding:14px;margin-bottom:10px;">
-                        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
-                            <div style="flex:1;min-width:0;">
-                                <div style="font-weight:600;font-size:15px;margin-bottom:4px;">📄 ${f.title}</div>
-                                <div style="font-size:12px;color:#999;margin-bottom:4px;">${f.original_name} · ${mFormatSize(f.file_size)}</div>
-                                <div style="font-size:12px;color:#666;">上传人：${f.uploader||'-'} · ${(f.created_at||'').replace('T',' ').substring(0,16)}</div>
-                                ${f.description ? `<div style="font-size:12px;color:#888;margin-top:4px;">${f.description}</div>` : ''}
-                            </div>
-                            <div style="flex-shrink:0;">
-                                <button style="background:#667eea;color:white;border:none;padding:6px 12px;border-radius:6px;font-size:12px;" onclick="downloadMSkill('${f.id}')">下载</button>
-                                ${edit}
-                                ${del}
-                            </div>
-                        </div>
-                    </div>`;
-                }).join('');
+                renderMSkills();
             })
             .catch(()=>{ list.innerHTML = '<div style="text-align:center;padding:40px;color:#999;">加载失败</div>'; });
         }
-
-        // ---------- 手机端活动规划（时间线） ----------
-        const MPLAN_STATUS = { planned:{t:'规划中',c:'b-planned'}, confirmed:{t:'已确定',c:'b-confirmed'}, done:{t:'已完成',c:'b-done'} };
-        let mPlanAll = [];
-        let mPlanDepts = [];
-        let mPlanDeptFilter = '';
-        let mPlanRetryCount = 0;
-
-        function mplanEsc(s){ return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-
-        function loadMPlans() {
-            // 加载部门tab
-            fetch('/api/activity-plans/departments', { headers:{'Authorization':'Bearer '+token} })
-            .then(res=>res.json())
-            .then(list=>{
-                mPlanDepts = list;
-                const tabsEl = document.getElementById('mplanTabs');
-                if (tabsEl) {
-                    tabsEl.innerHTML = '<div class="mplan-tab' + (mPlanDeptFilter===''?' active':'') + '" data-dept="" onclick="mplanFilter(\'\')">全部</div>' +
-                        list.map(d=>'<div class="mplan-tab' + (mPlanDeptFilter===d?' active':'') + '" data-dept="'+mplanEsc(d)+'" onclick="mplanFilter(\''+mplanEsc(d).replace(/'/g,"\\'")+'\')">'+mplanEsc(d)+'</div>').join('');
-                }
-                const deptSel = document.getElementById('mPlanDept');
-                if (deptSel) deptSel.innerHTML = '<option value="">请选择部门</option>' + list.map(d=>'<option value="'+mplanEsc(d)+'">'+mplanEsc(d)+'</option>').join('');
-            })
-            .catch(()=>{});
-            // 加载规划数据
-            const url = '/api/activity-plans' + (mPlanDeptFilter ? '?department=' + encodeURIComponent(mPlanDeptFilter) : '');
-            const listEl = document.getElementById('mplanTimeline');
-            fetch(url, { headers:{'Authorization':'Bearer '+token} })
-            .then(res=>{ if(res.status===401){ window.location.href='/m/login'; return []; } return res.json(); })
-            .then(data=>{
-                if (!Array.isArray(data)) throw new Error('bad response');
-                mPlanRetryCount = 0;
-                mPlanAll = data;
-                const curUser = JSON.parse(localStorage.getItem('user') || '{}');
-                renderMPlanTimeline(listEl, data, curUser);
-            })
-            .catch(()=>{
-                // 首次失败自动重试一次，避免偶发问题导致页面空白
-                if (mPlanRetryCount < 1) { mPlanRetryCount++; setTimeout(loadMPlans, 600); return; }
-                mPlanRetryCount = 0;
-                if(listEl) listEl.innerHTML = '<div style="text-align:center;padding:40px;color:#999;">加载失败</div>';
-            });
-        }
-
-        function mplanFilter(dept){
-            mPlanDeptFilter = dept;
-            loadMPlans();
-        }
-
-        function renderMPlanTimeline(el, list, curUser) {
-            if (!list.length) { el.innerHTML = '<div class="mplan-empty">📅 暂无活动规划，点击右上角"＋ 新增"开始规划吧</div>'; return; }
-            const months = {};
-            list.forEach(p => {
-                const m = (p.plan_date || '').substring(0,7);
-                if (!months[m]) months[m] = [];
-                months[m].push(p);
-            });
-            let html = '';
-            Object.keys(months).sort().forEach(m => {
-                const ym = m.split('-');
-                html += '<div class="mplan-month"><span class="tag">' + Number(ym[0]) + '年' + Number(ym[1]) + '月</span></div>';
-                months[m].sort((a,b)=>(a.plan_date||'').localeCompare(b.plan_date||'')).forEach(p => {
-                    const st = MPLAN_STATUS[p.status] || MPLAN_STATUS.planned;
-                    const canEdit = (curUser.role==='admin') || (p.creator_id===curUser.id);
-                    html += '<div class="mplan-item"><div class="dot"></div><div class="mplan-card">';
-                    html += '<div class="t"><span class="name">' + mplanEsc(p.title) + '</span><span style="font-size:11px;padding:2px 8px;border-radius:10px;border:1px solid;' + (p.plan_type === 'meeting' ? 'background:#e3f2fd;color:#1565c0;border-color:#bbdefb;' : 'background:#f3e5f5;color:#7b1fa2;border-color:#e1bee7;') + '">' + (p.plan_type === 'meeting' ? '📋 例会' : '🎉 活动') + '</span><span class="mplan-badge ' + st.c + '">' + st.t + '</span></div>';
-                    if (p.department) html += '<div class="dept">🏢 ' + mplanEsc(p.department) + '</div>';
-                    html += '<div class="meta">';
-                    html += '<span>📅 ' + (p.plan_date || '') + '</span>';
-                    if (p.location) html += '<span>📍 ' + mplanEsc(p.location) + '</span>';
-                    if (p.creator_name) html += '<span>👤 ' + mplanEsc(p.creator_name) + '</span>';
-                    html += '</div>';
-                    if (p.description) html += '<div class="desc">' + mplanEsc(p.description) + '</div>';
-                    html += '<div class="ops">';
-                    if (p.status !== 'done') {
-                        html += '<button onclick="openMCompletePlanModal(\'' + p.id + '\')" style="background:#e8f5e9;color:#2e7d32;border-color:#c8e6c9;">✅ 完成</button>';
-                    } else {
-                        html += '<button style="background:#f5f5f5;color:#999;border-color:#eee;cursor:default;">✔ 已同步</button>';
-                    }
-                    if (canEdit) {
-                        html += '<button onclick="editMPlan(\'' + p.id + '\')">✏️ 编辑</button><button class="del" onclick="deleteMPlan(\'' + p.id + '\',\'' + mplanEsc(p.title).replace(/'/g,"\\'") + '\')">🗑️ 删除</button>';
-                    }
-                    html += '</div>';
-                    html += '</div></div>';
-                });
-            });
-            el.innerHTML = html;
-        }
-
-        function openMPlanModal(plan){
-            document.getElementById('mPlanModalTitle').textContent = plan ? '编辑活动规划' : '新增活动规划';
-            document.getElementById('mPlanId').value = plan ? plan.id : '';
-            document.getElementById('mPlanTitle').value = plan ? plan.title : '';
-            document.getElementById('mPlanType').value = plan ? (plan.plan_type || 'activity') : 'activity';
-            document.getElementById('mPlanDept').value = plan ? (plan.department||'') : '';
-            document.getElementById('mPlanDate').value = plan ? (plan.plan_date||'') : '';
-            document.getElementById('mPlanLocation').value = plan ? (plan.location||'') : '';
-            document.getElementById('mPlanStatus').value = plan ? (plan.status||'planned') : 'planned';
-            document.getElementById('mPlanDesc').value = plan ? (plan.description||'') : '';
-            document.getElementById('mPlanError').style.display = 'none';
-            document.getElementById('mPlanModal').style.display = 'flex';
-        }
-        function closeMPlanModal(){ document.getElementById('mPlanModal').style.display = 'none'; }
-        function editMPlan(id){ const p = mPlanAll.find(x=>x.id===id); if (p) openMPlanModal(p); }
-        function submitMPlan(){
-            const id = document.getElementById('mPlanId').value;
-            const body = {
-                title: document.getElementById('mPlanTitle').value.trim(),
-                plan_type: document.getElementById('mPlanType').value,
-                department: document.getElementById('mPlanDept').value,
-                plan_date: document.getElementById('mPlanDate').value,
-                location: document.getElementById('mPlanLocation').value.trim(),
-                status: document.getElementById('mPlanStatus').value,
-                description: document.getElementById('mPlanDesc').value.trim()
-            };
-            const errEl = document.getElementById('mPlanError');
-            errEl.style.display = 'none';
-            if (!body.title) { errEl.textContent = '请输入活动名称'; errEl.style.display='block'; return; }
-            if (!body.plan_date) { errEl.textContent = '请选择计划日期'; errEl.style.display='block'; return; }
-            const url = id ? '/api/activity-plans/' + id : '/api/activity-plans';
-            const method = id ? 'PUT' : 'POST';
-            fetch(url, { method:method, headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body: JSON.stringify(body) })
-            .then(res=>res.json().then(d=>({ok:res.ok, d})))
-            .then(({ok,d})=>{
-                if (ok) {
-                    showToast(d.message || '保存成功');
-                    closeMPlanModal();
-                    loadMPlans();
-                } else { errEl.textContent = d.detail || '保存失败'; errEl.style.display='block'; }
-            })
-            .catch(()=>{ errEl.textContent = '网络错误，请重试'; errEl.style.display='block'; });
-        }
-        function deleteMPlan(id, name){
-            if (!confirm('确定删除活动规划「' + name + '」吗？\n（若该规划已生成活动记录，对应记录也会一并删除）')) return;
-            fetch('/api/activity-plans/' + id, { method:'DELETE', headers:{'Authorization':'Bearer '+token} })
-            .then(res=>res.json().then(d=>({ok:res.ok, d})))
-            .then(({ok,d})=>{
-                if (ok) { showToast(d.message || '已删除'); loadMPlans(); }
-                else showToast(d.detail || '删除失败');
-            })
-            .catch(()=>showToast('删除失败'));
-        }
-        // ---------- 手机端活动规划标记完成（同步活动记录） ----------
-        function openMCompletePlanModal(id){
-            const p = mPlanAll.find(x=>x.id===id);
-            if (!p) return;
-            document.getElementById('mCompletePlanId').value = id;
-            document.getElementById('mCompletePlanTitle').value = p.title || '';
-            document.getElementById('mCompletePlanDate').value = p.plan_date || '';
-            const deptSel = document.getElementById('mCompletePlanDept');
-            if (p.department && ![...deptSel.options].some(o=>o.value===p.department)) {
-                const op = document.createElement('option');
-                op.value = p.department; op.textContent = p.department;
-                deptSel.appendChild(op);
+        function mSetSkillFilter(c) { mSkillFilter = c; loadMSkills(); }
+        function renderMSkills() {
+            const list = document.getElementById('mSkillList');
+            const data = mSkillFilter==='全部' ? mSkillAll : mSkillAll.filter(f=>f.category===mSkillFilter);
+            if (!data.length) {
+                list.innerHTML = '<div style="text-align:center;padding:40px;color:#999;">暂无文件</div>';
+                return;
             }
-            deptSel.value = p.department || '';
-            document.getElementById('mCompletePlanLocation').value = p.location || '';
-            document.getElementById('mCompletePlanDesc').value = p.description || '';
-            document.getElementById('mCompletePlanError').style.display = 'none';
-            document.getElementById('mCompletePlanModal').style.display = 'flex';
+            const catIcon = {软件:'📦',音乐:'🎵',视频:'🎬',文档:'📄',图片:'🖼️',压缩包:'🗜️',其他:'📁'};
+            list.innerHTML = data.map(f=>{
+                const edit = isAdmin ? `<button style="background:#ff9800;color:white;border:none;padding:6px 12px;border-radius:6px;font-size:12px;margin-left:6px;" onclick="openMSkillEdit('${f.id}','${f.title.replace(/'/g,"\'")}','${(f.description||'').replace(/'/g,"\'")}','${f.category||'其他'}')">编辑</button>` : '';
+                const del = isAdmin ? `<button style="background:#c62828;color:white;border:none;padding:6px 12px;border-radius:6px;font-size:12px;margin-left:6px;" onclick="deleteMSkill('${f.id}','${f.title.replace(/'/g,"\'")}')">删除</button>` : '';
+                return `<div class="mat-card" style="padding:14px;margin-bottom:10px;">
+                    <span class="mskill-tag">${catIcon[f.category]||'📁'} ${f.category||'其他'}</span>
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-weight:600;font-size:15px;margin-bottom:4px;">📄 ${f.title}</div>
+                            <div style="font-size:12px;color:#999;margin-bottom:4px;">${f.original_name} · ${mFormatSize(f.file_size)}</div>
+                            <div style="font-size:12px;color:#666;">上传人：${f.uploader||'-'} · ${(f.created_at||'').replace('T',' ').substring(0,16)}</div>
+                            ${f.description ? `<div style="font-size:12px;color:#888;margin-top:4px;">${f.description}</div>` : ''}
+                        </div>
+                        <div style="flex-shrink:0;">
+                            <button style="background:#667eea;color:white;border:none;padding:6px 12px;border-radius:6px;font-size:12px;" onclick="downloadMSkill('${f.id}')">下载</button>
+                            ${edit}
+                            ${del}
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
         }
-        function closeMCompletePlanModal(){ document.getElementById('mCompletePlanModal').style.display = 'none'; }
-        function submitMCompletePlan(){
-            const pid = document.getElementById('mCompletePlanId').value;
-            const body = {
-                title: document.getElementById('mCompletePlanTitle').value.trim(),
-                plan_date: document.getElementById('mCompletePlanDate').value,
-                department: document.getElementById('mCompletePlanDept').value,
-                location: document.getElementById('mCompletePlanLocation').value.trim(),
-                description: document.getElementById('mCompletePlanDesc').value.trim()
-            };
-            const errEl = document.getElementById('mCompletePlanError');
-            errEl.style.display = 'none';
-            if (!body.title) { errEl.textContent = '请输入活动名称'; errEl.style.display='block'; return; }
-            if (!body.plan_date) { errEl.textContent = '请选择活动日期'; errEl.style.display='block'; return; }
-            fetch('/api/activity-plans/' + pid + '/complete', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body: JSON.stringify(body) })
-            .then(res=>res.json().then(d=>({ok:res.ok, d})))
-            .then(({ok,d})=>{
-                if (ok) { showToast(d.message || '已标记完成'); closeMCompletePlanModal(); loadMPlans(); }
-                else { errEl.textContent = d.detail || '操作失败'; errEl.style.display='block'; }
-            })
-            .catch(()=>{ errEl.textContent = '网络错误，请重试'; errEl.style.display='block'; });
-        }
-
-        function downloadMSkill(id) {
-            window.open('/api/skills/' + id + '/download?token=' + encodeURIComponent(token), '_blank');
-        }
-
         function deleteMSkill(id, name) {
             if (!confirm('确定删除「' + name + '」吗？')) return;
             fetch('/api/skills/' + id, { method:'DELETE', headers:{'Authorization':'Bearer '+token} })
@@ -1345,11 +1315,13 @@
         }
 
         // ---------- 技能文档编辑 ----------
-        function openMSkillEdit(id, title, desc) {
+        function openMSkillEdit(id, title, desc, cat) {
             closeSkillUpload();
             document.getElementById('mEditSkillId').value = id;
             document.getElementById('mEditSkillTitle').value = title || '';
             document.getElementById('mEditSkillDesc').value = desc || '';
+            const mcs = document.getElementById('mEditSkillCategory');
+            if (mcs) mcs.value = cat || '其他';
             document.getElementById('mEditSkillFile').value = '';
             document.getElementById('mEditSkillFileName').textContent = '未选择（保持原文件）';
             document.getElementById('mSkillEditModal').style.display = 'flex';
@@ -1365,6 +1337,8 @@
             const formData = new FormData();
             if (title) formData.append('title', title);
             formData.append('description', desc);
+            const mec = document.getElementById('mEditSkillCategory');
+            if (mec) formData.append('category', mec.value);
             let barEl = null;
             if (fileInput.files[0]) {
                 if (fileInput.files[0].size > 500 * 1024 * 1024) { showToast('文件不能超过500MB'); return; }
@@ -1381,6 +1355,230 @@
         }
 
         // ---------- 个人设置 ----------
+        // ================= 活动规划（手机端） =================
+        let mPlanAll = [], mPlanFilter = '', mPlanDepts = [];
+        const M_PLAN_STATUS = {planned:{text:'规划中',cls:'b-planned'}, confirmed:{text:'已确定',cls:'b-confirmed'}, done:{text:'已完成',cls:'b-done'}};
+        function escM(s){ return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+        function mplanFilter(dept){ mPlanFilter = dept; loadMPlans(); }
+        function loadMPlans(){
+            const url = '/api/activity-plans' + (mPlanFilter ? '?department=' + encodeURIComponent(mPlanFilter) : '');
+            fetch(url, { headers:{'Authorization':'Bearer '+token} })
+            .then(res=>res.json())
+            .then(list=>{
+                mPlanAll = Array.isArray(list) ? list : [];
+                fetch('/api/activity-plans/departments', { headers:{'Authorization':'Bearer '+token} })
+                .then(res=>res.json())
+                .then(depts=>{
+                    mPlanDepts = depts || [];
+                    const tabs = document.getElementById('mplanTabs');
+                    if (tabs) {
+                        tabs.innerHTML = '<div class="mplan-tab' + (mPlanFilter==='' ? ' active' : '') + '" onclick="mplanFilter(\'\')">全部</div>' +
+                            mPlanDepts.map(d=>'<div class="mplan-tab' + (mPlanFilter===d ? ' active' : '') + '" onclick="mplanFilter(\'' + d + '\')">' + escM(d) + '</div>').join('');
+                    }
+                }).catch(()=>{});
+                renderMPlans();
+            })
+            .catch(()=>{ const w = document.getElementById('mplanTimeline'); if (w) w.innerHTML = '<div class="mplan-empty">加载失败，请重试</div>'; });
+        }
+        function renderMPlans(){
+            const wrap = document.getElementById('mplanTimeline');
+            if (!wrap) return;
+            if (!mPlanAll.length) { wrap.innerHTML = '<div class="mplan-empty">暂无活动规划</div>'; return; }
+            const curUser = user || {};
+            const months = {};
+            mPlanAll.forEach(p=>{ const m=(p.plan_date||'').substring(0,7); (months[m]=months[m]||[]).push(p); });
+            const keys = Object.keys(months).sort();
+            let html = '';
+            keys.forEach(m=>{
+                const ym = m.split('-');
+                html += '<div class="mplan-month"><span class="tag">' + Number(ym[0]) + ' 年 ' + Number(ym[1]) + ' 月</span></div>';
+                months[m].sort((a,b)=>(a.plan_date||'').localeCompare(b.plan_date||'')).forEach(p=>{
+                    const st = M_PLAN_STATUS[p.status] || M_PLAN_STATUS.planned;
+                    const sameDept = curUser.department && p.department && curUser.department === p.department;
+                    const canEdit = (curUser.role === 'admin') || (p.creator_id === curUser.id) || sameDept;
+                    let ops = '';
+                    if (canEdit) {
+                        if (p.status !== 'done') {
+                            ops += '<button style="background:#e8f5e9;color:#2e7d32;border-color:#c8e6c9;" onclick="openMCompletePlanModal(\'' + p.id + '\')">✅ 完成</button>';
+                        } else {
+                            ops += '<button style="background:rgba(255,255,255,0.06);color:#999;border-color:rgba(255,255,255,0.1);cursor:default;">✔ 已同步</button>';
+                        }
+                        ops += '<button onclick="editMPlan(\'' + p.id + '\')">✏️ 编辑</button><button class="del" onclick="deleteMPlan(\'' + p.id + '\',\'' + (p.title||'').replace(/'/g,"\\'") + '\')">🗑️ 删除</button>';
+                    }
+                    html += '<div class="mplan-item"><div class="dot"></div><div class="mplan-card">' +
+                        '<div class="t"><span class="name">' + escM(p.title) + '</span><span class="mplan-badge ' + st.cls + '">' + st.text + '</span></div>' +
+                        '<div><span class="mplan-badge" style="background:#eef2ff;color:#4f46e5;margin-top:6px;">' + (p.plan_type==='meeting' ? '📋 例会' : '🎉 活动') + '</span></div>' +
+                        (p.department ? '<div><span class="dept">🏢 ' + escM(p.department) + '</span></div>' : '') +
+                        '<div class="meta">' +
+                        (p.plan_date ? '<span>📅 ' + escM(p.plan_date) + '</span>' : '') +
+                        (p.location ? '<span>📍 ' + escM(p.location) + '</span>' : '') +
+                        (p.creator_name ? '<span>👤 ' + escM(p.creator_name) + '</span>' : '') +
+                        '</div>' +
+                        (p.description ? '<div class="desc">' + escM(p.description) + '</div>' : '') +
+                        (ops ? '<div class="ops">' + ops + '</div>' : '') +
+                        '</div></div>';
+                });
+            });
+            wrap.innerHTML = html;
+        }
+        function openMPlanModal(){
+            document.getElementById('mPlanModalTitle').textContent = '新增活动规划';
+            document.getElementById('mPlanId').value = '';
+            document.getElementById('mPlanTitle').value = '';
+            document.getElementById('mPlanType').value = 'activity';
+            document.getElementById('mPlanDept').innerHTML = '<option value="">请选择部门</option>' + (mPlanDepts||[]).map(d=>'<option value="'+escM(d)+'">'+escM(d)+'</option>').join('');
+            document.getElementById('mPlanDate').value = '';
+            document.getElementById('mPlanLocation').value = '';
+            document.getElementById('mPlanStatus').value = 'planned';
+            document.getElementById('mPlanDesc').value = '';
+            document.getElementById('mPlanError').style.display = 'none';
+            document.getElementById('mPlanModal').style.display = 'flex';
+        }
+        function editMPlan(id){
+            const p = mPlanAll.find(x=>x.id===id);
+            if (!p) return;
+            document.getElementById('mPlanModalTitle').textContent = '编辑活动规划';
+            document.getElementById('mPlanId').value = p.id;
+            document.getElementById('mPlanTitle').value = p.title || '';
+            document.getElementById('mPlanType').value = p.plan_type || 'activity';
+            document.getElementById('mPlanDept').innerHTML = '<option value="">请选择部门</option>' + (mPlanDepts||[]).map(d=>'<option value="'+escM(d)+'">'+escM(d)+'</option>').join('');
+            document.getElementById('mPlanDept').value = p.department || '';
+            document.getElementById('mPlanDate').value = p.plan_date || '';
+            document.getElementById('mPlanLocation').value = p.location || '';
+            document.getElementById('mPlanStatus').value = p.status || 'planned';
+            document.getElementById('mPlanDesc').value = p.description || '';
+            document.getElementById('mPlanError').style.display = 'none';
+            document.getElementById('mPlanModal').style.display = 'flex';
+        }
+        function closeMPlanModal(){ document.getElementById('mPlanModal').style.display = 'none'; }
+        function submitMPlan(){
+            const id = document.getElementById('mPlanId').value;
+            const body = {
+                title: document.getElementById('mPlanTitle').value.trim(),
+                plan_type: document.getElementById('mPlanType').value,
+                department: document.getElementById('mPlanDept').value,
+                plan_date: document.getElementById('mPlanDate').value,
+                location: document.getElementById('mPlanLocation').value.trim(),
+                status: document.getElementById('mPlanStatus').value,
+                description: document.getElementById('mPlanDesc').value.trim()
+            };
+            const err = document.getElementById('mPlanError');
+            err.style.display = 'none';
+            if (!body.title) { err.textContent = '请输入活动名称'; err.style.display='block'; return; }
+            if (!body.plan_date) { err.textContent = '请选择计划日期'; err.style.display='block'; return; }
+            const url = id ? '/api/activity-plans/' + id : '/api/activity-plans';
+            const method = id ? 'PUT' : 'POST';
+            fetch(url, { method:method, headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body: JSON.stringify(body) })
+            .then(res=>res.json().then(d=>({ok:res.ok, d})))
+            .then(({ok,d})=>{
+                if (ok) { showToast(d.message || '保存成功'); closeMPlanModal(); loadMPlans(); }
+                else { err.textContent = d.detail || '保存失败'; err.style.display='block'; }
+            })
+            .catch(()=>{ err.textContent = '网络错误'; err.style.display='block'; });
+        }
+        function deleteMPlan(id, name){
+            if (!confirm('确定删除活动规划「' + name + '」？')) return;
+            fetch('/api/activity-plans/' + id, { method:'DELETE', headers:{'Authorization':'Bearer '+token} })
+            .then(res=>res.json().then(d=>({ok:res.ok, d})))
+            .then(({ok,d})=>{ showToast(d.message || (ok ? '已删除' : '删除失败')); if (ok) loadMPlans(); });
+        }
+        function openMCompletePlanModal(id){
+            const p = mPlanAll.find(x=>x.id===id);
+            if (!p) return;
+            document.getElementById('mCompletePlanId').value = p.id;
+            document.getElementById('mCompletePlanTitle').value = p.title || '';
+            document.getElementById('mCompletePlanDate').value = p.plan_date || '';
+            document.getElementById('mCompletePlanDept').innerHTML = '<option value="">请选择部门</option>' + (mPlanDepts||[]).map(d=>'<option value="'+escM(d)+'">'+escM(d)+'</option>').join('');
+            document.getElementById('mCompletePlanDept').value = p.department || '';
+            document.getElementById('mCompletePlanLocation').value = p.location || '';
+            document.getElementById('mCompletePlanDesc').value = p.description || '';
+            document.getElementById('mCompletePlanError').style.display = 'none';
+            document.getElementById('mCompletePlanModal').style.display = 'flex';
+        }
+        function closeMCompletePlanModal(){ document.getElementById('mCompletePlanModal').style.display = 'none'; }
+        function submitMCompletePlan(){
+            const id = document.getElementById('mCompletePlanId').value;
+            const body = {
+                title: document.getElementById('mCompletePlanTitle').value.trim(),
+                plan_date: document.getElementById('mCompletePlanDate').value,
+                department: document.getElementById('mCompletePlanDept').value,
+                location: document.getElementById('mCompletePlanLocation').value.trim(),
+                description: document.getElementById('mCompletePlanDesc').value.trim()
+            };
+            const err = document.getElementById('mCompletePlanError');
+            err.style.display = 'none';
+            if (!body.title) { err.textContent = '请输入活动名称'; err.style.display='block'; return; }
+            if (!body.plan_date) { err.textContent = '请选择活动日期'; err.style.display='block'; return; }
+            fetch('/api/activity-plans/' + id + '/complete', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body: JSON.stringify(body) })
+            .then(res=>res.json().then(d=>({ok:res.ok, d})))
+            .then(({ok,d})=>{
+                if (ok) { showToast(d.message || '已完成并同步'); closeMCompletePlanModal(); loadMPlans(); }
+                else { err.textContent = d.detail || '操作失败'; err.style.display='block'; }
+            })
+            .catch(()=>{ err.textContent = '网络错误'; err.style.display='block'; });
+        }
+
+        // ================= 考勤记录（手机端，普通用户可见） =================
+        function loadMAttendance(){
+            const list = document.getElementById('mAttList');
+            fetch('/api/attendance', { headers:{'Authorization':'Bearer '+token} })
+            .then(res=>res.json())
+            .then(data=>{
+                const countEl = document.getElementById('mAttCount');
+                if (countEl) countEl.textContent = '共 ' + data.length + ' 条记录';
+                if (!data.length) { list.innerHTML = '<div style="text-align:center;padding:40px;color:#999;">暂无考勤记录</div>'; return; }
+                const typeMap = {meeting:'例会', activity:'活动'};
+                const typeColor = {meeting:'#2196f3', activity:'#9c27b0'};
+                list.innerHTML = data.map(a=>{
+                    const attendCount = a.attendees ? a.attendees.length : 0;
+                    const absentCount = a.absentees ? a.absentees.length : 0;
+                    const leaveCount = a.leave ? a.leave.length : 0;
+                    const attendNames = a.attendees ? a.attendees.map(u=>u.name).join('、') : '';
+                    const absentNames = a.absentees ? a.absentees.map(u=>u.name).join('、') : '';
+                    const leaveNames = a.leave ? a.leave.map(u=>u.name).join('、') : '';
+                    const delBtn = isAdmin ? '<button style="background:rgba(239,83,80,0.15);color:#ff8a80;border:1px solid rgba(255,255,255,0.12);padding:5px 14px;border-radius:8px;font-size:12px;" onclick="deleteMAttendance(\'' + a.id + '\',\'' + (a.title||'').replace(/'/g,"\\'") + '\')">删除</button>' : '';
+                    const chart = (a.dept_stats && a.dept_stats.length) ? '<div style="margin-top:10px;"><div style="font-size:12px;color:rgba(255,255,255,0.45);font-weight:600;margin-bottom:6px;">📊 各部门参与情况（悬停看数据，点击看缺席）</div>' +
+                        a.dept_stats.map((d,di)=>{
+                            const maxP = Math.max.apply(null, a.dept_stats.map(x=>x.present), 1);
+                            const pct = Math.max(4, Math.round(d.present / maxP * 100));
+                            const tip = d.dept + '：参加' + d.present + '人 / 缺席' + d.absent + '人 / 请假' + d.leave + '人';
+                            return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;cursor:pointer;padding:3px 4px;border-radius:6px;" onclick="toggleMDeptAbsent(\'' + a.id + '_' + di + '\')" title="' + tip + '">' +
+                                '<span style="width:56px;font-size:12px;color:rgba(255,255,255,0.6);flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escM(d.dept) + '</span>' +
+                                '<div style="flex:1;height:14px;background:rgba(255,255,255,0.08);border-radius:6px;overflow:hidden;" title="' + tip + '"><div style="width:' + pct + '%;height:100%;background:linear-gradient(90deg,#667eea,#764ba2);border-radius:6px;" title="' + tip + '"></div></div>' +
+                                '<span style="font-size:12px;color:#8c9eff;width:36px;text-align:right;flex-shrink:0;">' + d.present + '人</span></div>' +
+                                '<div id="mDeptAbsent_' + a.id + '_' + di + '" style="display:none;margin:2px 0 8px 66px;font-size:12px;color:rgba(255,255,255,0.6);line-height:1.6;">' +
+                                (d.absent_names.length ? '<span style="color:#ff8a80;">❌ 缺席：' + escM(d.absent_names.join('、')) + '</span>' : '<span style="color:#69f0ae;">✅ 无缺席</span>') +
+                                (d.leave_names.length ? '<br><span style="color:#ffb74d;">🏖️ 请假：' + escM(d.leave_names.join('、')) + '</span>' : '') +
+                                '</div>';
+                        }).join('') + '</div>' : '';
+                    return '<div style="background:rgba(255,255,255,0.06);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:14px;margin-bottom:12px;border-left:4px solid ' + (typeColor[a.type]||'#999') + ';">' +
+                        '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;"><div style="font-size:15px;font-weight:600;color:#e8e8ec;">' + escM(a.title) + '</div><span style="font-size:11px;padding:3px 8px;border-radius:10px;background:' + (typeColor[a.type]||'#999') + ';color:white;">' + (typeMap[a.type]||a.type) + '</span></div>' +
+                        '<div style="font-size:12px;color:rgba(255,255,255,0.5);line-height:1.7;">' +
+                        '<div>📅 ' + (a.date || '-') + '</div>' +
+                        (a.activity_title ? '<div>🎯 关联活动：' + escM(a.activity_title) + '</div>' : '') +
+                        (a.remark ? '<div>📝 ' + escM(a.remark) + '</div>' : '') +
+                        '</div>' +
+                        (attendCount ? '<div style="margin-top:8px;padding:8px 10px;background:rgba(46,125,50,0.12);border-radius:8px;"><div style="font-size:12px;color:#69f0ae;font-weight:600;margin-bottom:4px;">✅ 参加（' + attendCount + '人）</div><div style="font-size:12px;color:rgba(255,255,255,0.6);line-height:1.6;">' + escM(attendNames) + '</div></div>' : '') +
+                        (leaveCount ? '<div style="margin-top:8px;padding:8px 10px;background:rgba(255,152,0,0.12);border-radius:8px;"><div style="font-size:12px;color:#ffb74d;font-weight:600;margin-bottom:4px;">🏖️ 请假（' + leaveCount + '人）</div><div style="font-size:12px;color:rgba(255,255,255,0.6);line-height:1.6;">' + escM(leaveNames) + '</div></div>' : '') +
+                        (absentCount ? '<div style="margin-top:8px;padding:8px 10px;background:rgba(198,40,40,0.15);border-radius:8px;"><div style="font-size:12px;color:#ff8a80;font-weight:600;margin-bottom:4px;">❌ 缺席（' + absentCount + '人）</div><div style="font-size:12px;color:rgba(255,255,255,0.6);line-height:1.6;">' + escM(absentNames) + '</div></div>' : '') +
+                        chart +
+                        (delBtn ? '<div style="margin-top:10px;display:flex;justify-content:flex-end;">' + delBtn + '</div>' : '') +
+                        '</div>';
+                }).join('');
+            })
+            .catch(()=>{ list.innerHTML = '<div style="text-align:center;padding:40px;color:#999;">加载失败</div>'; });
+        }
+        function deleteMAttendance(id, title){
+            if (!confirm('确定删除考勤记录「' + title + '」？')) return;
+            fetch('/api/attendance/' + id, { method:'DELETE', headers:{'Authorization':'Bearer '+token} })
+            .then(res=>res.json().then(d=>({ok:res.ok, d})))
+            .then(({ok,d})=>{ showToast(d.message || (ok ? '已删除' : '删除失败')); if (ok) loadMAttendance(); });
+        }
+        function toggleMDeptAbsent(id){
+            const el = document.getElementById('mDeptAbsent_' + id);
+            if (el) el.style.display = (el.style.display === 'none' || !el.style.display) ? '' : 'none';
+        }
+
         function loadProfile() {
             document.getElementById('profileName').textContent = user.real_name || user.username || '-';
             document.getElementById('profileRole').textContent = isAdmin ? '管理员' : '普通用户';
@@ -1484,5 +1682,121 @@
             document.getElementById('mobileChangelogModal').classList.remove('show');
         }
     </script>
+
+    <script>
+    (function(){
+      // === 下拉刷新 ===
+      var ptr = document.createElement('div');
+      ptr.className = 'ptr-indicator';
+      ptr.innerHTML = '<div class="ptr-spinner" style="display:none"></div><span>下拉刷新</span>';
+      document.body.appendChild(ptr);
+      var startY=0, pullDist=0, isRefreshing=false, pulling=false;
+      document.addEventListener('touchstart', function(e){
+        if(window.scrollY<=0 && !isRefreshing){ startY=e.touches[0].clientY; pulling=true; }
+      }, {passive:true});
+      document.addEventListener('touchmove', function(e){
+        if(!pulling||isRefreshing)return;
+        var dy = e.touches[0].clientY - startY;
+        if(dy>0 && window.scrollY<=0){
+          pullDist = Math.min(dy*0.5, 80);
+          ptr.style.height = pullDist + 'px';
+          ptr.querySelector('span').textContent = pullDist>50?'松开刷新':'下拉刷新';
+        }
+      }, {passive:true});
+      document.addEventListener('touchend', function(){
+        if(!pulling)return; pulling=false;
+        if(pullDist>50 && !isRefreshing){
+          isRefreshing=true;
+          ptr.classList.add('refreshing');
+          ptr.querySelector('span').textContent='刷新中...';
+          ptr.querySelector('.ptr-spinner').style.display='inline-block';
+          setTimeout(function(){
+            window.location.reload();
+          }, 800);
+        } else {
+          ptr.style.height='0';
+        }
+        pullDist=0;
+      });
+
+      // === 长按多选 ===
+      var selBar = document.createElement('div');
+      selBar.className='sel-bar';
+      selBar.innerHTML='<div class="sel-count">已选 <span id="selN">0</span> 项</div><div class="sel-actions"><span>全选</span><span>取消</span></div>';
+      document.body.appendChild(selBar);
+      var selMode=false, selected=new Set(), lpTimer=null;
+      function enterSel(){ selMode=true; document.body.classList.add('select-mode'); selBar.classList.add('show'); updateSel(); }
+      function exitSel(){ selMode=false; selected.clear(); document.body.classList.remove('select-mode'); selBar.classList.remove('show'); document.querySelectorAll('.mat-item.selected').forEach(function(el){el.classList.remove('selected');}); }
+      function updateSel(){ document.getElementById('selN').textContent=selected.size; }
+      selBar.querySelectorAll('.sel-actions span')[1].onclick=exitSel;
+      selBar.querySelectorAll('.sel-actions span')[0].onclick=function(){
+        document.querySelectorAll('.mat-item.selectable').forEach(function(el){
+          el.classList.add('selected'); selected.add(el.dataset.id||el.querySelector('.name').textContent);
+        }); updateSel();
+      };
+      document.addEventListener('touchstart', function(e){
+        var item = e.target.closest('.mat-item');
+        if(!item) return;
+        if(selMode){
+          e.preventDefault();
+          item.classList.toggle('selected');
+          var id = item.dataset.id||item.querySelector('.name').textContent;
+          if(item.classList.contains('selected')) selected.add(id); else selected.delete(id);
+          updateSel();
+          return;
+        }
+        lpTimer = setTimeout(function(){
+          if(!item.dataset.id) item.dataset.id = item.querySelector('.name').textContent;
+          if(!item.querySelector('.check-ov')){
+            var ov=document.createElement('div'); ov.className='check-ov'; ov.textContent='✓'; item.appendChild(ov);
+          }
+          item.classList.add('selectable');
+          enterSel();
+          item.classList.add('selected');
+          selected.add(item.dataset.id);
+          updateSel();
+          if(navigator.vibrate) navigator.vibrate(30);
+        }, 500);
+      }, {passive:false});
+      document.addEventListener('touchmove', function(){ if(lpTimer){clearTimeout(lpTimer); lpTimer=null;} });
+
+      // === 全屏图片浏览 ===
+      var viewer = document.createElement('div');
+      viewer.className='img-viewer';
+      viewer.innerHTML='<div class="close-btn">✕</div><img src=""><div class="img-hint">双指缩放 · 拖动查看</div>';
+      document.body.appendChild(viewer);
+      var vImg = viewer.querySelector('img');
+      viewer.querySelector('.close-btn').onclick=function(){ viewer.classList.remove('show'); vImg.src=''; };
+      viewer.onclick=function(e){ if(e.target===viewer||e.target===vImg){} };
+      document.addEventListener('click', function(e){
+        var img = e.target.closest('img');
+        if(!img || img.closest('.img-viewer')) return;
+        if(img.offsetWidth<40) return;
+        vImg.src = img.src;
+        viewer.classList.add('show');
+        if(navigator.vibrate) navigator.vibrate(10);
+      });
+      // 图片缩放
+      var scale=1, sx=0, sy=0, ox=0, oy=0;
+      viewer.addEventListener('touchstart', function(e){
+        if(e.touches.length===2){
+          var dx=e.touches[0].clientX-e.touches[1].clientX, dy=e.touches[0].clientY-e.touches[1].clientY;
+          sx=Math.sqrt(dx*dx+dy*dy)/scale;
+        } else if(e.touches.length===1){ ox=e.touches[0].clientX; oy=e.touches[0].clientY; }
+      }, {passive:true});
+      viewer.addEventListener('touchmove', function(e){
+        e.preventDefault();
+        if(e.touches.length===2){
+          var dx=e.touches[0].clientX-e.touches[1].clientX, dy=e.touches[0].clientY-e.touches[1].clientY;
+          scale = Math.min(Math.max(Math.sqrt(dx*dx+dy*dy)/sx, 1), 4);
+          vImg.style.transform='scale('+scale+')';
+        }
+      }, {passive:false});
+      viewer.addEventListener('touchend', function(){
+        if(scale<1.2){ scale=1; vImg.style.transform='scale(1)'; }
+      });
+    })();
+    </script>
+
 </body>
 </html>

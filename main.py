@@ -19,8 +19,8 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "3.8.8"
-VERSION_DATE = "2026-09-11"
+VERSION = "3.12.0"
+VERSION_DATE = "2026-10-23"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
 def load_env():
@@ -274,6 +274,7 @@ def init_db():
             stored_name TEXT NOT NULL,
             file_size INTEGER DEFAULT 0,
             file_type TEXT DEFAULT '',
+            category TEXT DEFAULT '其他',
             description TEXT DEFAULT '',
             uploader TEXT DEFAULT '',
             uploader_id TEXT,
@@ -306,6 +307,11 @@ def init_db():
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+    # 迁移：skill_files 加 category 列（旧库）
+    _cols = [r["name"] for r in c.execute("PRAGMA table_info(skill_files)").fetchall()]
+    if "category" not in _cols:
+        c.execute("ALTER TABLE skill_files ADD COLUMN category TEXT DEFAULT '其他'")
+
     _default_cohorts = ["第二届", "第三届"]
     for _idx, _cn in enumerate(_default_cohorts):
         _ex = c.execute("SELECT id FROM cohorts WHERE name=?", (_cn,)).fetchone()
@@ -2779,8 +2785,9 @@ def update_activity_plan(plan_id: str, req: ActivityPlanUpdate, conn=Depends(get
     plan = cur.fetchone()
     if not plan:
         raise HTTPException(status_code=404, detail="活动规划不存在")
-    if user["role"] != "admin" and plan["creator_id"] != user["id"]:
-        raise HTTPException(status_code=403, detail="只能编辑自己创建的活动规划")
+    if user["role"] != "admin" and plan["creator_id"] != user["id"] \
+            and (not plan["department"] or user["department"] != plan["department"]):
+        raise HTTPException(status_code=403, detail="只有管理员或发起部门可以编辑该活动规划")
     updates = []
     params = []
     if req.title is not None:
@@ -2801,6 +2808,14 @@ def update_activity_plan(plan_id: str, req: ActivityPlanUpdate, conn=Depends(get
     if updates:
         params.append(plan_id)
         cur.execute(f"UPDATE activity_plans SET {', '.join(updates)} WHERE id=?", params)
+        # 状态从"已完成"改回其他状态：同步删除之前生成的活动记录与考勤记录
+        if req.status is not None and plan["status"] == "done" and req.status != "done" \
+                and dict(plan).get("synced", 0):
+            linked_act_id = dict(plan).get("activity_id", "")
+            if linked_act_id:
+                cur.execute("DELETE FROM activities WHERE id=?", (linked_act_id,))
+                cur.execute("DELETE FROM attendance WHERE activity_id=?", (linked_act_id,))
+            cur.execute("UPDATE activity_plans SET synced=0, activity_id=NULL WHERE id=?", (plan_id,))
         conn.commit()
     return {"success": True, "message": "活动规划已更新"}
 
@@ -2811,8 +2826,9 @@ def delete_activity_plan(plan_id: str, conn=Depends(get_db), user=Depends(get_cu
     plan = cur.fetchone()
     if not plan:
         raise HTTPException(status_code=404, detail="活动规划不存在")
-    if user["role"] != "admin" and plan["creator_id"] != user["id"]:
-        raise HTTPException(status_code=403, detail="只能删除自己创建的活动规划")
+    if user["role"] != "admin" and plan["creator_id"] != user["id"] \
+            and (not plan["department"] or user["department"] != plan["department"]):
+        raise HTTPException(status_code=403, detail="只有管理员或发起部门可以删除该活动规划")
     # 联动删除：如果该规划已同步生成活动记录，同步删除对应记录
     linked_act_id = dict(plan).get("activity_id", "")
     cur.execute("DELETE FROM activity_plans WHERE id=?", (plan_id,))
@@ -2838,6 +2854,9 @@ def complete_activity_plan(plan_id: str, req: ActivityPlanComplete, conn=Depends
         raise HTTPException(status_code=404, detail="活动规划不存在")
     if plan["status"] == "done" and dict(plan).get("synced", 0):
         raise HTTPException(status_code=400, detail="该活动已完成并已同步到活动记录，请勿重复操作")
+    if user["role"] != "admin" and plan["creator_id"] != user["id"] \
+            and (not plan["department"] or user["department"] != plan["department"]):
+        raise HTTPException(status_code=403, detail="只有管理员或发起部门可以标记活动完成")
     # 确认框可修改的信息（未填写则沿用规划原值）
     title = (req.title or "").strip() or plan["title"]
     location = (req.location.strip() if req.location is not None else (plan["location"] or "")).strip()
@@ -2902,12 +2921,40 @@ def list_attendance(conn=Depends(get_db), user=Depends(get_current_user)):
         ORDER BY a.date DESC, a.created_at DESC
     """)
     records = [dict(r) for r in cur.fetchall()]
+    # real_name -> department 映射（用于部门参与统计）
+    dept_map = {}
+    for u in cur.execute("SELECT real_name, department FROM users").fetchall():
+        nm = (u["real_name"] or "").strip()
+        if nm and nm not in dept_map:
+            dept_map[nm] = (u["department"] or "").strip() or "未分组"
+
+    def _names(arr):
+        out = []
+        for it in arr or []:
+            out.append(it.get("name") if isinstance(it, dict) else str(it))
+        return out
+
     # 解析参加、缺席、请假人员以及自定义字段
     for r in records:
         r["attendees"] = json.loads(r["attendees"]) if r["attendees"] else []
         r["absentees"] = json.loads(r["absentees"]) if r["absentees"] else []
         r["leave"] = json.loads(r["leave"]) if r.get("leave") else []
         r["extra_fields"] = json.loads(r["extra_fields"]) if r.get("extra_fields") else {}
+        # 按部门聚合参与情况
+        att_names, abs_names, lev_names = _names(r["attendees"]), _names(r["absentees"]), _names(r["leave"])
+        agg = {}
+        for nm in att_names:
+            d = agg.setdefault(dept_map.get(nm, "其他"), {"present": 0, "absent": 0, "leave": 0, "absent_names": [], "leave_names": []})
+            d["present"] += 1
+        for nm in abs_names:
+            d = agg.setdefault(dept_map.get(nm, "其他"), {"present": 0, "absent": 0, "leave": 0, "absent_names": [], "leave_names": []})
+            d["absent"] += 1
+            d["absent_names"].append(nm)
+        for nm in lev_names:
+            d = agg.setdefault(dept_map.get(nm, "其他"), {"present": 0, "absent": 0, "leave": 0, "absent_names": [], "leave_names": []})
+            d["leave"] += 1
+            d["leave_names"].append(nm)
+        r["dept_stats"] = [dict({"dept": k}, **v) for k, v in agg.items()]
     return records
 
 @app.get("/api/attendance/{attendance_id}")
@@ -3049,6 +3096,22 @@ def delete_custom_field(target: str, field_name: str, conn=Depends(get_db), user
     return {"success": True, "message": "字段已删除", "fields": fields}
 
 # ==================== 技能文档（模板/技能文件，管理员上传，全员下载） ====================
+SKILL_CATEGORIES = ["软件", "音乐", "视频", "文档", "图片", "压缩包", "其他"]
+_CATEGORY_RULES = [
+    (("exe","msi","apk","bat","cmd","sh","deb","rpm","dmg","iso","jar"), "软件"),
+    (("mp3","wav","flac","aac","ogg","m4a","wma","mid","midi"), "音乐"),
+    (("mp4","mkv","avi","mov","wmv","flv","webm","ts","m4v","3gp"), "视频"),
+    (("pdf","doc","docx","xls","xlsx","ppt","pptx","txt","md","csv","xmind","wps","et","dps"), "文档"),
+    (("png","jpg","jpeg","gif","svg","webp","bmp","ico","tif","tiff","psd"), "图片"),
+    (("zip","rar","7z","tar","gz","bz2","xz","tgz"), "压缩包"),
+]
+def infer_skill_category(filename):
+    ext = (os.path.splitext(filename or "")[1] or "").lstrip(".").lower()
+    for exts, cat in _CATEGORY_RULES:
+        if ext in exts:
+            return cat
+    return "其他"
+
 SKILL_DIR = os.path.join(os.path.dirname(DATABASE_FILE), "skills")
 os.makedirs(SKILL_DIR, exist_ok=True)
 
@@ -3081,6 +3144,7 @@ def upload_skill_file(
     file: UploadFile = File(...),
     title: str = Form(""),
     description: str = Form(""),
+    category: str = Form(""),
     conn=Depends(get_db),
     user=Depends(get_current_user)
 ):
@@ -3088,6 +3152,9 @@ def upload_skill_file(
         raise HTTPException(status_code=403, detail="仅管理员可上传文件")
     if not file.filename:
         raise HTTPException(status_code=400, detail="未选择文件")
+    category = category.strip() if category.strip() else infer_skill_category(file.filename)
+    if category not in SKILL_CATEGORIES:
+        category = infer_skill_category(file.filename)
     ext = os.path.splitext(file.filename)[1] or ""
     stored_name = f"{uuid.uuid4().hex}{ext}"
     filepath = os.path.join(SKILL_DIR, stored_name)
@@ -3114,20 +3181,26 @@ def upload_skill_file(
     display_title = title.strip() if title.strip() else os.path.splitext(file.filename)[0]
     cur = conn.cursor()
     cur.execute("""
-        INSERT INTO skill_files (id, title, original_name, stored_name, file_size, file_type, description, uploader, uploader_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (file_id, display_title, file.filename, stored_name, size, ext.lower(), description.strip(),
+        INSERT INTO skill_files (id, title, original_name, stored_name, file_size, file_type, category, description, uploader, uploader_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (file_id, display_title, file.filename, stored_name, size, ext.lower(), category, description.strip(),
           user.get("real_name", "") or user.get("username", ""), user["id"]))
     conn.commit()
     return {"success": True, "message": "上传成功", "id": file_id, "title": display_title}
 
 @app.get("/api/skills")
-def list_skill_files(conn=Depends(get_db), user=Depends(get_current_user)):
+def list_skill_files(category: str = Query(""), conn=Depends(get_db), user=Depends(get_current_user)):
     cur = conn.cursor()
-    cur.execute("""
-        SELECT id, title, original_name, file_size, file_type, description, uploader, created_at
-        FROM skill_files ORDER BY created_at DESC
-    """)
+    if category and category != "全部":
+        cur.execute("""
+            SELECT id, title, original_name, file_size, file_type, category, description, uploader, created_at
+            FROM skill_files WHERE category=? ORDER BY created_at DESC
+        """, (category,))
+    else:
+        cur.execute("""
+            SELECT id, title, original_name, file_size, file_type, category, description, uploader, created_at
+            FROM skill_files ORDER BY created_at DESC
+        """)
     return [dict(r) for r in cur.fetchall()]
 
 @app.get("/api/skills/{file_id}/download")
@@ -3169,6 +3242,7 @@ def update_skill_file(
     file_id: str,
     title: str = Form(None),
     description: str = Form(None),
+    category: str = Form(None),
     file: UploadFile = File(None),
     conn=Depends(get_db),
     user=Depends(get_current_user)
@@ -3189,6 +3263,12 @@ def update_skill_file(
         if description is not None:
             updates.append("description=?")
             params.append(description.strip())
+        if category is not None and category.strip():
+            cat = category.strip()
+            if cat not in SKILL_CATEGORIES:
+                cat = infer_skill_category(row["original_name"])
+            updates.append("category=?")
+            params.append(cat)
         if file and file.filename:
             ext = os.path.splitext(file.filename)[1] or ""
             new_stored = f"{uuid.uuid4().hex}{ext}"
