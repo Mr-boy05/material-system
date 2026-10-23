@@ -428,6 +428,29 @@
         @media (max-width:767px) {
             .tree-wrap { height:460px; }
         }
+            /* ===== 人员管理：部门头像堆叠行（AvatarStack 风格） ===== */
+        .dept-row { background:#fff; border-radius:14px; box-shadow:0 4px 16px rgba(0,0,0,0.06); padding:12px 16px; margin-bottom:12px; display:flex; align-items:center; gap:14px; border-left:4px solid var(--dc,#667eea); transition:box-shadow .2s, transform .2s; flex-wrap:wrap; }
+        .dept-row:hover { box-shadow:0 8px 22px rgba(0,0,0,0.10); transform:translateY(-2px); }
+        .dept-badge { min-width:112px; display:flex; flex-direction:column; }
+        .dept-badge .db-name { font-weight:700; font-size:14px; color:#333; }
+        .dept-badge .db-cnt { font-size:11px; color:#999; margin-top:2px; }
+        .as-avatars { display:flex; align-items:center; }
+        .as-ava { width:34px; height:34px; border-radius:50%; color:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:600; cursor:pointer; position:relative; box-shadow:0 2px 6px rgba(0,0,0,0.12); border:2px solid #fff; transition:transform .25s cubic-bezier(.22,1,.36,1), margin .3s ease-in-out, box-shadow .2s, opacity .3s; }
+        .as-ava + .as-ava { margin-left:-10px; }
+        .as-avatars:hover .as-ava + .as-ava { margin-left:4px; }
+        .as-avatars:hover .as-pill { margin-left:4px; }
+        .as-ava:hover { transform:translateY(-5px) scale(1.12); z-index:10; box-shadow:0 8px 18px rgba(0,0,0,0.22); }
+        .as-ava .tip { position:absolute; bottom:calc(100% + 8px); left:50%; transform:translateX(-50%) scale(.85); opacity:0; background:#1e293b; color:#fff; font-size:11px; padding:3px 10px; border-radius:8px; white-space:nowrap; pointer-events:none; transition:all .2s; z-index:99; }
+        .as-ava:hover .tip { opacity:1; transform:translateX(-50%) scale(1); }
+        .as-pill { width:34px; height:34px; border-radius:50%; background:#f1f5f9; color:#64748b; border:2px solid #fff; margin-left:-10px; cursor:pointer; font-size:12px; font-weight:700; transition:all .25s; box-shadow:0 2px 6px rgba(0,0,0,0.08); flex-shrink:0; }
+        .as-pill:hover { background:#e2e8f0; transform:translateY(-2px); }
+        .dept-members { display:flex; flex-wrap:wrap; gap:8px; flex:1; min-width:200px; }
+        .m-chip { padding:5px 12px; background:#f8fafc; border-radius:20px; font-size:12px; color:#475569; cursor:pointer; transition:all .2s; }
+        .m-chip:hover { background:var(--dc,#667eea); color:#fff; }
+        .as-ava.hidden-ava { display:none; }
+        @keyframes asIn { from { opacity:0; transform:scale(.4); } to { opacity:1; transform:scale(1); } }
+        .as-ava.spawn { animation:asIn .3s cubic-bezier(.22,1,.36,1) both; }
+        @media (max-width:767px) { .dept-badge { min-width:86px; } .as-ava, .as-pill { width:30px; height:30px; font-size:11px; } }
     </style>
 </head>
 <body>
@@ -4410,6 +4433,80 @@ function renderContacts() {
     if (reduceMotion.addEventListener) reduceMotion.addEventListener('change', wake);
     wake();
 })();
+</script>
+<script>
+// ==================== 人员管理：部门头像堆叠（AvatarStack 风格） ====================
+var AS_COLORS = ['#667eea','#f6a23c','#94a3b8','#4facfe','#56ab2f','#a855f7','#ef6c8f','#26c6da','#e8564f','#5c6bc0','#f9a825','#8d6e63'];
+var AS_AVATAR = ['#667eea','#f5576c','#4facfe','#56ab2f','#7b1fa2','#2193b0','#ee9ca7','#134e5e','#eb3349','#0f2027','#ff9800','#00bcd4'];
+function toggleAsExpand(btn, idx) {
+    var row = document.getElementById('deptRow' + idx);
+    if (!row) return;
+    var hidden = row.querySelectorAll('.as-ava.hidden-ava');
+    if (hidden.length) {
+        hidden.forEach(function(h, i){ h.classList.remove('hidden-ava'); h.classList.add('spawn'); h.style.animationDelay = (i * 0.03) + 's'; });
+        btn.textContent = '−';
+    } else {
+        var all = row.querySelectorAll('.as-ava');
+        all.forEach(function(a, i){ if (i >= 5) { a.classList.add('hidden-ava'); a.classList.remove('spawn'); a.style.animationDelay = ''; } });
+        btn.textContent = '+' + (all.length - 5);
+    }
+}
+function renderContactDepts() {
+    var body = document.getElementById('contactBody');
+    renderCohortTabs();
+    var users = allUsers.slice();
+    if (contactCohort !== 'all') {
+        users = users.filter(function(u){ return (u.cohort || '未设置届别') === contactCohort; });
+    }
+    var q = contactQuery.trim().toLowerCase();
+    if (q) {
+        users = users.filter(function(u){
+            return [u.real_name||'', u.username||'', u.department||'', u.phone||''].some(function(v){ return v.toLowerCase().includes(q); });
+        });
+    }
+    document.getElementById('contactCount').textContent = '共 ' + users.length + ' 位成员';
+    if (!users.length) {
+        body.innerHTML = '<div style="color:#999;text-align:center;padding:60px;">暂无成员</div>';
+        return;
+    }
+    var deptMap = {};
+    users.forEach(function(u){
+        var d = u.department || '未分配部门';
+        if (!deptMap[d]) deptMap[d] = [];
+        deptMap[d].push(u);
+    });
+    var depts = Object.keys(deptMap);
+    var html = '';
+    depts.forEach(function(d, di){
+        var members = deptMap[d];
+        var n = members.length;
+        var dc = AS_COLORS[di % AS_COLORS.length];
+        html += '<div class="dept-row" id="deptRow' + di + '" data-dept="' + di + '" style="--dc:' + dc + ';">';
+        html += '<div class="dept-badge"><span class="db-name">' + esc(d) + '</span><span class="db-cnt">' + n + ' 人</span></div>';
+        html += '<div class="as-avatars">';
+        members.forEach(function(u, i){
+            var nm = u.real_name || u.username || '?';
+            var avc = AS_AVATAR[di % AS_AVATAR.length];
+            html += '<div class="as-ava' + (i >= 5 ? ' hidden-ava' : '') + '" style="background:' + avc + ';" data-name="' + esc(nm) + '" onclick="viewUserDetail(\'' + u.id + '\')" title="' + esc(nm) + '">' + esc(nm.charAt(0)) + '<span class="tip">' + esc(nm) + '</span></div>';
+        });
+        if (n > 5) {
+            html += '<button class="as-pill" onclick="toggleAsExpand(this,' + di + ')">+' + (n - 5) + '</button>';
+        }
+        html += '</div>';
+        html += '<div class="dept-members">';
+        members.forEach(function(u){
+            var nm = u.real_name || u.username || '?';
+            html += '<span class="m-chip" onclick="viewUserDetail(\'' + u.id + '\')">' + esc(nm) + '</span>';
+        });
+        html += '</div>';
+        html += '</div>';
+    });
+    body.innerHTML = html;
+}
+// 覆盖 treemap 版 renderContacts
+function renderContacts() {
+    renderContactDepts();
+}
 </script>
 </body>
 </html>
