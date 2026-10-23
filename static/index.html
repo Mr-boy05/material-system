@@ -590,6 +590,16 @@
                 <div style="font-weight:600;margin-bottom:12px;">📤 上传文档（管理员）</div>
                 <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
                     <input type="text" id="skillTitle" placeholder="文档标题（不填则用文件名）" style="flex:1;min-width:180px;padding:8px 12px;border:1px solid #ddd;border-radius:6px;">
+                    <select id="skillCategory" style="padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px;background:#fff;">
+                        <option value="">分类（自动识别）</option>
+                        <option value="软件">📦 软件</option>
+                        <option value="音乐">🎵 音乐</option>
+                        <option value="视频">🎬 视频</option>
+                        <option value="文档">📄 文档</option>
+                        <option value="图片">🖼️ 图片</option>
+                        <option value="压缩包">🗜️ 压缩包</option>
+                        <option value="其他">📁 其他</option>
+                    </select>
                     <input type="text" id="skillDesc" placeholder="备注说明（可选）" style="flex:1;min-width:180px;padding:8px 12px;border:1px solid #ddd;border-radius:6px;">
                     <input type="file" id="skillFileInput" style="display:none" onchange="onSkillFileSelected(this)">
                     <button class="btn" onclick="document.getElementById('skillFileInput').click()">选择文件</button>
@@ -599,12 +609,13 @@
                 <div id="skillUploadBar"></div>
                 <div style="font-size:12px;color:#999;margin-top:8px;">支持所有文件格式：PDF、Word、Excel、PPT、图片、压缩包、视频等（单个文件≤500MB）</div>
             </div>
-            <div class="toolbar">
+            <div class="toolbar" style="flex-wrap:wrap;gap:8px;">
                 <span style="color:#666;font-size:13px;" id="skillCount">共 0 个文件</span>
+                <div id="skillCats" style="display:flex;gap:6px;flex-wrap:wrap;margin-left:auto;"></div>
             </div>
             <table>
-                <thead><tr><th>文件名</th><th>大小</th><th>上传人</th><th>上传时间</th><th>备注</th><th>操作</th></tr></thead>
-                <tbody id="skillTable"><tr><td colspan="6" class="empty">加载中...</td></tr></tbody>
+                <thead><tr><th>文件名</th><th>分类</th><th>大小</th><th>上传人</th><th>上传时间</th><th>备注</th><th>操作</th></tr></thead>
+                <tbody id="skillTable"><tr><td colspan="7" class="empty">加载中...</td></tr></tbody>
             </table>
         </div>
 
@@ -821,6 +832,17 @@
             <h3>编辑文档</h3>
             <input type="hidden" id="editSkillId">
             <div class="form-group"><label>文档标题</label><input type="text" id="editSkillTitle" placeholder="不填则保持不变"></div>
+            <div class="form-group"><label>分类</label>
+                <select id="editSkillCategory" style="width:100%;padding:9px 12px;border:1px solid #ddd;border-radius:8px;font-size:13px;background:#fff;">
+                    <option value="软件">📦 软件</option>
+                    <option value="音乐">🎵 音乐</option>
+                    <option value="视频">🎬 视频</option>
+                    <option value="文档">📄 文档</option>
+                    <option value="图片">🖼️ 图片</option>
+                    <option value="压缩包">🗜️ 压缩包</option>
+                    <option value="其他">📁 其他</option>
+                </select>
+            </div>
             <div class="form-group"><label>备注说明</label><input type="text" id="editSkillDesc" placeholder="不填则保持不变"></div>
             <div class="form-group"><label>更换文件（可选，不选则保持原文件）</label>
                 <input type="file" id="editSkillFile" style="padding:8px 0;">
@@ -1187,6 +1209,21 @@
             return (bytes/1073741824).toFixed(2) + ' GB';
         }
 
+        const SKILL_CATS = ' + CATS + ';
+        function inferSkillCat(name) {
+            const ext = (name||'').split('.').pop().toLowerCase();
+            const map = {
+                exe:'软件',msi:'软件',apk:'软件',bat:'软件',cmd:'软件',iso:'软件',jar:'软件',
+                mp3:'音乐',wav:'音乐',flac:'音乐',aac:'音乐',ogg:'音乐',m4a:'音乐',
+                mp4:'视频',mkv:'视频',avi:'视频',mov:'视频',wmv:'视频',flv:'视频',webm:'视频',
+                pdf:'文档',doc:'文档',docx:'文档',xls:'文档',xlsx:'文档',ppt:'文档',pptx:'文档',txt:'文档',md:'文档',csv:'文档',
+                png:'图片',jpg:'图片',jpeg:'图片',gif:'图片',svg:'图片',webp:'图片',bmp:'图片',ico:'图片',
+                zip:'压缩包',rar:'压缩包','7z':'压缩包',tar:'压缩包',gz:'压缩包'
+            };
+            return map[ext] || '其他';
+        }
+        let skillFilter = '全部';
+        let skillAll = [];
         function onSkillFileSelected(input) {
             const file = input.files[0];
             if (file && file.size > 500 * 1024 * 1024) {
@@ -1196,6 +1233,8 @@
                 return;
             }
             document.getElementById('skillFileName').textContent = file ? file.name + ' (' + formatFileSize(file.size) + ')' : '未选择文件';
+            const sel = document.getElementById('skillCategory');
+            if (sel && file && !sel.value) sel.value = inferSkillCat(file.name);
         }
 
         function uploadSkillFile() {
@@ -1209,6 +1248,7 @@
             formData.append('file', file);
             formData.append('title', title);
             formData.append('description', desc);
+            formData.append('category', document.getElementById('skillCategory').value || inferSkillCat(file.name));
             const barEl = createUploadBar(document.getElementById('skillUploadBar'), file.name);
             uploadWithProgress('/api/skills/upload', formData, barEl)
             .then(({ok, data})=>{
@@ -1229,31 +1269,46 @@
 
         function loadSkills() {
             const tbody = document.getElementById('skillTable');
-            tbody.innerHTML = '<tr><td colspan="6" class="empty">加载中...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="empty">加载中...</td></tr>';
             fetch('/api/skills', { headers:{'Authorization':'Bearer '+token} })
             .then(res=>{ if(res.status===401){ window.location.href='/login'; return []; } return res.json(); })
             .then(list=>{
-                document.getElementById('skillCount').textContent = '共 ' + list.length + ' 个文件';
-                if (!list.length) {
-                    tbody.innerHTML = '<tr><td colspan="6" class="empty">暂无文件，管理员可上传</td></tr>';
-                    return;
+                skillAll = list.map(f=>({...f, category: f.category || inferSkillCat(f.original_name)}));
+                const catsEl = document.getElementById('skillCats');
+                if (catsEl) {
+                    const cats = ['全部'].concat(SKILL_CATS);
+                    catsEl.innerHTML = cats.map(c=>
+                        '<span style="padding:5px 14px;border-radius:14px;cursor:pointer;font-size:12px;background:' + (skillFilter===c ? 'linear-gradient(135deg,#667eea,#764ba2);color:#fff' : '#fff;color:#666;border:1px solid #e5e7f0') + ';" onclick="setSkillFilter(\'' + c + '\')">' + c + '</span>'
+                    ).join('');
                 }
-                tbody.innerHTML = list.map(f=>{
-                    const editBtn = isAdmin ? `<button class="btn" style="background:#ff9800;color:white;padding:4px 10px;font-size:12px;margin-right:4px;" onclick="openSkillEdit('${f.id}','${f.title.replace(/'/g,"\\'")}','${(f.description||'').replace(/'/g,"\\'")}')">编辑</button>` : '';
-                    const delBtn = isAdmin ? `<button class="btn" style="background:#c62828;color:white;padding:4px 10px;font-size:12px;" onclick="deleteSkillFile('${f.id}','${f.title.replace(/'/g,"\\'")}')">删除</button>` : '';
-                    return `<tr>
-                        <td><strong>${f.title}</strong><div style="font-size:12px;color:#999;">${f.original_name}</div></td>
-                        <td>${formatFileSize(f.file_size)}</td>
-                        <td>${f.uploader || '-'}</td>
-                        <td>${(f.created_at||'').replace('T',' ').substring(0,16)}</td>
-                        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${f.description||''}">${f.description||'-'}</td>
-                        <td><button class="btn btn-primary" style="padding:4px 10px;font-size:12px;" onclick="downloadSkillFile('${f.id}')">下载</button> ${editBtn} ${delBtn}</td>
-                    </tr>`;
-                }).join('');
+                renderSkills();
             })
-            .catch(()=>{ tbody.innerHTML = '<tr><td colspan="6" class="empty">加载失败</td></tr>'; });
+            .catch(()=>{ tbody.innerHTML = '<tr><td colspan="7" class="empty">加载失败</td></tr>'; });
         }
-
+        function setSkillFilter(c) { skillFilter = c; loadSkills(); }
+        function renderSkills() {
+            const tbody = document.getElementById('skillTable');
+            const list = skillFilter==='全部' ? skillAll : skillAll.filter(f=>f.category===skillFilter);
+            document.getElementById('skillCount').textContent = '共 ' + list.length + ' 个文件';
+            if (!list.length) {
+                tbody.innerHTML = '<tr><td colspan="7" class="empty">暂无文件，管理员可上传</td></tr>';
+                return;
+            }
+            const catIcon = {软件:'📦',音乐:'🎵',视频:'🎬',文档:'📄',图片:'🖼️',压缩包:'🗜️',其他:'📁'};
+            tbody.innerHTML = list.map(f=>{
+                const editBtn = isAdmin ? `<button class="btn" style="background:#ff9800;color:white;padding:4px 10px;font-size:12px;margin-right:4px;" onclick="openSkillEdit('${f.id}','${f.title.replace(/'/g,"\'")}','${(f.description||'').replace(/'/g,"\'")}','${f.category||'其他'}')">编辑</button>` : '';
+                const delBtn = isAdmin ? `<button class="btn" style="background:#c62828;color:white;padding:4px 10px;font-size:12px;" onclick="deleteSkillFile('${f.id}','${f.title.replace(/'/g,"\'")}')">删除</button>` : '';
+                return `<tr>
+                    <td><strong>${f.title}</strong><div style="font-size:12px;color:#999;">${f.original_name}</div></td>
+                    <td><span style="padding:3px 10px;border-radius:10px;font-size:11px;background:#eef2ff;color:#4f46e5;white-space:nowrap;">${catIcon[f.category]||'📁'} ${f.category||'其他'}</span></td>
+                    <td>${formatFileSize(f.file_size)}</td>
+                    <td>${f.uploader || '-'}</td>
+                    <td>${(f.created_at||'').replace('T',' ').substring(0,16)}</td>
+                    <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${f.description||''}">${f.description||'-'}</td>
+                    <td><button class="btn btn-primary" style="padding:4px 10px;font-size:12px;" onclick="downloadSkillFile('${f.id}')">下载</button> ${editBtn} ${delBtn}</td>
+                </tr>`;
+            }).join('');
+        }
         function downloadSkillFile(id) {
             window.open('/api/skills/' + id + '/download?token=' + encodeURIComponent(token), '_blank');
         }
@@ -1483,10 +1538,12 @@
         }
 
         // ---------- 技能文档编辑 ----------
-        function openSkillEdit(fileId, title, desc) {
+        function openSkillEdit(fileId, title, desc, cat) {
             document.getElementById('editSkillId').value = fileId;
             document.getElementById('editSkillTitle').value = title || '';
             document.getElementById('editSkillDesc').value = desc || '';
+            const cs = document.getElementById('editSkillCategory');
+            if (cs) cs.value = cat || '其他';
             document.getElementById('editSkillFile').value = '';
             document.getElementById('editSkillFileName').textContent = '未选择文件（保持原文件）';
             document.getElementById('skillEditError').style.display = 'none';
@@ -1503,6 +1560,8 @@
             const formData = new FormData();
             if (title) formData.append('title', title);
             formData.append('description', desc);
+            const ecat = document.getElementById('editSkillCategory');
+            if (ecat) formData.append('category', ecat.value);
             let barEl = null;
             if (fileInput.files[0]) {
                 if (fileInput.files[0].size > 500 * 1024 * 1024) { showToast('文件不能超过500MB'); return; }
