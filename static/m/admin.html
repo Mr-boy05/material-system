@@ -116,12 +116,13 @@
         .empty-tip .icon { font-size:48px; margin-bottom:12px; opacity:0.5; }
         .section-title { font-size:14px; color:#666; margin:16px 16px 8px; font-weight:500; }
             /* ===== 人员管理：部门色块概览（Treemap 风格） ===== */
-        .mob-dept-chips { display:flex; gap:8px; padding:10px 16px; flex-wrap:wrap; }
-        .mob-dept-chip { display:flex; align-items:center; gap:6px; padding:7px 12px; border-radius:12px; color:#fff; font-size:13px; font-weight:600; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.10); transition:transform .15s, box-shadow .15s; }
+        .mob-dept-chips { display:flex; gap:8px; padding:10px 16px; align-items:stretch; }
+        .mob-dept-chip { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; padding:6px 4px; border-radius:12px; color:#fff; font-size:12px; font-weight:600; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.10); transition:transform .15s, box-shadow .15s; min-width:54px; text-align:center; overflow:hidden; }
+        .mob-dept-chip .dn { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .mob-dept-chip:hover { transform:translateY(-2px); box-shadow:0 4px 12px rgba(0,0,0,0.18); }
-        .mob-dept-chip span { font-size:11px; font-weight:500; background:rgba(255,255,255,0.28); padding:1px 7px; border-radius:9px; }
+        .mob-dept-chip span { font-size:11px; font-weight:500; background:rgba(255,255,255,0.28); padding:0 7px; border-radius:9px; }
         .mob-dept-chip.active { outline:2px solid #fff; outline-offset:-3px; box-shadow:0 0 0 3px rgba(0,0,0,0.15), 0 4px 12px rgba(0,0,0,0.18); }
-        .mob-dept-reset { font-size:12px; color:#667eea; background:#eef0ff; border:none; padding:7px 12px; border-radius:12px; cursor:pointer; }
+        .mob-dept-reset { font-size:12px; color:#667eea; background:#eef0ff; border:none; padding:7px 12px; border-radius:12px; cursor:pointer; flex-shrink:0; }
     </style>
 </head>
 <body>
@@ -1096,7 +1097,8 @@ function renderMobDeptChips(users) {
     if (mobDeptFilter) html += '<button class="mob-dept-reset" onclick="mobDeptFilter=null;loadUsers()">✕ 清除筛选</button>';
     Object.keys(deptMap).forEach((d, di) => {
         const act = mobDeptFilter === d ? ' active' : '';
-        html += '<div class="mob-dept-chip' + act + '" style="background:' + colors[di % colors.length] + ';" onclick="mobDeptFilter=\'' + d.replace(/\'/g, '') + '\';loadUsers()">' + esc(d) + '<span>' + deptMap[d].length + '</span></div>';
+        const gn = deptMap[d].length;
+        html += '<div class="mob-dept-chip' + act + '" style="background:' + colors[di % colors.length] + ';flex-grow:' + gn + ';" onclick="mobDeptFilter=\'' + d.replace(/\'/g, '') + '\';loadUsers()"><span class="dn">' + esc(d) + '</span><span>' + gn + '</span></div>';
     });
     html += '</div>';
     const old = document.getElementById('mobDeptChipsWrap');
