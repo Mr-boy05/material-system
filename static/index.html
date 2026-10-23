@@ -30,10 +30,12 @@
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
-        body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; background:#f1f5f9; min-height:100vh; display:flex; }
+        body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; background:#f1f5f9; min-height:100vh; display:flex; position:relative; }
+        /* ===== 登录后主界面背景：Sonar 点阵波纹（Soft UI 主题色） ===== */
+        #sonarCanvas { position:fixed; inset:0; z-index:0; pointer-events:none; }
 
         /* 左侧导航 */
-        .sidebar { width:256px; background:#1a1a2e; color:white; display:flex; flex-direction:column; position:fixed; left:12px; top:12px; bottom:12px; border-radius:12px; overflow-y:auto; overflow-x:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06); }
+        .sidebar { width:256px; background:#1a1a2e; color:white; display:flex; flex-direction:column; position:fixed; left:12px; top:12px; bottom:12px; border-radius:12px; overflow-y:auto; overflow-x:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06); z-index:1; }
         .sidebar .logo { padding:16px 16px; font-size:14px; font-weight:700; border-bottom:1px solid rgba(255,255,255,0.1); display:flex; flex-direction:column; align-items:center; gap:8px; }
         .sidebar .logo img { width:100%; height:auto; max-height:50px; object-fit:contain; }
         .sidebar .nav { flex:1; padding:12px 0; }
@@ -57,7 +59,7 @@
         .sidebar .user-box .logout:hover { background:rgba(255,255,255,0.2); }
 
         /* 右侧内容 */
-        .main { flex:1; margin-left:280px; padding:24px; min-width:0; }
+        .main { flex:1; margin-left:280px; padding:24px; min-width:0; position:relative; z-index:1; }
         .page { display:none; }
         .page.active { display:block; }
         .page-title { font-size:20px; font-weight:700; color:#333; margin-bottom:18px; }
@@ -429,6 +431,7 @@
     </style>
 </head>
 <body>
+<canvas id="sonarCanvas" aria-hidden="true"></canvas>
     <!-- 左侧导航 -->
     <div class="sidebar">
         <div class="logo">
@@ -4293,6 +4296,120 @@ function hideDeptModal() {
 function renderContacts() {
     renderContactTree();
 }
+</script>
+<script>
+// ==================== 主界面背景：Sonar 点阵波纹（Soft UI 主题色 #667eea） ====================
+(function(){
+    var canvas = document.getElementById('sonarCanvas');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    var o = { spacing:26, dotRadius:1.6, baseOpacity:0.45, color:'#4f46e5', pingEvery:2.4, speed:280, ringWidth:90, amplitude:2.2, interactive:true, maxRings:6, seedPing:true, pingArea:[0.15,0.2,0.85,0.8] };
+    var rings = [];
+    var width = 0, height = 0, raf = 0, timer = 0, visible = true, seeded = false;
+    var nextPing = performance.now() + o.pingEvery * 1000;
+    function addRing(x, y, born) {
+        rings.push({ x:x, y:y, born:born });
+        while (rings.length > o.maxRings) rings.shift();
+    }
+    function draw(now) {
+        var lifetime = (Math.hypot(width, height) + o.ringWidth) / o.speed;
+        rings = rings.filter(function(r){ return (now - r.born) / 1000 < lifetime; });
+        var live = rings.map(function(r){
+            var age = (now - r.born) / 1000;
+            var radius = age * o.speed;
+            return { x:r.x, y:r.y, radius:radius, reach:radius + o.ringWidth, fade:1 - age / lifetime };
+        });
+        ctx.clearRect(0, 0, width, height);
+        ctx.fillStyle = o.color;
+        var cols = Math.ceil(width / o.spacing) + 1;
+        var rows = Math.ceil(height / o.spacing) + 1;
+        var offsetX = (width - (cols - 1) * o.spacing) / 2;
+        var offsetY = (height - (rows - 1) * o.spacing) / 2;
+        var hot = [];
+        ctx.globalAlpha = o.baseOpacity;
+        ctx.beginPath();
+        for (var i = 0; i < cols; i++) {
+            var cx = offsetX + i * o.spacing;
+            for (var j = 0; j < rows; j++) {
+                var cy = offsetY + j * o.spacing;
+                var energy = 0;
+                for (var k = 0; k < live.length; k++) {
+                    var r = live[k];
+                    if (Math.abs(cx - r.x) > r.reach || Math.abs(cy - r.y) > r.reach) continue;
+                    var dist = Math.abs(Math.hypot(cx - r.x, cy - r.y) - r.radius);
+                    if (dist >= o.ringWidth) continue;
+                    var t = 1 - dist / o.ringWidth;
+                    var e = t * t * (3 - 2 * t) * r.fade;
+                    if (e > energy) energy = e;
+                }
+                if (energy < 0.01) {
+                    ctx.moveTo(cx + o.dotRadius, cy);
+                    ctx.arc(cx, cy, o.dotRadius, 0, Math.PI * 2);
+                } else {
+                    hot.push(cx, cy, energy);
+                }
+            }
+        }
+        ctx.fill();
+        for (var m = 0; m < hot.length; m += 3) {
+            var en = hot[m + 2];
+            ctx.globalAlpha = o.baseOpacity + (1 - o.baseOpacity) * en;
+            ctx.beginPath();
+            ctx.arc(hot[m], hot[m + 1], o.dotRadius * (1 + o.amplitude * en), 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+    }
+    function resize() {
+        width = Math.max(1, Math.round(window.innerWidth));
+        height = Math.max(1, Math.round(window.innerHeight));
+        var dpr = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.round(width * dpr);
+        canvas.height = Math.round(height * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        if (!seeded) {
+            seeded = true;
+            var a = o.pingArea;
+            if (o.seedPing && !reduceMotion.matches) addRing(width * (a[0] + (a[2] - a[0]) * 0.68), height * (a[1] + (a[3] - a[1]) * 0.34), performance.now() - 500);
+        }
+        draw(performance.now());
+    }
+    function scheduleIdle(delay) {
+        window.clearTimeout(timer);
+        timer = window.setTimeout(function(){ tick(performance.now()); }, Math.max(16, delay));
+    }
+    function tick(now) {
+        raf = 0;
+        if (!visible || document.hidden) return;
+        if (reduceMotion.matches) { rings = []; draw(now); return; }
+        if (o.pingEvery > 0 && now >= nextPing) {
+            var a = o.pingArea;
+            addRing(width * (a[0] + Math.random() * (a[2] - a[0])), height * (a[1] + Math.random() * (a[3] - a[1])), now);
+            nextPing = now + o.pingEvery * 1000;
+        }
+        draw(now);
+        if (rings.length > 0) raf = requestAnimationFrame(tick);
+        else scheduleIdle(nextPing - now);
+    }
+    function wake() {
+        if (!raf) { window.clearTimeout(timer); raf = requestAnimationFrame(tick); }
+    }
+    function onDown(e) {
+        if (!o.interactive || reduceMotion.matches) return;
+        addRing(e.clientX, e.clientY, performance.now());
+        wake();
+    }
+    function onVisibility() { if (!document.hidden) wake(); }
+    function onResize() { resize(); wake(); }
+    resize();
+    window.addEventListener('resize', onResize);
+    document.addEventListener('visibilitychange', onVisibility);
+    document.addEventListener('pointerdown', onDown);
+    if (reduceMotion.addEventListener) reduceMotion.addEventListener('change', wake);
+    wake();
+})();
 </script>
 </body>
 </html>
