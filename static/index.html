@@ -1738,7 +1738,7 @@
                         let locTag = locations.length > 1 ? `<span style="display:inline-block;background:#e3f2fd;color:#1976d2;padding:2px 6px;border-radius:4px;font-size:11px;margin-right:4px;">位置${idx+1}</span>` : '';
                         let firstRow = idx === 0;
                         rows.push(`<tr>
-                            <td>${firstRow && isAdmin ? `<input type="checkbox" class="mat-checkbox" value="${m.id}">` : ''}</td>
+                            <td class="admin-only" ${isAdmin ? '' : 'style="display:none"'}>${firstRow && isAdmin ? `<input type="checkbox" class="mat-checkbox" value="${m.id}">` : ''}</td>
                             <td>${firstRow ? img : ''}</td>
                             <td>${firstRow ? nameHtml : ''}</td>
                             <td>${firstRow ? `<code>${m.qr_code}</code>` : ''}</td>
@@ -1746,7 +1746,7 @@
                             <td>${firstRow ? m.total_stock : ''}</td>
                             <td><span class="stock-badge ${sc}">${loc.stock}</span></td>
                             <td>${isAdmin ? `<span style="cursor:pointer;color:#1976d2;" onclick="openLocationManager('${m.id}','${(m.name||'').replace(/'/g,"\\'")}')" title="点击管理位置">${locTag}${loc.location || '-'}</span>` : `${locTag}${loc.location || '-'}`}</td>
-                            <td>${firstRow && isAdmin ? (m.operator||'-') : ''}</td>
+                            <td class="admin-only" ${isAdmin ? '' : 'style="display:none"'}>${firstRow && isAdmin ? (m.operator||'-') : ''}</td>
                             <td>${firstRow ? actionBtns : ''}</td>
                         </tr>`);
                     });
@@ -2713,6 +2713,29 @@
         }
 
         // 领取归还标签切换
+        // 物资查询页「领取」快捷按钮：跳转到领取归还页并自动选中该物资
+        function quickBorrow(materialId) {
+            switchPage('page-borrow-return');
+            switchBorrowReturnTab('borrow');
+            let tries = 0;
+            (function waitSel() {
+                const sel = document.getElementById('borrowMaterial');
+                if (tries++ > 50) { showToast('加载失败，请稍后再试'); return; }
+                if (sel.options.length <= 1) { setTimeout(waitSel, 100); return; }
+                if (sel.querySelector('option[value="' + materialId + '"]')) {
+                    sel.value = materialId;
+                    onBorrowMaterialChange();
+                    const locSel = document.getElementById('borrowLocation');
+                    if (locSel.options.length === 2 && locSel.options[1].value) locSel.value = locSel.options[1].value;
+                    document.getElementById('borrowQty').value = 1;
+                    document.getElementById('borrowActivity').focus();
+                    showToast('已选中「' + (sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '') + '」，请填写活动名称与数量');
+                } else {
+                    showToast('该物资当前不可领取');
+                }
+            })();
+        }
+
         function switchBorrowReturnTab(tab) {
             if (tab === 'borrow') {
                 document.getElementById('borrowForm').style.display = 'block';
