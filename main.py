@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "3.12.2"
+VERSION = "3.12.3"
 VERSION_DATE = "2026-10-23"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
@@ -2829,13 +2829,14 @@ def delete_activity_plan(plan_id: str, conn=Depends(get_db), user=Depends(get_cu
     if user["role"] != "admin" and plan["creator_id"] != user["id"] \
             and (not plan["department"] or user["department"] != plan["department"]):
         raise HTTPException(status_code=403, detail="只有管理员或发起部门可以删除该活动规划")
-    # 联动删除：如果该规划已同步生成活动记录，同步删除对应记录
+    # 联动删除：如果该规划已同步生成活动记录与考勤记录，一并同步删除
     linked_act_id = dict(plan).get("activity_id", "")
     cur.execute("DELETE FROM activity_plans WHERE id=?", (plan_id,))
     if linked_act_id:
+        cur.execute("DELETE FROM attendance WHERE activity_id=?", (linked_act_id,))
         cur.execute("DELETE FROM activities WHERE id=?", (linked_act_id,))
     conn.commit()
-    return {"success": True, "message": "活动规划已删除（已同步删除对应活动记录）" if linked_act_id else "活动规划已删除"}
+    return {"success": True, "message": "活动规划已删除（已同步删除活动记录和考勤记录）" if linked_act_id else "活动规划已删除"}
 
 class ActivityPlanComplete(BaseModel):
     title: Optional[str] = None
