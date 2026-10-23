@@ -123,6 +123,16 @@
         .mob-dept-chip span { font-size:11px; font-weight:500; background:rgba(255,255,255,0.28); padding:0 7px; border-radius:9px; }
         .mob-dept-chip.active { outline:2px solid #fff; outline-offset:-3px; box-shadow:0 0 0 3px rgba(0,0,0,0.15), 0 4px 12px rgba(0,0,0,0.18); }
         .mob-dept-reset { font-size:12px; color:#667eea; background:#eef0ff; border:none; padding:7px 12px; border-radius:12px; cursor:pointer; flex-shrink:0; }
+    
+        /* 手机端人员管理：部门头像堆叠卡片（AvatarStack 风格） */
+        .mob-dept-card { background:white; border-radius:14px; margin:10px 16px; padding:12px 16px; box-shadow:0 2px 8px rgba(0,0,0,0.05); }
+        .mob-dept-card .dhead { display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+        .mob-dept-card .dhead .dname { font-weight:700; font-size:14px; color:#333; }
+        .mob-dept-card .dhead .dcnt { font-size:11px; color:#999; }
+        .mob-as { display:flex; align-items:center; margin-left:auto; }
+        .mob-ava { width:30px; height:30px; border-radius:50%; color:#fff; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:600; border:2px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,0.15); cursor:pointer; }
+        .mob-ava + .mob-ava { margin-left:-9px; }
+        .mob-ava-more { background:#f1f5f9; color:#64748b; cursor:default; }
     </style>
 </head>
 <body>
@@ -1114,25 +1124,48 @@ async function loadUsers() {
         const users = await res.json();
         const list = document.getElementById('userList');
         renderMobDeptChips(users);
-        const shown = mobDeptFilter ? users.filter(u => (u.department || '未分配部门') === mobDeptFilter) : users;
-        list.innerHTML = shown.map(u => `
-            <div class="user-item" style="position:relative;">
-                <div style="position:absolute;top:14px;left:14px;z-index:2;"><input type="checkbox" class="user-check" value="${u.id}" onchange="updateUserSelected()"></div>
-                <div class="info" style="padding-left:30px;">
-                    <div class="name">${u.real_name || u.username} ${u.status === 'disabled' ? '<span style="font-size:11px;color:#999;">(已禁用)</span>' : ''}</div>
-                    <div class="detail">@${u.username} · ${u.phone || '无电话'}</div>
-                </div>
-                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
-                    <span class="role-tag ${u.role === 'admin' ? 'role-admin' : 'role-user'}" style="cursor:pointer;" onclick="toggleMobUserRole('${u.id}','${u.role === 'admin' ? 'user' : 'admin'}','${u.username}')" title="点击切换角色">${u.role === 'admin' ? '管理员' : '用户'}</span>
-                    ${u.username !== 'admin' ? `
-                        <button class="btn-sm" style="background:#ff9800;color:white;" onclick="editMobUser('${u.id}')">编辑</button>
-                        <button class="btn-sm ghost" onclick="resetMobUserPwd('${u.id}','${u.username}')">重置密码</button>
-                        <button class="btn-sm ${u.status === 'disabled' ? 'primary' : 'ghost'}" onclick="toggleMobDisableUser('${u.id}','${u.username}','${u.status === 'disabled' ? '启用' : '禁用'}')">${u.status === 'disabled' ? '启用' : '禁用'}</button>
-                        <button class="btn-sm danger" onclick="deleteUser('${u.id}','${u.username}')">删除</button>
-                    ` : ''}
-                </div>
-            </div>
-        `).join('');
+        let shown = users;
+        if (mobDeptFilter) shown = users.filter(u => (u.department || '未分配部门') === mobDeptFilter);
+        const deptMap = {};
+        shown.forEach(u => { const d = u.department || '未分配部门'; (deptMap[d] = deptMap[d] || []).push(u); });
+        const colors = ['#667eea','#f6a23c','#94a3b8','#4facfe','#56ab2f','#a855f7','#ef6c8f','#26c6da','#e8564f','#5c6bc0'];
+        let html = '';
+        Object.keys(deptMap).forEach((d, di) => {
+            const mems = deptMap[d];
+            const dc = colors[di % colors.length];
+            html += '<div class="mob-dept-card">';
+            html += '<div class="dhead"><span class="dname">' + esc(d) + '</span><span class="dcnt">' + mems.length + ' 人</span>';
+            html += '<div class="mob-as">';
+            mems.forEach((u, i) => {
+                if (i < 8) {
+                    const nm = u.real_name || u.username;
+                    html += '<div class="mob-ava" style="background:' + dc + ';" onclick="editMobUser(\'' + u.id + '\')">' + esc(nm.charAt(0)) + '</div>';
+                }
+            });
+            if (mems.length > 8) html += '<div class="mob-ava mob-ava-more">+' + (mems.length - 8) + '</div>';
+            html += '</div></div>';
+            mems.forEach(u => {
+                html += `
+                    <div class="user-item" style="margin:0;box-shadow:none;padding:10px 0;border-top:1px solid #f1f5f9;border-radius:0;">
+                        <div style="position:absolute;top:14px;left:0;z-index:2;"><input type="checkbox" class="user-check" value="${u.id}" onchange="updateUserSelected()"></div>
+                        <div class="info" style="padding-left:30px;">
+                            <div class="name">${u.real_name || u.username} ${u.status === 'disabled' ? '<span style="font-size:11px;color:#999;">(已禁用)</span>' : ''}</div>
+                            <div class="detail">@${u.username} · ${u.phone || '无电话'}</div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
+                            <span class="role-tag ${u.role === 'admin' ? 'role-admin' : 'role-user'}" style="cursor:pointer;" onclick="toggleMobUserRole('${u.id}','${u.role === 'admin' ? 'user' : 'admin'}','${u.username}')" title="点击切换角色">${u.role === 'admin' ? '管理员' : '用户'}</span>
+                            ${u.username !== 'admin' ? `
+                                <button class="btn-sm" style="background:#ff9800;color:white;" onclick="editMobUser('${u.id}')">编辑</button>
+                                <button class="btn-sm ghost" onclick="resetMobUserPwd('${u.id}','${u.username}')">重置密码</button>
+                                <button class="btn-sm ${u.status === 'disabled' ? 'primary' : 'ghost'}" onclick="toggleMobDisableUser('${u.id}','${u.username}','${u.status === 'disabled' ? '启用' : '禁用'}')">${u.status === 'disabled' ? '启用' : '禁用'}</button>
+                                <button class="btn-sm danger" onclick="deleteUser('${u.id}','${u.username}')">删除</button>
+                            ` : ''}
+                        </div>
+                    </div>`;
+            });
+            html += '</div>';
+        });
+        list.innerHTML = html;
     } catch(e) { showToast('加载失败'); }
 }
 
