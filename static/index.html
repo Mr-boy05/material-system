@@ -349,6 +349,55 @@
         .btn-danger::before { background:rgba(255,255,255,0.2); }
         .btn-danger:hover { background:#dc2626; transform:translateY(-2px); }
 
+            /* ========== 响应式设计：1440 / 768 / 390 三档 ========== */
+        /* 1440px+ 桌面：默认布局（固定侧边栏 256px） */
+        /* 1024-1439px：中等桌面，侧边栏略收窄 */
+        @media (max-width:1439px) {
+            .sidebar { width:236px; }
+            .main { margin-left:260px; }
+        }
+        /* 768-1023px：平板 / 小窗，侧边栏收窄为图标条 */
+        @media (max-width:1023px) {
+            .sidebar { width:76px; }
+            .sidebar .logo { padding:14px 8px; }
+            .sidebar .logo span, .sidebar .logo img { }
+            .sidebar .logo-text, .sidebar .nav-item span, .sidebar .dropdown-item span,
+            .sidebar .nav-dropdown .dropdown-arrow, .sidebar .nav-section-title,
+            .sidebar .nav-item .nav-label { display:none; }
+            .sidebar .nav-item, .sidebar .dropdown-item { justify-content:center; padding:12px 0; margin:2px 10px; }
+            .sidebar .nav-item .icon { font-size:20px; }
+            .sidebar .dropdown-menu { position:fixed; left:88px; min-width:160px; background:#1a1a2e; border-radius:12px; padding:6px; box-shadow:0 8px 30px rgba(0,0,0,0.25); z-index:200; }
+            .sidebar .dropdown-menu .dropdown-item { justify-content:flex-start; padding:10px 16px 10px 40px; }
+            .sidebar .dropdown-menu .dropdown-item span { display:inline; }
+            .main { margin-left:100px; padding:20px; }
+        }
+        /* 390-767px：窄屏（手机小窗 / 极小平板），侧边栏折叠为顶部条 */
+        @media (max-width:767px) {
+            .sidebar { position:fixed; left:0; top:0; right:0; bottom:auto; width:100%; height:auto; flex-direction:row; align-items:center; padding:0; z-index:200; border-radius:0; }
+            .sidebar .logo { padding:10px 14px; flex-direction:row; gap:8px; border-bottom:none; }
+            .sidebar .logo img { width:auto; height:28px; max-height:28px; margin:0; }
+            .sidebar .nav { flex:1; display:flex; align-items:center; gap:4px; padding:0 10px; overflow-x:auto; }
+            .sidebar .nav-item { margin:0; padding:8px 12px; flex-shrink:0; }
+            .sidebar .nav-item .icon { font-size:18px; }
+            .sidebar .nav-item span, .sidebar .nav-dropdown .dropdown-arrow { display:inline; font-size:12px; }
+            .sidebar .nav-section-title { display:none; }
+            .sidebar .nav-dropdown { position:relative; }
+            .sidebar .dropdown-menu { position:fixed; left:50%; transform:translateX(-50%); top:52px; }
+            .sidebar-bottom { display:none !important; }
+            .main { margin-left:0; margin-top:56px; padding:14px; }
+            .main .page-title { font-size:18px; }
+            .form-card { padding:16px; }
+            .page table { display:block; overflow-x:auto; white-space:nowrap; -webkit-overflow-scrolling:touch; }
+            .modal { width:92vw; max-width:92vw; padding:18px; }
+            .user-row, .mat-row { flex-wrap:wrap; }
+        }
+        /* 超小屏（≤390px）进一步收紧 */
+        @media (max-width:390px) {
+            .main { padding:12px; }
+            .form-card { padding:14px; }
+            .btn, .btn-primary, .btn-submit, .btn-cancel { padding:9px 12px; font-size:13px; }
+            .search-bar input { padding:10px 14px; }
+        }
     </style>
 </head>
 <body>
