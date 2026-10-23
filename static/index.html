@@ -4321,117 +4321,42 @@ function renderContacts() {
 }
 </script>
 <script>
-// ==================== 主界面背景：Sonar 点阵波纹（Soft UI 主题色 #667eea） ====================
+// ==================== 主界面背景：Sonar 静态点阵（Soft UI 主题色 #667eea，去掉动效） ====================
 (function(){
     var canvas = document.getElementById('sonarCanvas');
     if (!canvas) return;
     var ctx = canvas.getContext('2d');
     if (!ctx) return;
-    var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-    var o = { spacing:26, dotRadius:1.6, baseOpacity:0.45, color:'#4f46e5', pingEvery:2.4, speed:280, ringWidth:90, amplitude:2.2, interactive:true, maxRings:6, seedPing:true, pingArea:[0.15,0.2,0.85,0.8] };
-    var rings = [];
-    var width = 0, height = 0, raf = 0, timer = 0, visible = true, seeded = false;
-    var nextPing = performance.now() + o.pingEvery * 1000;
-    function addRing(x, y, born) {
-        rings.push({ x:x, y:y, born:born });
-        while (rings.length > o.maxRings) rings.shift();
-    }
-    function draw(now) {
-        var lifetime = (Math.hypot(width, height) + o.ringWidth) / o.speed;
-        rings = rings.filter(function(r){ return (now - r.born) / 1000 < lifetime; });
-        var live = rings.map(function(r){
-            var age = (now - r.born) / 1000;
-            var radius = age * o.speed;
-            return { x:r.x, y:r.y, radius:radius, reach:radius + o.ringWidth, fade:1 - age / lifetime };
-        });
-        ctx.clearRect(0, 0, width, height);
-        ctx.fillStyle = o.color;
-        var cols = Math.ceil(width / o.spacing) + 1;
-        var rows = Math.ceil(height / o.spacing) + 1;
-        var offsetX = (width - (cols - 1) * o.spacing) / 2;
-        var offsetY = (height - (rows - 1) * o.spacing) / 2;
-        var hot = [];
-        ctx.globalAlpha = o.baseOpacity;
-        ctx.beginPath();
-        for (var i = 0; i < cols; i++) {
-            var cx = offsetX + i * o.spacing;
-            for (var j = 0; j < rows; j++) {
-                var cy = offsetY + j * o.spacing;
-                var energy = 0;
-                for (var k = 0; k < live.length; k++) {
-                    var r = live[k];
-                    if (Math.abs(cx - r.x) > r.reach || Math.abs(cy - r.y) > r.reach) continue;
-                    var dist = Math.abs(Math.hypot(cx - r.x, cy - r.y) - r.radius);
-                    if (dist >= o.ringWidth) continue;
-                    var t = 1 - dist / o.ringWidth;
-                    var e = t * t * (3 - 2 * t) * r.fade;
-                    if (e > energy) energy = e;
-                }
-                if (energy < 0.01) {
-                    ctx.moveTo(cx + o.dotRadius, cy);
-                    ctx.arc(cx, cy, o.dotRadius, 0, Math.PI * 2);
-                } else {
-                    hot.push(cx, cy, energy);
-                }
-            }
-        }
-        ctx.fill();
-        for (var m = 0; m < hot.length; m += 3) {
-            var en = hot[m + 2];
-            ctx.globalAlpha = o.baseOpacity + (1 - o.baseOpacity) * en;
-            ctx.beginPath();
-            ctx.arc(hot[m], hot[m + 1], o.dotRadius * (1 + o.amplitude * en), 0, Math.PI * 2);
-            ctx.fill();
-        }
-        ctx.globalAlpha = 1;
-    }
-    function resize() {
+    var o = { spacing:26, dotRadius:1.6, baseOpacity:0.45, color:'#4f46e5' };
+    var width = 0, height = 0;
+    function draw() {
         width = Math.max(1, Math.round(window.innerWidth));
         height = Math.max(1, Math.round(window.innerHeight));
         var dpr = Math.min(window.devicePixelRatio || 1, 2);
         canvas.width = Math.round(width * dpr);
         canvas.height = Math.round(height * dpr);
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        if (!seeded) {
-            seeded = true;
-            var a = o.pingArea;
-            if (o.seedPing && !reduceMotion.matches) addRing(width * (a[0] + (a[2] - a[0]) * 0.68), height * (a[1] + (a[3] - a[1]) * 0.34), performance.now() - 500);
+        ctx.clearRect(0, 0, width, height);
+        ctx.globalAlpha = o.baseOpacity;
+        ctx.fillStyle = o.color;
+        var cols = Math.ceil(width / o.spacing) + 1;
+        var rows = Math.ceil(height / o.spacing) + 1;
+        var offsetX = (width - (cols - 1) * o.spacing) / 2;
+        var offsetY = (height - (rows - 1) * o.spacing) / 2;
+        ctx.beginPath();
+        for (var i = 0; i < cols; i++) {
+            var cx = offsetX + i * o.spacing;
+            for (var j = 0; j < rows; j++) {
+                var cy = offsetY + j * o.spacing;
+                ctx.moveTo(cx + o.dotRadius, cy);
+                ctx.arc(cx, cy, o.dotRadius, 0, Math.PI * 2);
+            }
         }
-        draw(performance.now());
+        ctx.fill();
+        ctx.globalAlpha = 1;
     }
-    function scheduleIdle(delay) {
-        window.clearTimeout(timer);
-        timer = window.setTimeout(function(){ tick(performance.now()); }, Math.max(16, delay));
-    }
-    function tick(now) {
-        raf = 0;
-        if (!visible || document.hidden) return;
-        if (reduceMotion.matches) { rings = []; draw(now); return; }
-        if (o.pingEvery > 0 && now >= nextPing) {
-            var a = o.pingArea;
-            addRing(width * (a[0] + Math.random() * (a[2] - a[0])), height * (a[1] + Math.random() * (a[3] - a[1])), now);
-            nextPing = now + o.pingEvery * 1000;
-        }
-        draw(now);
-        if (rings.length > 0) raf = requestAnimationFrame(tick);
-        else scheduleIdle(nextPing - now);
-    }
-    function wake() {
-        if (!raf) { window.clearTimeout(timer); raf = requestAnimationFrame(tick); }
-    }
-    function onDown(e) {
-        if (!o.interactive || reduceMotion.matches) return;
-        addRing(e.clientX, e.clientY, performance.now());
-        wake();
-    }
-    function onVisibility() { if (!document.hidden) wake(); }
-    function onResize() { resize(); wake(); }
-    resize();
-    window.addEventListener('resize', onResize);
-    document.addEventListener('visibilitychange', onVisibility);
-    document.addEventListener('pointerdown', onDown);
-    if (reduceMotion.addEventListener) reduceMotion.addEventListener('change', wake);
-    wake();
+    draw();
+    window.addEventListener('resize', draw);
 })();
 </script>
 <script>
