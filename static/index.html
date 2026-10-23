@@ -364,7 +364,7 @@
         <div class="nav">
             <div class="nav-item admin-only" onclick="location.href='/dashboard'"><span class="icon">📊</span>数据大屏</div>
             <div class="nav-item admin-only" onclick="switchPage('page-users',this)"><span class="icon">👥</span>人员管理</div>
-            <div class="nav-item admin-only" onclick="switchPage('page-attendance',this)"><span class="icon">✅</span>考勤记录</div>
+            <div class="nav-item" onclick="switchPage('page-attendance',this)"><span class="icon">✅</span>考勤记录</div>
             <div class="nav-item nav-dropdown admin-only" onclick="toggleDropdown(this)">
                 <span class="icon">📦</span>物资管理 <span class="dropdown-arrow">▼</span>
             </div>
@@ -576,7 +576,7 @@
             <div class="page-title">考勤记录</div>
             <div class="toolbar">
                 <span style="color:#666;font-size:13px;" id="attendanceCount">共 0 条记录</span>
-                <button class="btn btn-primary" onclick="openAttendanceModal()">+ 新增考勤</button>
+                <button class="btn btn-primary admin-only" onclick="openAttendanceModal()">+ 新增考勤</button>
             </div>
             <div id="attendanceList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:16px;">
                 <div class="empty">加载中...</div>
@@ -1392,7 +1392,8 @@
                     const side = (globalIdx % 2 === 0) ? 'left' : 'right';
                     globalIdx++;
                     const st = PLAN_STATUS_MAP[p.status] || PLAN_STATUS_MAP.planned;
-                    const canEdit = (curUser.role === 'admin') || (p.creator_id === curUser.id);
+                    const sameDept = curUser.department && p.department && curUser.department === p.department;
+                    const canEdit = (curUser.role === 'admin') || (p.creator_id === curUser.id) || sameDept;
                     html += '<div class="plan-item ' + side + '">';
                     html += '<div class="plan-dot"></div>';
                     html += '<div class="plan-card">';
@@ -1407,7 +1408,9 @@
                     html += '<div class="p-ops">';
                     // 未完成的活动可"标记完成"并同步到活动记录
                     if (p.status !== 'done') {
-                        html += '<button onclick="openCompletePlanModal(\'' + p.id + '\')" style="background:#e8f5e9;color:#2e7d32;border-color:#c8e6c9;">✅ 完成</button>';
+                        if (canEdit) {
+                            html += '<button onclick="openCompletePlanModal(\'' + p.id + '\')" style="background:#e8f5e9;color:#2e7d32;border-color:#c8e6c9;">✅ 完成</button>';
+                        }
                     } else {
                         html += '<button style="background:#f5f5f5;color:#999;border-color:#eee;cursor:default;" title="已完成并同步到活动记录">✔ 已同步</button>';
                     }
@@ -3118,14 +3121,40 @@
                             <div style="font-size:12px;color:#c62828;font-weight:600;margin-bottom:4px;">❌ 缺席（${absentCount}人）</div>
                             <div style="font-size:12px;color:#555;line-height:1.6;">${absentNames}</div>
                         </div>` : ''}
-                        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+                        ${a.dept_stats && a.dept_stats.length ? `
+                        <div style="margin-top:12px;">
+                            <div style="font-size:12px;color:#555;font-weight:600;margin-bottom:8px;">📊 各部门参与情况（悬停看数据，点击看缺席）</div>
+                            ${a.dept_stats.map((d,di)=>{
+                                const maxP = Math.max.apply(null, a.dept_stats.map(x=>x.present), 1);
+                                const pct = Math.max(4, Math.round(d.present / maxP * 100));
+                                const tip = d.dept + '：参加' + d.present + '人 / 缺席' + d.absent + '人 / 请假' + d.leave + '人';
+                                return `
+                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;cursor:pointer;padding:3px 4px;border-radius:6px;" onclick="toggleDeptAbsent('${a.id}_${di}')" title="${tip}">
+                                    <span style="width:62px;font-size:12px;color:#555;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${d.dept}</span>
+                                    <div style="flex:1;height:16px;background:#f1f5f9;border-radius:6px;overflow:hidden;" title="${tip}">
+                                        <div style="width:${pct}%;height:100%;background:linear-gradient(90deg,#667eea,#764ba2);border-radius:6px;" title="${tip}"></div>
+                                    </div>
+                                    <span style="font-size:12px;color:#667eea;width:44px;text-align:right;flex-shrink:0;">${d.present}人</span>
+                                </div>
+                                <div id="deptAbsent_${a.id}_${di}" style="display:none;margin:2px 0 8px 74px;font-size:12px;color:#666;line-height:1.6;">
+                                    ${d.absent_names.length ? `<span style="color:#c62828;">❌ 缺席：${d.absent_names.join('、')}</span>` : '<span style="color:#2e7d32;">✅ 无缺席</span>'}
+                                    ${d.leave_names.length ? `<br><span style="color:#e65100;">🏖️ 请假：${d.leave_names.join('、')}</span>` : ''}
+                                </div>`;
+                            }).join('')}
+                        </div>` : ''}
+                        ${isAdmin ? `<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
                             <button class="btn btn-sm" style="background:#e3f2fd;color:#1976d2;" onclick="editAttendance('${a.id}')">✏️ 编辑</button>
                             <button class="btn btn-sm btn-danger" onclick="deleteAttendance('${a.id}','${a.title}')">删除</button>
-                        </div>
+                        </div>` : ''}
                     </div>`;
                 }).join('');
             })
             .catch(()=>{ document.getElementById('attendanceList').innerHTML='<div class="empty">加载失败</div>'; });
+        }
+
+        function toggleDeptAbsent(id) {
+            const el = document.getElementById('deptAbsent_' + id);
+            if (el) el.style.display = (el.style.display === 'none' || !el.style.display) ? '' : 'none';
         }
 
         function loadAttendanceUsers() {
