@@ -3165,19 +3165,11 @@
             .then(res=>res.json())
             .then(data=>{
                 allUsersForAttendance = data;
-                    // 填充届别筛选下拉
-                    const cohortSet = [...new Set(data.map(u=>u.cohort).filter(Boolean))].sort();
+                    // 考勤仅针对第三届成员，届别下拉固定为第三届
                     const cohortSel = document.getElementById('attendanceCohortFilter');
                     if (cohortSel) {
-                        const cur = cohortSel.value;
-                        cohortSel.innerHTML = '<option value="">全部届别</option>' + cohortSet.map(c=>'<option value="'+c+'">'+c+'</option>').join('');
-                        // 如果是例会考勤且用户没手动选过，默认选中最新一届
-                        const curType = document.getElementById('attendanceType')?.value || 'meeting';
-                        if (curType === 'meeting' && cohortSel.options.length > 1) {
-                            cohortSel.value = cohortSel.options[cohortSel.options.length - 1].value;
-                        } else {
-                            cohortSel.value = cur;
-                        }
+                        cohortSel.innerHTML = '<option value="第三届">第三届</option>';
+                        cohortSel.value = '第三届';
                     }
                 renderAttendanceUserList();
             });
@@ -3205,6 +3197,8 @@
             allUsersForAttendance.forEach(u=>{
                 // 老师不参与考勤
                 if (u.department === '老师') return;
+                // 仅第三届成员参与考勤，往届不参与
+                if ((u.cohort || '') !== '第三届') return;
                 // 届别筛选
                 if (cohortFilter && (u.cohort || '') !== cohortFilter) return;
                 const dept = u.department || '未分配部门';
@@ -3238,15 +3232,15 @@
                 });
                 html += '</div></div>';
             });
-            if (!html) html = '<div style="color:#999;text-align:center;padding:20px;">没有找到匹配的人员（老师不参与考勤）</div>';
+            if (!html) html = '<div style="color:#999;text-align:center;padding:20px;">没有找到匹配的人员（考勤仅针对第三届成员）</div>';
             list.innerHTML = html;
             // 统计：未标记的默认参加
             const leaveCount = Object.values(userAttendanceStatus).filter(s=>s==='leave').length;
             const absentCount = Object.values(userAttendanceStatus).filter(s=>s==='absent').length;
-            const totalUsers = allUsersForAttendance.filter(u=>u.department !== '老师').length;
+            const totalUsers = allUsersForAttendance.filter(u=>u.cohort==='第三届' && u.department !== '老师').length;
             const attendCount = totalUsers - leaveCount - absentCount;
             const statsEl = document.getElementById('attendanceUserStats');
-            if (statsEl) statsEl.innerHTML = '✅ 参加 ' + attendCount + '人 &nbsp;|&nbsp; 🏖️ 请假 ' + leaveCount + '人 &nbsp;|&nbsp; ❌ 缺席 ' + absentCount + '人 &nbsp;|&nbsp; 👨‍🏫 老师 ' + (allUsersForAttendance.length - totalUsers) + '人（不考勤）';
+            if (statsEl) statsEl.innerHTML = '✅ 参加 ' + attendCount + '人 &nbsp;|&nbsp; 🏖️ 请假 ' + leaveCount + '人 &nbsp;|&nbsp; ❌ 缺席 ' + absentCount + '人 &nbsp;|&nbsp; 👨‍🏫 往届/老师 ' + (allUsersForAttendance.length - totalUsers) + '人（不考勤）';
         }
 
         function toggleUserStatus(userId) {
@@ -3416,6 +3410,8 @@
             allUsersForAttendance.forEach(u=>{
                 // 老师不参与考勤
                 if (u.department === '老师') return;
+                // 仅第三届成员参与考勤，往届不参与
+                if ((u.cohort || '') !== '第三届') return;
                 const status = userAttendanceStatus[u.id] || 'attend'; // 未标记默认参加
                 const userObj = {id: u.id, name: u.real_name || u.username, department: u.department || ''};
                 if (status === 'attend') attendees.push(userObj);

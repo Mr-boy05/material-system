@@ -1572,6 +1572,8 @@ function renderMobAttUsers() {
     mobileAttendanceUsers.forEach(u => {
         // 老师不参与考勤
         if (u.department === '老师') return;
+        // 仅第三届成员参与考勤，往届不参与
+        if ((u.cohort || '') !== '第三届') return;
         const dept = u.department || '未分配部门';
         if (!deptMap[dept]) deptMap[dept] = [];
         const match = !search || (u.real_name || u.username || '').toLowerCase().includes(search) || dept.toLowerCase().includes(search);
@@ -1602,16 +1604,16 @@ function renderMobAttUsers() {
         });
         html += '</div></div>';
     });
-    if (!html) html = '<div style="color:#999;text-align:center;padding:20px;">没有找到匹配的人员（老师不参与考勤）</div>';
+    if (!html) html = '<div style="color:#999;text-align:center;padding:20px;">没有找到匹配的人员（考勤仅针对第三届成员）</div>';
     list.innerHTML = html;
     // 更新统计：未标记的默认参加
     const leaveCount = Object.values(mobUserStatus).filter(s=>s==='leave').length;
     const absentCount = Object.values(mobUserStatus).filter(s=>s==='absent').length;
-    const totalUsers = mobileAttendanceUsers.filter(u=>u.department !== '老师').length;
+    const totalUsers = mobileAttendanceUsers.filter(u=>u.cohort==='第三届' && u.department !== '老师').length;
     const attendCount = totalUsers - leaveCount - absentCount;
-    const teacherCount = mobileAttendanceUsers.length - totalUsers;
+    const otherCount = mobileAttendanceUsers.length - totalUsers;
     const statsEl = document.getElementById('mobAttStats');
-    if (statsEl) statsEl.innerHTML = '✅ 参加 ' + attendCount + '人 | 🏖️ 请假 ' + leaveCount + '人 | ❌ 缺席 ' + absentCount + '人 | 👨‍🏫 老师 ' + teacherCount + '人';
+    if (statsEl) statsEl.innerHTML = '✅ 参加 ' + attendCount + '人 | 🏖️ 请假 ' + leaveCount + '人 | ❌ 缺席 ' + absentCount + '人 | 👨‍🏫 往届/老师 ' + otherCount + '人';
 }
 
 // 用户禁用/启用（管理员）
@@ -1668,6 +1670,8 @@ function submitAttendanceMobile() {
     mobileAttendanceUsers.forEach(u => {
         // 老师不参与考勤
         if (u.department === '老师') return;
+        // 仅第三届成员参与考勤，往届不参与
+        if ((u.cohort || '') !== '第三届') return;
         const status = mobUserStatus[u.id] || 'attend'; // 未标记默认参加
         const userObj = {id: u.id, name: u.real_name || u.username, department: u.department || ''};
         if (status === 'attend') attendees.push(userObj);

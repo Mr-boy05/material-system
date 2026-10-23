@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "3.12.1"
+VERSION = "3.12.2"
 VERSION_DATE = "2026-10-23"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
@@ -2923,7 +2923,10 @@ def list_attendance(conn=Depends(get_db), user=Depends(get_current_user)):
     records = [dict(r) for r in cur.fetchall()]
     # real_name -> department 映射（用于部门参与统计）
     dept_map = {}
-    for u in cur.execute("SELECT real_name, department FROM users").fetchall():
+    for u in cur.execute("SELECT real_name, department, cohort FROM users").fetchall():
+        # 考勤仅针对第三届成员，往届与老师不计入部门统计
+        if (u["cohort"] or "") != "第三届":
+            continue
         nm = (u["real_name"] or "").strip()
         if nm and nm not in dept_map:
             dept_map[nm] = (u["department"] or "").strip() or "未分组"
@@ -2944,14 +2947,24 @@ def list_attendance(conn=Depends(get_db), user=Depends(get_current_user)):
         att_names, abs_names, lev_names = _names(r["attendees"]), _names(r["absentees"]), _names(r["leave"])
         agg = {}
         for nm in att_names:
-            d = agg.setdefault(dept_map.get(nm, "其他"), {"present": 0, "absent": 0, "leave": 0, "absent_names": [], "leave_names": [], "present_names": []})
+            _dept = dept_map.get(nm)
+            if not _dept:
+                continue  # 往届/老师不计入考勤统计
+            d = agg.setdefault(_dept, {"present": 0, "absent": 0, "leave": 0, "absent_names": [], "leave_names": [], "present_names": []})
             d["present"] += 1
+            d["present_names"].append(nm)
         for nm in abs_names:
-            d = agg.setdefault(dept_map.get(nm, "其他"), {"present": 0, "absent": 0, "leave": 0, "absent_names": [], "leave_names": [], "present_names": []})
+            _dept = dept_map.get(nm)
+            if not _dept:
+                continue
+            d = agg.setdefault(_dept, {"present": 0, "absent": 0, "leave": 0, "absent_names": [], "leave_names": [], "present_names": []})
             d["absent"] += 1
             d["absent_names"].append(nm)
         for nm in lev_names:
-            d = agg.setdefault(dept_map.get(nm, "其他"), {"present": 0, "absent": 0, "leave": 0, "absent_names": [], "leave_names": [], "present_names": []})
+            _dept = dept_map.get(nm)
+            if not _dept:
+                continue
+            d = agg.setdefault(_dept, {"present": 0, "absent": 0, "leave": 0, "absent_names": [], "leave_names": [], "present_names": []})
             d["leave"] += 1
             d["leave_names"].append(nm)
         r["dept_stats"] = [dict({"dept": k}, **v) for k, v in agg.items()]
