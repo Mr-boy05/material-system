@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "3.12.6"
+VERSION = "3.12.7"
 VERSION_DATE = "2026-10-23"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
@@ -278,6 +278,18 @@ def init_db():
             description TEXT DEFAULT '',
             uploader TEXT DEFAULT '',
             uploader_id TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    # 小工具分享表（管理员维护好用的小链接，全员可点击使用）
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS tool_links (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            url TEXT NOT NULL,
+            remark TEXT DEFAULT '',
+            creator_id TEXT,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
     """)
@@ -3319,6 +3331,85 @@ def update_skill_file(
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=500, detail=f"更新失败：{str(e)}")
+
+# ==================== 小工具分享 ====================
+@app.get("/api/tool-links")
+def list_tool_links(conn=Depends(get_db), user=Depends(get_current_user)):
+    cur = conn.cursor()
+    cur.execute("SELECT id, title, url, remark, creator_id, created_at FROM tool_links ORDER BY created_at DESC")
+    rows = cur.fetchall()
+    out = []
+    for r in rows:
+        d = dict(r)
+        out.append({"id": d["id"], "title": d["title"], "url": d["url"],
+                    "remark": d["remark"], "created_at": d["created_at"]})
+    return out
+
+class ToolLinkCreate(BaseModel):
+    title: str
+    url: str
+    remark: str = ""
+
+@app.post("/api/tool-links")
+def create_tool_link(req: ToolLinkCreate, conn=Depends(get_db), user=Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="仅管理员可添加小工具")
+    title = (req.title or "").strip()
+    url = (req.url or "").strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="请输入工具名称")
+    if not url.startswith(("http://", "https://")):
+        raise HTTPException(status_code=400, detail="链接地址需以 http:// 或 https:// 开头")
+    link_id = str(uuid.uuid4())
+    cur = conn.cursor()
+    cur.execute("INSERT INTO tool_links (id, title, url, remark, creator_id) VALUES (?,?,?,?,?)",
+                (link_id, title, url, (req.remark or "").strip(), user["id"]))
+    conn.commit()
+    return {"success": True, "message": "小工具已添加", "id": link_id}
+
+class ToolLinkUpdate(BaseModel):
+    title: Optional[str] = None
+    url: Optional[str] = None
+    remark: Optional[str] = None
+
+@app.put("/api/tool-links/{link_id}")
+def update_tool_link(link_id: str, req: ToolLinkUpdate, conn=Depends(get_db), user=Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="仅管理员可编辑小工具")
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM tool_links WHERE id=?", (link_id,))
+    row = cur.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="小工具不存在")
+    updates = []
+    params = []
+    if req.title is not None:
+        if not req.title.strip():
+            raise HTTPException(status_code=400, detail="请输入工具名称")
+        updates.append("title=?"); params.append(req.title.strip())
+    if req.url is not None:
+        if not req.url.strip().startswith(("http://", "https://")):
+            raise HTTPException(status_code=400, detail="链接地址需以 http:// 或 https:// 开头")
+        updates.append("url=?"); params.append(req.url.strip())
+    if req.remark is not None:
+        updates.append("remark=?"); params.append(req.remark.strip())
+    if updates:
+        params.append(link_id)
+        cur.execute(f"UPDATE tool_links SET {', '.join(updates)} WHERE id=?", params)
+        conn.commit()
+    return {"success": True, "message": "小工具已更新"}
+
+@app.delete("/api/tool-links/{link_id}")
+def delete_tool_link(link_id: str, conn=Depends(get_db), user=Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="仅管理员可删除小工具")
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM tool_links WHERE id=?", (link_id,))
+    if not cur.fetchone():
+        raise HTTPException(status_code=404, detail="小工具不存在")
+    cur.execute("DELETE FROM tool_links WHERE id=?", (link_id,))
+    conn.commit()
+    return {"success": True, "message": "小工具已删除"}
 
 # ==================== 静态文件 ====================
 app.mount("/static", StaticFiles(directory="static"), name="static")
