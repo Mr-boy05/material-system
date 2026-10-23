@@ -1537,20 +1537,33 @@
                     const absentNames = a.absentees ? a.absentees.map(u=>u.name).join('、') : '';
                     const leaveNames = a.leave ? a.leave.map(u=>u.name).join('、') : '';
                     const delBtn = isAdmin ? '<button style="background:rgba(239,83,80,0.15);color:#ff8a80;border:1px solid rgba(255,255,255,0.12);padding:5px 14px;border-radius:8px;font-size:12px;" onclick="deleteMAttendance(\'' + a.id + '\',\'' + (a.title||'').replace(/'/g,"\\'") + '\')">删除</button>' : '';
-                    const chart = (a.dept_stats && a.dept_stats.length) ? '<div style="margin-top:10px;"><div style="font-size:12px;color:rgba(255,255,255,0.45);font-weight:600;margin-bottom:6px;">📊 各部门参与情况（悬停看数据，点击看缺席）</div>' +
+                    const chart = (a.dept_stats && a.dept_stats.length) ? '<div style="margin-top:10px;"><div style="font-size:12px;color:rgba(255,255,255,0.45);font-weight:600;margin-bottom:6px;">📊 各部门参与情况（悬停看数据，点击展开名单）</div>' +
                         a.dept_stats.map((d,di)=>{
-                            const maxP = Math.max.apply(null, a.dept_stats.map(x=>x.present), 1);
-                            const pct = Math.max(4, Math.round(d.present / maxP * 100));
-                            const tip = d.dept + '：参加' + d.present + '人 / 缺席' + d.absent + '人 / 请假' + d.leave + '人';
+                            const total = (d.present||0) + (d.leave||0) + (d.absent||0);
+                            const pW = total ? Math.round(d.present/total*100) : 0;
+                            const lW = total ? Math.round(d.leave/total*100) : 0;
+                            const aW = total ? 100 - pW - lW : 0;
+                            const tip = d.dept + '：参加' + d.present + '人 / 请假' + d.leave + '人 / 缺席' + d.absent + '人';
                             return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;cursor:pointer;padding:3px 4px;border-radius:6px;" onclick="toggleMDeptAbsent(\'' + a.id + '_' + di + '\')" title="' + tip + '">' +
                                 '<span style="width:56px;font-size:12px;color:rgba(255,255,255,0.6);flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escM(d.dept) + '</span>' +
-                                '<div style="flex:1;height:14px;background:rgba(255,255,255,0.08);border-radius:6px;overflow:hidden;" title="' + tip + '"><div style="width:' + pct + '%;height:100%;background:linear-gradient(90deg,#667eea,#764ba2);border-radius:6px;" title="' + tip + '"></div></div>' +
-                                '<span style="font-size:12px;color:#8c9eff;width:36px;text-align:right;flex-shrink:0;">' + d.present + '人</span></div>' +
+                                '<div style="flex:1;height:14px;background:rgba(255,255,255,0.08);border-radius:6px;overflow:hidden;display:flex;" title="' + tip + '">' +
+                                (d.present ? '<div style="width:' + pW + '%;height:100%;background:#4caf50;" title="' + tip + '"></div>' : '') +
+                                (d.leave ? '<div style="width:' + lW + '%;height:100%;background:#ffb300;" title="' + tip + '"></div>' : '') +
+                                (d.absent ? '<div style="width:' + aW + '%;height:100%;background:#ef5350;" title="' + tip + '"></div>' : '') +
+                                '</div>' +
+                                '<span style="font-size:12px;color:#8c9eff;width:36px;text-align:right;flex-shrink:0;">' + total + '人</span></div>' +
                                 '<div id="mDeptAbsent_' + a.id + '_' + di + '" style="display:none;margin:2px 0 8px 66px;font-size:12px;color:rgba(255,255,255,0.6);line-height:1.6;">' +
-                                (d.absent_names.length ? '<span style="color:#ff8a80;">❌ 缺席：' + escM(d.absent_names.join('、')) + '</span>' : '<span style="color:#69f0ae;">✅ 无缺席</span>') +
-                                (d.leave_names.length ? '<br><span style="color:#ffb74d;">🏖️ 请假：' + escM(d.leave_names.join('、')) + '</span>' : '') +
+                                (d.present && d.present_names && d.present_names.length ? '<span style="color:#69f0ae;">✅ 参加：' + escM(d.present_names.join('、')) + '</span>' : '') +
+                                (d.leave && d.leave_names.length ? '<br><span style="color:#ffb74d;">🏖️ 请假：' + escM(d.leave_names.join('、')) + '</span>' : '') +
+                                (d.absent && d.absent_names.length ? '<br><span style="color:#ff8a80;">❌ 缺席：' + escM(d.absent_names.join('、')) + '</span>' : '') +
+                                (!(d.present && d.present_names && d.present_names.length) && !(d.leave && d.leave_names.length) && !(d.absent && d.absent_names.length) ? '<span style="color:rgba(255,255,255,0.35);">（暂无名单）</span>' : '') +
                                 '</div>';
-                        }).join('') + '</div>' : '';
+                        }).join('') +
+                        '<div style="display:flex;gap:14px;margin-top:6px;font-size:12px;color:rgba(255,255,255,0.55);">' +
+                        '<span><i style="display:inline-block;width:10px;height:10px;background:#4caf50;border-radius:3px;margin-right:4px;vertical-align:middle;"></i>参加</span>' +
+                        '<span><i style="display:inline-block;width:10px;height:10px;background:#ffb300;border-radius:3px;margin-right:4px;vertical-align:middle;"></i>请假</span>' +
+                        '<span><i style="display:inline-block;width:10px;height:10px;background:#ef5350;border-radius:3px;margin-right:4px;vertical-align:middle;"></i>缺席</span>' +
+                        '</div></div>' : '';
                     return '<div style="background:rgba(255,255,255,0.06);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:14px;margin-bottom:12px;border-left:4px solid ' + (typeColor[a.type]||'#999') + ';">' +
                         '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;"><div style="font-size:15px;font-weight:600;color:#e8e8ec;">' + escM(a.title) + '</div><span style="font-size:11px;padding:3px 8px;border-radius:10px;background:' + (typeColor[a.type]||'#999') + ';color:white;">' + (typeMap[a.type]||a.type) + '</span></div>' +
                         '<div style="font-size:12px;color:rgba(255,255,255,0.5);line-height:1.7;">' +
@@ -1559,8 +1572,6 @@
                         (a.remark ? '<div>📝 ' + escM(a.remark) + '</div>' : '') +
                         '</div>' +
                         (attendCount ? '<div style="margin-top:8px;padding:8px 10px;background:rgba(46,125,50,0.12);border-radius:8px;"><div style="font-size:12px;color:#69f0ae;font-weight:600;margin-bottom:4px;">✅ 参加（' + attendCount + '人）</div><div style="font-size:12px;color:rgba(255,255,255,0.6);line-height:1.6;">' + escM(attendNames) + '</div></div>' : '') +
-                        (leaveCount ? '<div style="margin-top:8px;padding:8px 10px;background:rgba(255,152,0,0.12);border-radius:8px;"><div style="font-size:12px;color:#ffb74d;font-weight:600;margin-bottom:4px;">🏖️ 请假（' + leaveCount + '人）</div><div style="font-size:12px;color:rgba(255,255,255,0.6);line-height:1.6;">' + escM(leaveNames) + '</div></div>' : '') +
-                        (absentCount ? '<div style="margin-top:8px;padding:8px 10px;background:rgba(198,40,40,0.15);border-radius:8px;"><div style="font-size:12px;color:#ff8a80;font-weight:600;margin-bottom:4px;">❌ 缺席（' + absentCount + '人）</div><div style="font-size:12px;color:rgba(255,255,255,0.6);line-height:1.6;">' + escM(absentNames) + '</div></div>' : '') +
                         chart +
                         (delBtn ? '<div style="margin-top:10px;display:flex;justify-content:flex-end;">' + delBtn + '</div>' : '') +
                         '</div>';

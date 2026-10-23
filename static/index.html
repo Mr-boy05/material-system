@@ -3113,34 +3113,37 @@
                             <div style="font-size:12px;color:#2e7d32;font-weight:600;margin-bottom:4px;">✅ 参加（${attendCount}人）</div>
                             <div style="font-size:12px;color:#555;line-height:1.6;">${attendNames}</div>
                         </div>` : ''}
-                        ${leaveCount ? `<div style="margin-top:8px;padding:8px 10px;background:#fff3e0;border-radius:6px;">
-                            <div style="font-size:12px;color:#e65100;font-weight:600;margin-bottom:4px;">🏖️ 请假（${leaveCount}人）</div>
-                            <div style="font-size:12px;color:#555;line-height:1.6;">${leaveNames}</div>
-                        </div>` : ''}
-                        ${absentCount ? `<div style="margin-top:8px;padding:8px 10px;background:#ffebee;border-radius:6px;">
-                            <div style="font-size:12px;color:#c62828;font-weight:600;margin-bottom:4px;">❌ 缺席（${absentCount}人）</div>
-                            <div style="font-size:12px;color:#555;line-height:1.6;">${absentNames}</div>
-                        </div>` : ''}
                         ${a.dept_stats && a.dept_stats.length ? `
                         <div style="margin-top:12px;">
-                            <div style="font-size:12px;color:#555;font-weight:600;margin-bottom:8px;">📊 各部门参与情况（悬停看数据，点击看缺席）</div>
+                            <div style="font-size:12px;color:#555;font-weight:600;margin-bottom:8px;">📊 各部门参与情况（悬停看数据，点击展开名单）</div>
                             ${a.dept_stats.map((d,di)=>{
-                                const maxP = Math.max.apply(null, a.dept_stats.map(x=>x.present), 1);
-                                const pct = Math.max(4, Math.round(d.present / maxP * 100));
-                                const tip = d.dept + '：参加' + d.present + '人 / 缺席' + d.absent + '人 / 请假' + d.leave + '人';
+                                const total = (d.present||0) + (d.leave||0) + (d.absent||0);
+                                const pW = total ? Math.round(d.present/total*100) : 0;
+                                const lW = total ? Math.round(d.leave/total*100) : 0;
+                                const aW = total ? 100 - pW - lW : 0;
+                                const tip = d.dept + '：参加' + d.present + '人 / 请假' + d.leave + '人 / 缺席' + d.absent + '人';
                                 return `
                                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;cursor:pointer;padding:3px 4px;border-radius:6px;" onclick="toggleDeptAbsent('${a.id}_${di}')" title="${tip}">
                                     <span style="width:62px;font-size:12px;color:#555;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${d.dept}</span>
-                                    <div style="flex:1;height:16px;background:#f1f5f9;border-radius:6px;overflow:hidden;" title="${tip}">
-                                        <div style="width:${pct}%;height:100%;background:linear-gradient(90deg,#667eea,#764ba2);border-radius:6px;" title="${tip}"></div>
+                                    <div style="flex:1;height:16px;background:#f1f5f9;border-radius:6px;overflow:hidden;display:flex;" title="${tip}">
+                                        ${d.present ? `<div style="width:${pW}%;height:100%;background:#4caf50;" title="${tip}"></div>` : ''}
+                                        ${d.leave ? `<div style="width:${lW}%;height:100%;background:#ffb300;" title="${tip}"></div>` : ''}
+                                        ${d.absent ? `<div style="width:${aW}%;height:100%;background:#ef5350;" title="${tip}"></div>` : ''}
                                     </div>
-                                    <span style="font-size:12px;color:#667eea;width:44px;text-align:right;flex-shrink:0;">${d.present}人</span>
+                                    <span style="font-size:12px;color:#555;width:44px;text-align:right;flex-shrink:0;">${total}人</span>
                                 </div>
                                 <div id="deptAbsent_${a.id}_${di}" style="display:none;margin:2px 0 8px 74px;font-size:12px;color:#666;line-height:1.6;">
-                                    ${d.absent_names.length ? `<span style="color:#c62828;">❌ 缺席：${d.absent_names.join('、')}</span>` : '<span style="color:#2e7d32;">✅ 无缺席</span>'}
-                                    ${d.leave_names.length ? `<br><span style="color:#e65100;">🏖️ 请假：${d.leave_names.join('、')}</span>` : ''}
+                                    ${d.present && d.present_names && d.present_names.length ? `<span style="color:#2e7d32;">✅ 参加：${d.present_names.join('、')}</span>` : ''}
+                                    ${d.leave && d.leave_names.length ? `<br><span style="color:#e65100;">🏖️ 请假：${d.leave_names.join('、')}</span>` : ''}
+                                    ${d.absent && d.absent_names.length ? `<br><span style="color:#c62828;">❌ 缺席：${d.absent_names.join('、')}</span>` : ''}
+                                    ${(!(d.present && d.present_names && d.present_names.length) && !(d.leave && d.leave_names.length) && !(d.absent && d.absent_names.length)) ? '<span style="color:#999;">（暂无名单）</span>' : ''}
                                 </div>`;
                             }).join('')}
+                            <div style="display:flex;gap:14px;margin-top:6px;font-size:12px;color:#666;">
+                                <span><i style="display:inline-block;width:10px;height:10px;background:#4caf50;border-radius:3px;margin-right:4px;vertical-align:middle;"></i>参加</span>
+                                <span><i style="display:inline-block;width:10px;height:10px;background:#ffb300;border-radius:3px;margin-right:4px;vertical-align:middle;"></i>请假</span>
+                                <span><i style="display:inline-block;width:10px;height:10px;background:#ef5350;border-radius:3px;margin-right:4px;vertical-align:middle;"></i>缺席</span>
+                            </div>
                         </div>` : ''}
                         ${isAdmin ? `<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
                             <button class="btn btn-sm" style="background:#e3f2fd;color:#1976d2;" onclick="editAttendance('${a.id}')">✏️ 编辑</button>

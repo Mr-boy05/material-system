@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "3.12.0"
+VERSION = "3.12.1"
 VERSION_DATE = "2026-10-23"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
@@ -2944,14 +2944,14 @@ def list_attendance(conn=Depends(get_db), user=Depends(get_current_user)):
         att_names, abs_names, lev_names = _names(r["attendees"]), _names(r["absentees"]), _names(r["leave"])
         agg = {}
         for nm in att_names:
-            d = agg.setdefault(dept_map.get(nm, "其他"), {"present": 0, "absent": 0, "leave": 0, "absent_names": [], "leave_names": []})
+            d = agg.setdefault(dept_map.get(nm, "其他"), {"present": 0, "absent": 0, "leave": 0, "absent_names": [], "leave_names": [], "present_names": []})
             d["present"] += 1
         for nm in abs_names:
-            d = agg.setdefault(dept_map.get(nm, "其他"), {"present": 0, "absent": 0, "leave": 0, "absent_names": [], "leave_names": []})
+            d = agg.setdefault(dept_map.get(nm, "其他"), {"present": 0, "absent": 0, "leave": 0, "absent_names": [], "leave_names": [], "present_names": []})
             d["absent"] += 1
             d["absent_names"].append(nm)
         for nm in lev_names:
-            d = agg.setdefault(dept_map.get(nm, "其他"), {"present": 0, "absent": 0, "leave": 0, "absent_names": [], "leave_names": []})
+            d = agg.setdefault(dept_map.get(nm, "其他"), {"present": 0, "absent": 0, "leave": 0, "absent_names": [], "leave_names": [], "present_names": []})
             d["leave"] += 1
             d["leave_names"].append(nm)
         r["dept_stats"] = [dict({"dept": k}, **v) for k, v in agg.items()]
