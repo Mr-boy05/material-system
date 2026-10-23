@@ -115,6 +115,13 @@
         .empty-tip { text-align:center; padding:50px 20px; color:#bbb; font-size:14px; }
         .empty-tip .icon { font-size:48px; margin-bottom:12px; opacity:0.5; }
         .section-title { font-size:14px; color:#666; margin:16px 16px 8px; font-weight:500; }
+            /* ===== 人员管理：部门色块概览（Treemap 风格） ===== */
+        .mob-dept-chips { display:flex; gap:8px; padding:10px 16px; flex-wrap:wrap; }
+        .mob-dept-chip { display:flex; align-items:center; gap:6px; padding:7px 12px; border-radius:12px; color:#fff; font-size:13px; font-weight:600; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.10); transition:transform .15s, box-shadow .15s; }
+        .mob-dept-chip:hover { transform:translateY(-2px); box-shadow:0 4px 12px rgba(0,0,0,0.18); }
+        .mob-dept-chip span { font-size:11px; font-weight:500; background:rgba(255,255,255,0.28); padding:1px 7px; border-radius:9px; }
+        .mob-dept-chip.active { outline:2px solid #fff; outline-offset:-3px; box-shadow:0 0 0 3px rgba(0,0,0,0.15), 0 4px 12px rgba(0,0,0,0.18); }
+        .mob-dept-reset { font-size:12px; color:#667eea; background:#eef0ff; border:none; padding:7px 12px; border-radius:12px; cursor:pointer; }
     </style>
 </head>
 <body>
@@ -1079,12 +1086,34 @@ async function deleteMobRecord(id) {
 }
 
 // 用户
+function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+let mobDeptFilter = null;
+function renderMobDeptChips(users) {
+    const deptMap = {};
+    users.forEach(u => { const d = u.department || '未分配部门'; (deptMap[d] = deptMap[d] || []).push(u); });
+    const colors = ['#667eea','#f6a23c','#94a3b8','#4facfe','#56ab2f','#a855f7','#ef6c8f','#26c6da','#e8564f','#5c6bc0'];
+    let html = '<div class="mob-dept-chips">';
+    if (mobDeptFilter) html += '<button class="mob-dept-reset" onclick="mobDeptFilter=null;loadUsers()">✕ 清除筛选</button>';
+    Object.keys(deptMap).forEach((d, di) => {
+        const act = mobDeptFilter === d ? ' active' : '';
+        html += '<div class="mob-dept-chip' + act + '" style="background:' + colors[di % colors.length] + ';" onclick="mobDeptFilter=\'' + d.replace(/\'/g, '') + '\';loadUsers()">' + esc(d) + '<span>' + deptMap[d].length + '</span></div>';
+    });
+    html += '</div>';
+    const old = document.getElementById('mobDeptChipsWrap');
+    if (old) old.remove();
+    const wrap = document.createElement('div');
+    wrap.id = 'mobDeptChipsWrap';
+    wrap.innerHTML = html;
+    document.getElementById('userList').insertAdjacentElement('beforebegin', wrap);
+}
 async function loadUsers() {
     try {
         const res = await api('/api/users');
         const users = await res.json();
         const list = document.getElementById('userList');
-        list.innerHTML = users.map(u => `
+        renderMobDeptChips(users);
+        const shown = mobDeptFilter ? users.filter(u => (u.department || '未分配部门') === mobDeptFilter) : users;
+        list.innerHTML = shown.map(u => `
             <div class="user-item" style="position:relative;">
                 <div style="position:absolute;top:14px;left:14px;z-index:2;"><input type="checkbox" class="user-check" value="${u.id}" onchange="updateUserSelected()"></div>
                 <div class="info" style="padding-left:30px;">

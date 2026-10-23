@@ -398,6 +398,34 @@
             .btn, .btn-primary, .btn-submit, .btn-cancel { padding:9px 12px; font-size:13px; }
             .search-bar input { padding:10px 14px; }
         }
+            /* ===== 人员管理：树状矩形分区（Treemap）视图 ===== */
+        #contactBody { min-height:540px; }
+        .tree-wrap { position:relative; width:100%; height:540px; border-radius:16px; overflow:hidden; box-shadow:0 6px 24px rgba(0,0,0,0.10); background:#f5f6fa; }
+        .tree-dept { position:absolute; border-radius:10px; padding:10px 12px; overflow:hidden; cursor:pointer; transition:box-shadow .2s, filter .2s, z-index 0s; box-shadow:inset 0 0 0 1px rgba(255,255,255,0.35); }
+        .tree-dept:hover { filter:brightness(1.08); box-shadow:0 8px 22px rgba(0,0,0,0.20); z-index:6; }
+        .tree-dept-head { position:absolute; left:12px; top:8px; right:12px; display:flex; align-items:center; gap:8px; font-weight:700; font-size:14px; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,0.28); z-index:2; }
+        .tree-dept-head .cnt { font-weight:500; font-size:11px; background:rgba(255,255,255,0.28); padding:1px 9px; border-radius:10px; }
+        .tree-members { position:absolute; left:10px; right:10px; top:34px; bottom:8px; display:grid; gap:4px; z-index:1; }
+        .tree-leaf { border-radius:7px; background:rgba(255,255,255,0.30); display:flex; align-items:center; justify-content:center; font-size:12px; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,0.35); font-weight:600; cursor:pointer; overflow:hidden; transition:background .15s, transform .15s; }
+        .tree-leaf:hover { background:rgba(255,255,255,0.55); transform:scale(1.04); }
+        .tree-leaf.lg { font-size:14px; }
+        .tree-more { position:absolute; right:8px; bottom:4px; font-size:11px; color:rgba(255,255,255,0.9); text-shadow:0 1px 2px rgba(0,0,0,0.3); z-index:2; }
+        /* 部门成员弹窗 */
+        .dept-modal-mask { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.45); z-index:1200; align-items:center; justify-content:center; padding:20px; }
+        .dept-modal-mask.show { display:flex; }
+        .dept-modal { background:#fff; border-radius:16px; padding:22px; width:480px; max-width:94vw; max-height:80vh; overflow-y:auto; box-shadow:0 12px 40px rgba(0,0,0,0.25); }
+        .dept-modal .dm-title { font-size:17px; font-weight:700; margin-bottom:14px; display:flex; align-items:center; gap:8px; }
+        .dm-user { display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:10px; cursor:pointer; transition:background .15s; }
+        .dm-user:hover { background:#f4f5fb; }
+        .dm-user .av { width:34px; height:34px; border-radius:50%; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:600; flex-shrink:0; }
+        .dm-user .info { flex:1; min-width:0; }
+        .dm-user .info .n { font-size:14px; font-weight:600; color:#333; }
+        .dm-user .info .m { font-size:11px; color:#999; margin-top:2px; }
+        .dm-close { margin-top:14px; text-align:right; }
+        .dm-close button { padding:8px 22px; border:none; border-radius:10px; background:#667eea; color:#fff; cursor:pointer; font-size:13px; }
+        @media (max-width:767px) {
+            .tree-wrap { height:460px; }
+        }
     </style>
 </head>
 <body>
@@ -4126,6 +4154,144 @@ function delToolLink(id) {
         .then(({ok,data})=>{ ok ? loadToolLinks() : alert(data.detail||'删除失败'); })
         .catch(()=>alert('网络错误'));
     });
+}
+</script>
+<script>
+// ==================== 人员管理 Treemap（树状矩形分区） ====================
+function squarify(items, x, y, w, h) {
+    // 标准 Squarified Treemap 布局
+    var total = items.reduce(function(s, it){ return s + it.v; }, 0);
+    var res = [];
+    var rest = items.slice();
+    var cx = x, cy = y, cw = w, ch = h;
+    while (rest.length) {
+        var short = Math.min(cw, ch);
+        var row = [], rowSum = 0, bestWorst = Infinity, bestRow = null, bestSum = 0;
+        for (var j = 0; j < rest.length; j++) {
+            row.push(rest[j]); rowSum += rest[j].v;
+            var length = rowSum / total * (cw * ch) / short;
+            var worst = 0;
+            for (var k = 0; k < row.length; k++) {
+                var tw = row[k].v / rowSum * short;
+                var r = Math.max(tw / length, length / tw);
+                if (r > worst) worst = r;
+            }
+            if (worst < bestWorst) { bestWorst = worst; bestRow = row.slice(); bestSum = rowSum; }
+            else break;
+        }
+        row = bestRow; rowSum = bestSum;
+        rest = rest.slice(row.length);
+        var rowLen = rowSum / total * (cw * ch) / short;
+        if (cw >= ch) {
+            var acc = 0;
+            for (var m = 0; m < row.length; m++) {
+                var iw = row[m].v / rowSum * cw;
+                res.push({ x: cx + acc, y: cy, w: iw, h: rowLen, item: row[m].d });
+                acc += iw;
+            }
+            cy += rowLen; ch -= rowLen;
+        } else {
+            var acc2 = 0;
+            for (var n = 0; n < row.length; n++) {
+                var ih = row[n].v / rowSum * ch;
+                res.push({ x: cx, y: cy + acc2, w: rowLen, h: ih, item: row[n].d });
+                acc2 += ih;
+            }
+            cx += rowLen; cw -= rowLen;
+        }
+    }
+    return res;
+}
+var TREE_COLORS = ['#667eea','#f6a23c','#94a3b8','#4facfe','#56ab2f','#a855f7','#ef6c8f','#26c6da','#e8564f','#5c6bc0','#f9a825','#8d6e63'];
+var TREE_AVATAR = ['#667eea','#f5576c','#4facfe','#56ab2f','#7b1fa2','#2193b0','#ee9ca7','#134e5e','#eb3349','#0f2027','#ff9800','#00bcd4'];
+function renderContactTree() {
+    var body = document.getElementById('contactBody');
+    renderCohortTabs();
+    var users = allUsers.slice();
+    if (contactCohort !== 'all') {
+        users = users.filter(function(u){ return (u.cohort || '未设置届别') === contactCohort; });
+    }
+    var q = contactQuery.trim().toLowerCase();
+    if (q) {
+        users = users.filter(function(u){
+            return [u.real_name||'', u.username||'', u.department||'', u.phone||''].some(function(v){ return v.toLowerCase().includes(q); });
+        });
+    }
+    document.getElementById('contactCount').textContent = '共 ' + users.length + ' 位成员';
+    if (!users.length) {
+        body.innerHTML = '<div style="color:#999;text-align:center;padding:60px;">暂无成员</div>';
+        return;
+    }
+    var deptMap = {};
+    users.forEach(function(u){
+        var d = u.department || '未分配部门';
+        if (!deptMap[d]) deptMap[d] = [];
+        deptMap[d].push(u);
+    });
+    var depts = Object.keys(deptMap).map(function(d){ return { name: d, members: deptMap[d] }; });
+    var wrap = document.createElement('div');
+    wrap.className = 'tree-wrap';
+    body.innerHTML = '';
+    body.appendChild(wrap);
+    var W = Math.max(320, wrap.clientWidth || 800);
+    var H = 540;
+    var rects = squarify(depts.map(function(d){ return { v: Math.max(1, d.members.length), d: d }; }), 0, 0, W, H);
+    var html = '';
+    rects.forEach(function(r, di){
+        var dept = r.item;
+        var color = TREE_COLORS[di % TREE_COLORS.length];
+        var n = dept.members.length;
+        html += '<div class="tree-dept" style="left:' + r.x + 'px;top:' + r.y + 'px;width:' + r.w + 'px;height:' + r.h + 'px;background:' + color + ';" onclick="showDeptMembers(\'' + esc(dept.name) + '\')">';
+        html += '<div class="tree-dept-head"><span>' + esc(dept.name) + '</span><span class="cnt">' + n + '人</span></div>';
+        // 成员叶子网格
+        var innerW = r.w - 20, innerH = r.h - 42;
+        if (innerW > 20 && innerH > 16) {
+            var cols = Math.max(1, Math.ceil(Math.sqrt(n * innerW / Math.max(1, innerH))));
+            var rows = Math.ceil(n / cols);
+            var lw = (innerW - (cols - 1) * 4) / cols;
+            var lh = (innerH - (rows - 1) * 4) / rows;
+            html += '<div class="tree-members" style="grid-template-columns:repeat(' + cols + ',1fr);grid-template-rows:repeat(' + rows + ',1fr);">';
+            for (var i = 0; i < n; i++) {
+                var u = dept.members[i];
+                var nm = u.real_name || u.username || '?';
+                var showName = lw >= 52 && lh >= 22;
+                html += '<div class="tree-leaf' + (showName ? ' lg' : '') + '" title="' + esc(nm) + ' @' + esc(u.username||'') + '" onclick="event.stopPropagation();viewUserDetail(\'' + u.id + '\')">' + esc(showName ? nm : nm.charAt(0)) + '</div>';
+            }
+            html += '</div>';
+            if (n > cols * rows - 0) { html += ''; }
+        }
+        html += '</div>';
+    });
+    wrap.innerHTML = html;
+}
+function showDeptMembers(deptName) {
+    var users = allUsers.filter(function(u){ return (u.department || '未分配部门') === deptName; });
+    var mask = document.getElementById('deptModalMask');
+    if (!mask) {
+        mask = document.createElement('div');
+        mask.id = 'deptModalMask';
+        mask.className = 'dept-modal-mask';
+        mask.onclick = function(e){ if (e.target === mask) hideDeptModal(); };
+        document.body.appendChild(mask);
+    }
+    var avc = TREE_AVATAR;
+    var html = '<div class="dept-modal"><div class="dm-title"><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#667eea;"></span>' + esc(deptName) + '<span style="font-size:12px;color:#999;font-weight:400;">（' + users.length + ' 人）</span></div>';
+    users.forEach(function(u, i){
+        var nm = u.real_name || u.username || '?';
+        var roleTxt = u.role === 'admin' ? '管理员' : (u.position ? u.position : '成员');
+        html += '<div class="dm-user" onclick="viewUserDetail(\'' + u.id + '\')"><div class="av" style="background:' + avc[i % avc.length] + ';">' + esc(nm.charAt(0)) + '</div><div class="info"><div class="n">' + esc(nm) + ' <span style="font-size:11px;color:#888;font-weight:400;">@' + esc(u.username||'') + '</span></div><div class="m">' + esc(roleTxt) + (u.cohort ? ' · ' + esc(u.cohort) : '') + (u.phone ? ' · ' + esc(u.phone) : '') + '</div></div></div>';
+    });
+    html += '<div class="dm-close"><button onclick="hideDeptModal()">关闭</button></div></div>';
+    mask.innerHTML = html;
+    mask.classList.add('show');
+}
+function hideDeptModal() {
+    var m = document.getElementById('deptModalMask');
+    if (m) m.classList.remove('show');
+}
+// 覆盖旧版 renderContacts：切换通讯录主体为 Treemap 视图
+function renderContacts() {
+    renderContactTree();
 }
 </script>
 </body>
