@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "3.12.5"
+VERSION = "3.12.6"
 VERSION_DATE = "2026-10-23"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
@@ -2855,8 +2855,7 @@ def complete_activity_plan(plan_id: str, req: ActivityPlanComplete, conn=Depends
         raise HTTPException(status_code=404, detail="活动规划不存在")
     if plan["status"] == "done" and dict(plan).get("synced", 0):
         raise HTTPException(status_code=400, detail="该活动已完成并已同步到活动记录，请勿重复操作")
-    if user["role"] != "admin" and plan["creator_id"] != user["id"] \
-            and (not plan["department"] or user["department"] != plan["department"]):
+    if user["role"] != "admin" and (not plan["department"] or user["department"] != plan["department"]):
         raise HTTPException(status_code=403, detail="只有管理员或发起部门可以标记活动完成")
     # 确认框可修改的信息（未填写则沿用规划原值）
     title = (req.title or "").strip() or plan["title"]

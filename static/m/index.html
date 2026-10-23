@@ -1396,7 +1396,7 @@
                     const st = M_PLAN_STATUS[p.status] || M_PLAN_STATUS.planned;
                     const sameDept = curUser.department && p.department && curUser.department === p.department;
                     const curId = curUser.id || curUser.user_id;
-                    const canComplete = (curUser.role === 'admin') || (p.creator_id === curId) || sameDept;
+                    const canComplete = (curUser.role === 'admin') || sameDept;
                     const canEdit = (curUser.role === 'admin') || (p.creator_id === curId);
                     let ops = '';
                     if (canComplete || canEdit) {

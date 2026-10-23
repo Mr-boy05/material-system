@@ -1394,7 +1394,7 @@
                     const st = PLAN_STATUS_MAP[p.status] || PLAN_STATUS_MAP.planned;
                     const sameDept = curUser.department && p.department && curUser.department === p.department;
                     const curId = curUser.id || curUser.user_id;
-                    const canComplete = (curUser.role === 'admin') || (p.creator_id === curId) || sameDept;
+                    const canComplete = (curUser.role === 'admin') || sameDept;
                     const canEdit = (curUser.role === 'admin') || (p.creator_id === curId);
                     html += '<div class="plan-item ' + side + '">';
                     html += '<div class="plan-dot"></div>';
