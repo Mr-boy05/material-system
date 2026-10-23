@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "3.12.3"
+VERSION = "3.12.5"
 VERSION_DATE = "2026-10-23"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
@@ -2769,11 +2769,13 @@ def create_activity_plan(req: ActivityPlanCreate, conn=Depends(get_db), user=Dep
         raise HTTPException(status_code=400, detail="请选择计划日期")
     plan_id = str(uuid.uuid4())
     plan_type = req.plan_type if req.plan_type in ("activity", "meeting") else "activity"
+    # 部门未选择时，自动带出创建人所在部门（管理员可自由选择）
+    dept = (req.department or "").strip() or (user.get("department") or "").strip()
     cur = conn.cursor()
     cur.execute("""
         INSERT INTO activity_plans (id, title, department, plan_date, location, description, status, plan_type, creator_id)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (plan_id, req.title.strip(), req.department.strip(), req.plan_date.strip(),
+    """, (plan_id, req.title.strip(), dept, req.plan_date.strip(),
           req.location.strip(), req.description.strip(), req.status, plan_type, user["id"]))
     conn.commit()
     return {"success": True, "message": "活动规划已创建", "id": plan_id}
@@ -2785,9 +2787,8 @@ def update_activity_plan(plan_id: str, req: ActivityPlanUpdate, conn=Depends(get
     plan = cur.fetchone()
     if not plan:
         raise HTTPException(status_code=404, detail="活动规划不存在")
-    if user["role"] != "admin" and plan["creator_id"] != user["id"] \
-            and (not plan["department"] or user["department"] != plan["department"]):
-        raise HTTPException(status_code=403, detail="只有管理员或发起部门可以编辑该活动规划")
+    if user["role"] != "admin" and plan["creator_id"] != user["id"]:
+        raise HTTPException(status_code=403, detail="只有管理员或创建人可以编辑该活动规划")
     updates = []
     params = []
     if req.title is not None:
@@ -2826,9 +2827,8 @@ def delete_activity_plan(plan_id: str, conn=Depends(get_db), user=Depends(get_cu
     plan = cur.fetchone()
     if not plan:
         raise HTTPException(status_code=404, detail="活动规划不存在")
-    if user["role"] != "admin" and plan["creator_id"] != user["id"] \
-            and (not plan["department"] or user["department"] != plan["department"]):
-        raise HTTPException(status_code=403, detail="只有管理员或发起部门可以删除该活动规划")
+    if user["role"] != "admin" and plan["creator_id"] != user["id"]:
+        raise HTTPException(status_code=403, detail="只有管理员或创建人可以删除该活动规划")
     # 联动删除：如果该规划已同步生成活动记录与考勤记录，一并同步删除
     linked_act_id = dict(plan).get("activity_id", "")
     cur.execute("DELETE FROM activity_plans WHERE id=?", (plan_id,))

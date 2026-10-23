@@ -1393,7 +1393,9 @@
                     globalIdx++;
                     const st = PLAN_STATUS_MAP[p.status] || PLAN_STATUS_MAP.planned;
                     const sameDept = curUser.department && p.department && curUser.department === p.department;
-                    const canEdit = (curUser.role === 'admin') || (p.creator_id === curUser.id) || sameDept;
+                    const curId = curUser.id || curUser.user_id;
+                    const canComplete = (curUser.role === 'admin') || (p.creator_id === curId) || sameDept;
+                    const canEdit = (curUser.role === 'admin') || (p.creator_id === curId);
                     html += '<div class="plan-item ' + side + '">';
                     html += '<div class="plan-dot"></div>';
                     html += '<div class="plan-card">';
@@ -1406,9 +1408,9 @@
                     html += '</div>';
                     if (p.description) html += '<div class="p-desc">' + esc(p.description) + '</div>';
                     html += '<div class="p-ops">';
-                    // 未完成的活动可"标记完成"并同步到活动记录
+                    // 未完成的活动可"标记完成"并同步到活动记录（管理员/创建人/同部门）
                     if (p.status !== 'done') {
-                        if (canEdit) {
+                        if (canComplete) {
                             html += '<button onclick="openCompletePlanModal(\'' + p.id + '\')" style="background:#e8f5e9;color:#2e7d32;border-color:#c8e6c9;">✅ 完成</button>';
                         }
                     } else {
@@ -1449,7 +1451,7 @@
             document.getElementById('planId').value = plan ? plan.id : '';
             document.getElementById('planTitle').value = plan ? plan.title : '';
             document.getElementById('planType').value = plan ? (plan.plan_type || 'activity') : 'activity';
-            document.getElementById('planDept').value = plan ? (plan.department||'') : '';
+            document.getElementById('planDept').value = plan ? (plan.department||'') : (JSON.parse(localStorage.getItem('user')||'{}').department||'');
             document.getElementById('planDate').value = plan ? (plan.plan_date||'') : '';
             document.getElementById('planLocation').value = plan ? (plan.location||'') : '';
             document.getElementById('planStatus').value = plan ? (plan.status||'planned') : 'planned';

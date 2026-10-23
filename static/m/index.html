@@ -1395,10 +1395,12 @@
                 months[m].sort((a,b)=>(a.plan_date||'').localeCompare(b.plan_date||'')).forEach(p=>{
                     const st = M_PLAN_STATUS[p.status] || M_PLAN_STATUS.planned;
                     const sameDept = curUser.department && p.department && curUser.department === p.department;
-                    const canEdit = (curUser.role === 'admin') || (p.creator_id === curUser.id) || sameDept;
+                    const curId = curUser.id || curUser.user_id;
+                    const canComplete = (curUser.role === 'admin') || (p.creator_id === curId) || sameDept;
+                    const canEdit = (curUser.role === 'admin') || (p.creator_id === curId);
                     let ops = '';
-                    if (canEdit) {
-                        if (p.status !== 'done') {
+                    if (canComplete || canEdit) {
+                        if (canComplete && p.status !== 'done') {
                             ops += '<button style="background:#e8f5e9;color:#2e7d32;border-color:#c8e6c9;" onclick="openMCompletePlanModal(\'' + p.id + '\')">✅ 完成</button>';
                         } else {
                             ops += '<button style="background:rgba(255,255,255,0.06);color:#999;border-color:rgba(255,255,255,0.1);cursor:default;">✔ 已同步</button>';
@@ -1427,6 +1429,7 @@
             document.getElementById('mPlanTitle').value = '';
             document.getElementById('mPlanType').value = 'activity';
             document.getElementById('mPlanDept').innerHTML = '<option value="">请选择部门</option>' + (mPlanDepts||[]).map(d=>'<option value="'+escM(d)+'">'+escM(d)+'</option>').join('');
+            document.getElementById('mPlanDept').value = (user && user.department) ? user.department : '';
             document.getElementById('mPlanDate').value = '';
             document.getElementById('mPlanLocation').value = '';
             document.getElementById('mPlanStatus').value = 'planned';
