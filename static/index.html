@@ -35,20 +35,20 @@
         #sonarCanvas { position:fixed; inset:0; z-index:0; pointer-events:none; }
 
         /* ===== 左上角 Dock 码头导航 ===== */
-        .dock-bar { position:fixed; top:14px; left:14px; right:auto; z-index:300; display:flex; align-items:center; gap:8px; background:rgba(26,26,46,0.92); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border-radius:18px; padding:8px 12px; box-shadow:0 10px 30px rgba(0,0,0,0.24); border:1px solid rgba(255,255,255,0.09); color:#fff; max-width:calc(100vw - 28px); }
+        .dock-bar { position:fixed; top:16px; left:16px; right:16px; z-index:300; display:flex; align-items:center; gap:10px; background:rgba(26,26,46,0.92); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border-radius:20px; padding:18px 16px 14px; box-shadow:0 10px 30px rgba(0,0,0,0.24); border:1px solid rgba(255,255,255,0.09); color:#fff; max-width:none; }
         .dock-brand { display:flex; align-items:center; gap:8px; padding-right:10px; border-right:1px solid rgba(255,255,255,0.14); flex-shrink:0; }
         .dock-brand img { height:26px; width:auto; object-fit:contain; }
         .dock-brand-text { line-height:1.35; white-space:nowrap; }
         .dock-brand-text .t1 { font-size:12px; font-weight:700; color:#fff; }
         .dock-brand-text .t2 { font-size:10px; color:rgba(255,255,255,0.55); }
-        .dock-nav { display:flex; align-items:center; gap:2px; overflow-x:auto; scrollbar-width:none; -ms-overflow-style:none; }
+        .dock-nav { display:flex; align-items:center; justify-content:center; gap:4px; flex:1; min-width:0; overflow-x:auto; scrollbar-width:none; -ms-overflow-style:none; }
         .dock-nav::-webkit-scrollbar { display:none; }
         .dock-item { position:relative; width:44px; height:44px; flex-shrink:0; display:flex; align-items:center; justify-content:center; border-radius:12px; cursor:pointer; font-size:20px; color:rgba(255,255,255,0.85); transition:background .15s, box-shadow .15s; transform-origin:bottom center; }
         .dock-item .di { line-height:1; }
         .dock-item:hover { background:rgba(255,255,255,0.14); color:#fff; }
         .dock-item.active { background:rgba(79,70,229,0.5); box-shadow:0 0 0 2px rgba(129,140,248,0.6); color:#fff; }
         .dock-item.active::after { content:''; position:absolute; bottom:3px; left:50%; transform:translateX(-50%); width:5px; height:5px; border-radius:50%; background:#818cf8; }
-        .dock-tip { position:absolute; bottom:calc(100% + 10px); left:50%; transform:translateX(-50%) translateY(4px); background:#1e293b; color:#fff; font-size:11px; padding:4px 10px; border-radius:6px; white-space:nowrap; opacity:0; pointer-events:none; transition:opacity .15s, transform .15s; z-index:40; box-shadow:0 4px 14px rgba(0,0,0,0.25); }
+        .dock-tip { position:absolute; bottom:calc(100% + 12px); left:50%; transform:translateX(-50%) translateY(4px); background:#1e293b; color:#fff; font-size:11px; padding:4px 10px; border-radius:6px; white-space:nowrap; opacity:0; pointer-events:none; transition:opacity .15s, transform .15s; z-index:40; box-shadow:0 4px 14px rgba(0,0,0,0.25); }
         .dock-item:hover .dock-tip { opacity:1; transform:translateX(-50%) translateY(0); }
         .dock-user { display:flex; align-items:center; gap:4px; padding-left:10px; border-left:1px solid rgba(255,255,255,0.14); flex-shrink:0; }
         .dock-user .uname { font-size:12px; font-weight:600; margin-right:2px; white-space:nowrap; }
@@ -788,13 +788,13 @@
     
         /* ===== Dock 响应式覆盖（覆盖旧 sidebar 响应式规则，因后定义同优先级胜出） ===== */
         @media (max-width:1439px) {
-            .dock-bar { max-width:calc(100vw - 20px); }
+            .dock-bar { gap:8px; }
             .dock-brand-text .t2 { display:none; }
             .dock-item { width:40px; height:40px; font-size:18px; }
             .main { margin-left:0; margin-top:88px; }
         }
         @media (max-width:1023px) {
-            .dock-bar { top:10px; left:10px; padding:6px 10px; gap:6px; }
+            .dock-bar { top:10px; left:10px; right:10px; padding:14px 10px 12px; gap:6px; }
             .dock-brand-text { display:none; }
             .dock-brand { padding-right:8px; }
             .dock-user .uname, .dock-user .role { display:none; }
