@@ -55,6 +55,9 @@
         .dock-user .role { font-size:10px; color:rgba(255,255,255,0.55); margin-right:4px; white-space:nowrap; }
         .dock-user .dock-item { width:34px; height:34px; font-size:15px; border-radius:10px; }
         .dock-ver { font-size:11px; color:rgba(255,255,255,0.45); cursor:pointer; margin-left:6px; white-space:nowrap; padding:4px 6px; border-radius:6px; }
+        .dock-resize { position:absolute; right:-4px; top:10%; bottom:10%; width:8px; cursor:ew-resize; background:rgba(129,140,248,0.4); border-radius:4px; transition:background .15s; }
+        .dock-resize:hover { background:rgba(129,140,248,0.8); }
+        .dock-resize::after { content:''; position:absolute; left:3px; top:50%; transform:translateY(-50%); width:2px; height:26px; border-radius:2px; background:rgba(255,255,255,0.6); }
         .dock-ver:hover { color:#fff; background:rgba(255,255,255,0.1); }
 
         /* 右侧内容 */
@@ -475,8 +478,9 @@
 </head>
 <body>
 <canvas id="sonarCanvas" aria-hidden="true"></canvas>
-    <!-- 左上角 Dock 码头导航 -->
+    <!-- 左侧悬浮 Dock 码头导航 -->
     <div class="dock-bar" id="dockBar">
+        <div class="dock-resize" id="dockResize" title="拖动调整宽度"></div>
         <div class="dock-brand">
             <img src="/static/logo.png" alt="系统logo">
             <div class="dock-brand-text">
@@ -759,7 +763,7 @@
             </div>
             <div class="form-card">
                 <div style="font-weight:600;margin-bottom:12px;">🧰 工具列表 <span style="font-size:12px;color:#999;font-weight:400;">（点击即可使用，所有用户可编辑）</span></div>
-                <div id="toolLinkList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;"></div>
+                <div id="toolLinkList" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;"></div>
             </div>
         </div>
 
@@ -827,6 +831,11 @@
         .dock-bar.compact .dock-item { width:44px; min-width:44px; padding:0; }
         .dock-bar.compact .dl { display:none; }
         .dock-bar.compact .dock-user .dock-item { width:34px; min-width:34px; }
+
+        /* ===== 小工具卡片响应式列数 ===== */
+        @media (max-width:900px) { #toolLinkList { grid-template-columns:repeat(3,1fr); } }
+        @media (max-width:640px) { #toolLinkList { grid-template-columns:repeat(2,1fr); } }
+        @media (max-width:420px) { #toolLinkList { grid-template-columns:1fr; } }
 </style>
             <div class="page-title">🎭 活动中心</div>
             <div style="display:flex;gap:10px;margin-bottom:16px;border-bottom:2px solid #eef0f6;padding-bottom:10px;">
@@ -1320,33 +1329,6 @@
             }
         }
 
-        // ===== 左上角 Dock 磁吸放大（鱼眼效果） =====
-        (function(){
-            const nav = document.getElementById('dockNav');
-            if (!nav) return;
-            let timer = null;
-            function applyScale(ev){
-                const its = nav.querySelectorAll('.dock-item');
-                its.forEach(it=>{
-                    const r = it.getBoundingClientRect();
-                    const cy = r.top + r.height / 2;
-                    const d = Math.abs(ev.clientY - cy);
-                    let sc = 1;
-                    if (d < 150) sc = 1 + (150 - d) / 150 * 0.6;
-                    it.style.transform = 'scale(' + sc.toFixed(3) + ')';
-                    it.style.zIndex = sc > 1.05 ? 10 : 1;
-                });
-            }
-            function resetScale(){
-                nav.querySelectorAll('.dock-item').forEach(it=>{ it.style.transform=''; it.style.zIndex=''; });
-            }
-            nav.addEventListener('mousemove', function(ev){
-                clearTimeout(timer);
-                timer = setTimeout(function(){ applyScale(ev); }, 8);
-            });
-            nav.addEventListener('mouseleave', resetScale);
-        })();
-
         // ===== Dock 文字自适应：放不下自动收起为纯图标 =====
         function fitDock() {
             const bar = document.getElementById('dockBar');
@@ -1354,12 +1336,46 @@
             if (!bar || !nav) return;
             const was = bar.classList.contains('compact');
             if (was) bar.classList.remove('compact');
-            const need = nav.scrollHeight > nav.clientHeight + 4;
+            const need = nav.scrollHeight > nav.clientHeight + 4 || nav.scrollWidth > nav.clientWidth + 4;
             if (need) bar.classList.add('compact');
         }
         window.addEventListener('resize', fitDock);
         window.addEventListener('load', fitDock);
         setTimeout(fitDock, 300);
+
+        // ===== Dock 宽度拖拽（紫色把手：左拖缩小，右拖放大） =====
+        (function(){
+            const bar = document.getElementById('dockBar');
+            const main = document.querySelector('.main');
+            const handle = document.getElementById('dockResize');
+            if (!bar || !main || !handle) return;
+            let dragging = false, startX = 0, startW = 0;
+            function applyW(w){
+                w = Math.max(64, Math.min(300, w));
+                bar.style.width = w + 'px';
+                const r = bar.getBoundingClientRect();
+                main.style.marginLeft = (Math.round(r.right) + 16) + 'px';
+                if (window.fitDock) fitDock();
+            }
+            handle.addEventListener('mousedown', function(e){
+                if (window.innerWidth <= 767) return;
+                dragging = true;
+                startX = e.clientX;
+                startW = bar.getBoundingClientRect().width;
+                e.preventDefault();
+            });
+            window.addEventListener('mousemove', function(e){
+                if (!dragging) return;
+                applyW(startW + (e.clientX - startX));
+            });
+            window.addEventListener('mouseup', function(){
+                if (dragging) { dragging = false; try { localStorage.setItem('dockW', String(bar.getBoundingClientRect().width)); } catch(e){} }
+            });
+            try {
+                const saved = parseFloat(localStorage.getItem('dockW'));
+                if (saved && window.innerWidth > 767) applyW(saved);
+            } catch(e){}
+        })();
 
         function switchPage(id, btn) {
             document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
