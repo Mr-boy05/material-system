@@ -35,33 +35,38 @@
         #sonarCanvas { position:fixed; inset:0; z-index:0; pointer-events:none; }
 
         /* ===== 左上角 Dock 码头导航 ===== */
-        .dock-bar { position:fixed; top:14px; left:14px; bottom:14px; z-index:300; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:10px; background:rgba(26,26,46,0.92); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border-radius:20px; padding:16px 12px; box-shadow:0 10px 30px rgba(0,0,0,0.24); border:1px solid rgba(255,255,255,0.09); color:#fff; }
-        .dock-brand { display:flex; flex-direction:column; align-items:center; gap:8px; padding:6px 4px 14px; border-right:none; border-bottom:1px solid rgba(255,255,255,0.14); flex-shrink:0; }
-        .dock-brand img { height:26px; width:auto; object-fit:contain; }
-        .dock-brand-text { line-height:1.4; white-space:nowrap; text-align:center; }
-        .dock-brand-text .t1 { font-size:12px; font-weight:700; color:#fff; }
-        .dock-brand-text .t2 { font-size:10px; color:rgba(255,255,255,0.55); }
-        .dock-nav { display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:6px; flex:1; min-height:0; overflow-y:auto; scrollbar-width:none; -ms-overflow-style:none; }
-        .dock-nav::-webkit-scrollbar { display:none; }
-        .dock-item { position:relative; width:auto; min-width:56px; height:44px; padding:0 12px; gap:8px; flex-shrink:0; display:flex; align-items:center; justify-content:flex-start; border-radius:12px; cursor:pointer; font-size:20px; color:rgba(255,255,255,0.85); transition:background .15s, box-shadow .15s; transform-origin:center center; }
-        .dock-item .di { line-height:1; }
-        .dock-item:hover { background:rgba(255,255,255,0.14); color:#fff; }
-        .dock-item.active { background:rgba(79,70,229,0.5); box-shadow:0 0 0 2px rgba(129,140,248,0.6); color:#fff; }
-        .dock-item.active::after { content:''; position:absolute; bottom:3px; left:50%; transform:translateX(-50%); width:5px; height:5px; border-radius:50%; background:#818cf8; }
-        .dock-tip { position:absolute; left:calc(100% + 10px); top:50%; transform:translateY(-50%) translateX(4px); background:#1e293b; color:#fff; font-size:11px; padding:4px 10px; border-radius:6px; white-space:nowrap; opacity:0; pointer-events:none; transition:opacity .15s, transform .15s; z-index:40; box-shadow:0 4px 14px rgba(0,0,0,0.25); }
-        .dock-item:hover .dock-tip { opacity:1; transform:translateY(-50%) translateX(0); }
-        .dock-user { display:flex; flex-direction:column; align-items:center; gap:6px; padding-top:12px; border-left:none; border-top:1px solid rgba(255,255,255,0.14); flex-shrink:0; }
-        .dock-user .uname { font-size:12px; font-weight:600; margin-right:2px; white-space:nowrap; }
-        .dock-user .role { font-size:10px; color:rgba(255,255,255,0.55); margin-right:4px; white-space:nowrap; }
-        .dock-user .dock-item { width:34px; height:34px; font-size:15px; border-radius:10px; }
-        .dock-ver { font-size:11px; color:rgba(255,255,255,0.45); cursor:pointer; margin-left:6px; white-space:nowrap; padding:4px 6px; border-radius:6px; }
-        .dock-resize { position:absolute; right:-4px; top:10%; bottom:10%; width:8px; cursor:ew-resize; background:rgba(129,140,248,0.4); border-radius:4px; transition:background .15s; }
-        .dock-resize:hover { background:rgba(129,140,248,0.8); }
-        .dock-resize::after { content:''; position:absolute; left:3px; top:50%; transform:translateY(-50%); width:2px; height:26px; border-radius:2px; background:rgba(255,255,255,0.6); }
-        .dock-ver:hover { color:#fff; background:rgba(255,255,255,0.1); }
+                /* 左侧导航 */
+        .sidebar { width:256px; background:#1a1a2e; color:white; display:flex; flex-direction:column; position:fixed; left:12px; top:12px; bottom:12px; border-radius:12px; overflow-y:auto; overflow-x:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06); z-index:1; }
+        .sidebar .logo { padding:16px 16px; font-size:14px; font-weight:700; border-bottom:1px solid rgba(255,255,255,0.1); display:flex; flex-direction:column; align-items:center; gap:8px; }
+        .sidebar .logo img { width:100%; height:auto; max-height:50px; object-fit:contain; }
+        .sidebar .nav { flex:1; padding:12px 0; }
+        .sidebar .nav-item { padding:10px 16px; margin:2px 10px; border-radius:10px; cursor:pointer; font-size:14px; display:flex; align-items:center; gap:10px; transition:all 0.2s ease-in-out; color:rgba(255,255,255,0.65); border-left:none; }
+        .sidebar .nav-item:hover { background:rgba(255,255,255,0.08); color:white; }
+        .sidebar .nav-item.active { background:rgba(79,70,229,0.3); color:white; }
+        .sidebar .nav-item .icon { font-size:18px; width:22px; text-align:center; }
+        .sidebar .nav-dropdown { justify-content:space-between; }
+        .sidebar .nav-dropdown .dropdown-arrow { font-size:10px; transition:transform 0.2s; }
+        .sidebar .nav-dropdown.open .dropdown-arrow { transform:rotate(180deg); }
+        .sidebar .dropdown-menu { display:none; background:rgba(0,0,0,0.2); }
+        .sidebar .dropdown-menu.show { display:block; }
+        .sidebar .dropdown-item { padding:10px 20px 10px 50px; cursor:pointer; font-size:13px; display:flex; align-items:center; gap:8px; transition:all 0.2s; color:rgba(255,255,255,0.6); }
+        .sidebar .dropdown-item:hover { background:rgba(255,255,255,0.08); color:white; }
+        .sidebar .dropdown-item.active { background:rgba(59,130,246,0.15); color:white; }
+        .sidebar .dropdown-item .icon { font-size:15px; width:18px; text-align:center; }
+        .sidebar .user-box { padding:16px 20px; border-top:1px solid rgba(255,255,255,0.1); }
+        .sidebar .user-box .name { font-size:14px; font-weight:600; }
+        .sidebar .user-box .role { font-size:11px; color:rgba(255,255,255,0.5); margin-top:2px; }
+        .sidebar .user-box .logout { margin-top:10px; width:100%; padding:8px; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); color:white; border-radius:6px; cursor:pointer; font-size:12px; }
+        .sidebar .user-box .logout:hover { background:rgba(255,255,255,0.2); }
+        .sidebar-version { padding:12px 20px; border-top:1px solid rgba(255,255,255,0.1); text-align:center; cursor:pointer; }
+        .sidebar-version .ver { font-size:12px; color:rgba(255,255,255,0.5); }
+        .sidebar-version .ver:hover { color:rgba(255,255,255,0.8); }
+        .sidebar-version .changelog-tip { font-size:10px; color:rgba(255,255,255,0.3); margin-top:2px; }
+        .sidebar-version .copyright { font-size:10px; color:rgba(255,255,255,0.3); margin-top:6px; line-height:1.5; cursor:default; }
+        .sidebar-version .copyright:hover { color:rgba(255,255,255,0.3); }
 
         /* 右侧内容 */
-        .main { flex:1; margin-left:250px; margin-top:0; padding:24px; min-width:0; position:relative; z-index:1; }
+        .main { flex:1; margin-left:280px; padding:24px; min-width:0; position:relative; z-index:1; }
         .page { display:none; }
         .page.active { display:block; }
         .page-title { font-size:20px; font-weight:700; color:#333; margin-bottom:18px; }
@@ -478,15 +483,50 @@
 </head>
 <body>
 <canvas id="sonarCanvas" aria-hidden="true"></canvas>
-    <!-- 左侧悬浮 Dock 码头导航 -->
-    <div class="dock-bar" id="dockBar">
-        <div class="dock-resize" id="dockResize" title="拖动调整宽度"></div>
-        <div class="dock-brand">
-            <img src="/static/logo.png" alt="系统logo">
-            <div class="dock-brand-text">
-                <div class="t1">城治学生会综合管理系统</div>
-                <div class="t2">重庆超大城市数字化治理学院</div>
+    <!-- 左侧导航 -->
+    <div class="sidebar">
+        <div class="logo">
+            <img src="/static/college_logo_white.png" alt="重庆超大城市数字化治理学院" style="width:100%;height:auto;object-fit:contain;margin-bottom:10px;">
+            <div style="display:flex;align-items:center;justify-content:center;gap:8px;">
+                <img src="/static/logo.png" alt="系统logo" style="width:32px;height:32px;object-fit:contain;border-radius:6px;">
+                <span id="systemName" style="font-size:12px;color:rgba(255,255,255,0.8);font-weight:500;">城治学生会综合管理系统</span>
             </div>
+        </div>
+        <div class="nav">
+            <div class="nav-item admin-only" onclick="location.href='/dashboard'"><span class="icon">📊</span>数据大屏</div>
+            <div class="nav-item admin-only" onclick="switchPage('page-users',this)"><span class="icon">👥</span>人员管理</div>
+            <div class="nav-item" onclick="switchPage('page-attendance',this)"><span class="icon">✅</span>考勤记录</div>
+            <div class="nav-item nav-dropdown admin-only" onclick="toggleDropdown(this)">
+                <span class="icon">📦</span>物资管理 <span class="dropdown-arrow">▼</span>
+            </div>
+            <div class="dropdown-menu admin-only">
+                <div class="dropdown-item" onclick="switchPage('page-materials',this)"><span class="icon">📋</span>物资列表</div>
+                <div class="dropdown-item" onclick="switchPage('page-borrow-return',this)"><span class="icon">🔄</span>领取归还</div>
+                <div class="dropdown-item" onclick="switchPage('page-records',this)"><span class="icon">📝</span>领用记录</div>
+            </div>
+            <!-- 普通用户专属菜单 -->
+            <div class="nav-item user-only" onclick="location.href='/dashboard'"><span class="icon">📊</span>数据大屏</div>
+            <div class="nav-item user-only" onclick="switchPage('page-borrow-return',this)"><span class="icon">🔄</span>物资领取归还</div>
+            <div class="nav-item user-only" onclick="switchPage('page-materials',this)"><span class="icon">🔍</span>物资查询</div>
+            <div class="nav-item user-only" onclick="switchPage('page-records',this)"><span class="icon">📋</span>我的记录</div>
+            <div class="nav-item" onclick="switchPage('page-skills',this)"><span class="icon">📚</span>技能文档</div>
+            <div class="nav-item" onclick="switchPage('page-tools',this)"><span class="icon">🔧</span>小工具</div>
+            <div class="nav-item" onclick="switchPage('page-activity-center',this)"><span class="icon">🎭</span>活动中心</div>
+            <div class="nav-item" onclick="goMobile()"><span class="icon">📱</span>手机端</div>
+        </div>
+        <div class="user-box">
+            <div class="name" id="userName">管理员</div>
+            <div class="role" id="userRole">管理员</div>
+            <button class="logout" style="margin-top:8px;background:rgba(102,126,234,0.3);border:1px solid rgba(102,126,234,0.5);" onclick="openProfile()">⚙️ 个人设置</button>
+            <button class="logout" onclick="logout()">退出登录</button>
+        </div>
+        <div class="sidebar-version" onclick="openChangelog()">
+            <div class="ver" id="sidebarVersion">v1.4.0</div>
+            <div class="changelog-tip">点击查看更新日志</div>
+            <div class="copyright" onclick="event.stopPropagation()">© 2026 重庆超大城市<br>数字化治理学院 版权所有</div>
+        </div>
+    </div>
+
         </div>
         <div class="dock-nav" id="dockNav">
             <div class="dock-item admin-only" onclick="location.href='/dashboard'" title="数据大屏"><span class="di">📊</span><span class="dl">数据大屏</span><span class="dock-tip">数据大屏</span></div>
@@ -799,39 +839,6 @@
                 .plan-empty{text-align:center;color:#999;padding:60px 0;font-size:14px;}
             
     
-        /* ===== Dock 响应式覆盖（覆盖旧 sidebar 响应式规则，因后定义同优先级胜出） ===== */
-        @media (max-width:1439px) {
-            .dock-bar { gap:8px; padding:14px 10px; }
-            .dock-brand-text .t2 { display:none; }
-            .dock-item { height:40px; font-size:18px; }
-            .main { margin-left:230px; padding:20px; }
-        }
-        @media (max-width:1023px) {
-            .dock-bar { top:10px; left:10px; bottom:10px; padding:12px 8px; gap:6px; }
-            .dock-brand-text { display:none; }
-            .dock-user .uname, .dock-user .role { display:none; }
-            .dock-ver { display:none; }
-            .dock-item { height:38px; font-size:17px; }
-            .dock-user .dock-item { width:32px; min-width:32px; height:32px; padding:0; font-size:14px; }
-            .main { margin-left:200px; padding:16px; }
-        }
-        @media (max-width:767px) {
-            .dock-bar { top:8px; left:8px; bottom:8px; padding:12px 6px; gap:6px; border-radius:16px; }
-            .dock-brand-text { display:none; }
-            .dock-user .uname, .dock-user .role { display:none; }
-            .dock-ver { display:none; }
-            .dock-user .dock-item:first-child { display:none; }
-            .dock-item { min-width:44px; width:44px; padding:0; }
-            .main { margin-left:64px; padding:12px; }
-        }
-
-        /* ===== Dock 图标文字（.dl）与自适应收起 ===== */
-        .dock-item .dl { font-size:12px; font-weight:500; white-space:nowrap; color:rgba(255,255,255,0.88); }
-        .dock-item.active .dl { color:#fff; }
-        .dock-bar.compact .dock-item { width:44px; min-width:44px; padding:0; }
-        .dock-bar.compact .dl { display:none; }
-        .dock-bar.compact .dock-user .dock-item { width:34px; min-width:34px; }
-
         /* ===== 小工具卡片响应式列数 ===== */
         @media (max-width:900px) { #toolLinkList { grid-template-columns:repeat(3,1fr); } }
         @media (max-width:640px) { #toolLinkList { grid-template-columns:repeat(2,1fr); } }
@@ -1329,58 +1336,10 @@
             }
         }
 
-        // ===== Dock 文字自适应：放不下自动收起为纯图标 =====
-        function fitDock() {
-            const bar = document.getElementById('dockBar');
-            const nav = document.getElementById('dockNav');
-            if (!bar || !nav) return;
-            const was = bar.classList.contains('compact');
-            if (was) bar.classList.remove('compact');
-            const need = nav.scrollHeight > nav.clientHeight + 4 || nav.scrollWidth > nav.clientWidth + 4;
-            if (need) bar.classList.add('compact');
-        }
-        window.addEventListener('resize', fitDock);
-        window.addEventListener('load', fitDock);
-        setTimeout(fitDock, 300);
-
-        // ===== Dock 宽度拖拽（紫色把手：左拖缩小，右拖放大） =====
-        (function(){
-            const bar = document.getElementById('dockBar');
-            const main = document.querySelector('.main');
-            const handle = document.getElementById('dockResize');
-            if (!bar || !main || !handle) return;
-            let dragging = false, startX = 0, startW = 0;
-            function applyW(w){
-                w = Math.max(64, Math.min(300, w));
-                bar.style.width = w + 'px';
-                const r = bar.getBoundingClientRect();
-                main.style.marginLeft = (Math.round(r.right) + 16) + 'px';
-                if (window.fitDock) fitDock();
-            }
-            handle.addEventListener('mousedown', function(e){
-                if (window.innerWidth <= 767) return;
-                dragging = true;
-                startX = e.clientX;
-                startW = bar.getBoundingClientRect().width;
-                e.preventDefault();
-            });
-            window.addEventListener('mousemove', function(e){
-                if (!dragging) return;
-                applyW(startW + (e.clientX - startX));
-            });
-            window.addEventListener('mouseup', function(){
-                if (dragging) { dragging = false; try { localStorage.setItem('dockW', String(bar.getBoundingClientRect().width)); } catch(e){} }
-            });
-            try {
-                const saved = parseFloat(localStorage.getItem('dockW'));
-                if (saved && window.innerWidth > 767) applyW(saved);
-            } catch(e){}
-        })();
-
         function switchPage(id, btn) {
             document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
             document.getElementById(id).classList.add('active');
-            document.querySelectorAll('.nav-item, .dropdown-item, .dock-item').forEach(b=>b.classList.remove('active'));
+            document.querySelectorAll('.nav-item, .dropdown-item').forEach(b=>b.classList.remove('active'));
             if (btn) btn.classList.add('active');
             if (id==='page-materials') loadMaterials();
             if (id==='page-borrow-return') { loadMaterialSelect('borrowMaterial'); loadBorrowedSelect(); }
