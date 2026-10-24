@@ -84,12 +84,14 @@
         .fab { position:fixed; bottom:85px; right:18px; width:56px; height:56px; border-radius:50%; background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); color:white; border:none; font-size:28px; cursor:pointer; box-shadow:0 6px 20px rgba(102,126,234,0.4); z-index:90; display:flex; align-items:center; justify-content:center; }
         .fab:active { transform:scale(0.92); }
 
-        /* 底部导航 */
-        .tab-bar { position:fixed; bottom:0; left:0; right:0; background:white; display:flex; box-shadow:0 -2px 12px rgba(0,0,0,0.06); z-index:100; padding-bottom:env(safe-area-inset-bottom); }
-        .tab-item { flex:1; text-align:center; padding:10px 0 8px; cursor:pointer; color:#999; transition:all 0.2s; }
-        .tab-item.active { color:#667eea; }
-        .tab-item .icon { font-size:22px; }
-        .tab-item .label { font-size:11px; margin-top:2px; font-weight:500; }
+        /* 底部导航（码头 Dock 悬浮样式） */
+        .tab-bar { position:fixed; bottom:14px; left:50%; transform:translateX(-50%); background:rgba(26,26,46,0.94); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border-radius:24px; display:flex; align-items:center; gap:2px; padding:8px 10px; box-shadow:0 12px 32px rgba(0,0,0,0.28); z-index:300; border:1px solid rgba(255,255,255,0.10); max-width:96vw; }
+        .tab-item { width:56px; text-align:center; padding:6px 4px 5px; cursor:pointer; color:rgba(255,255,255,0.65); border-radius:16px; transition:background 0.18s, color 0.18s; position:relative; }
+        .tab-item.active { color:#fff; background:rgba(79,70,229,0.5); }
+        .tab-item.active::after { content:''; position:absolute; bottom:2px; left:50%; transform:translateX(-50%); width:4px; height:4px; border-radius:50%; background:#818cf8; }
+        .tab-item .icon { font-size:21px; line-height:1; }
+        .tab-item .label { font-size:10px; margin-top:3px; font-weight:500; }
+        .page { padding-bottom:92px; }
 
         /* 表单弹窗 */
         .modal-mask { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:200; align-items:flex-end; justify-content:center; }
@@ -296,7 +298,7 @@
 </div>
 
 <!-- 底部导航 -->
-<div class="tab-bar">
+<div class="tab-bar" id="tabBar">
     <div class="tab-item active" onclick="switchTab('dashboard')"><div class="icon">📊</div><div class="label">首页</div></div>
     <div class="tab-item" onclick="switchTab('materials')"><div class="icon">📦</div><div class="label">物资</div></div>
     <div class="tab-item" onclick="switchTab('activities')"><div class="icon">📅</div><div class="label">活动</div></div>

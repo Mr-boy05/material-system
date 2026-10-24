@@ -34,32 +34,31 @@
         /* ===== 登录后主界面背景：Sonar 点阵波纹（Soft UI 主题色） ===== */
         #sonarCanvas { position:fixed; inset:0; z-index:0; pointer-events:none; }
 
-        /* 左侧导航 */
-        .sidebar { width:256px; background:#1a1a2e; color:white; display:flex; flex-direction:column; position:fixed; left:12px; top:12px; bottom:12px; border-radius:12px; overflow-y:auto; overflow-x:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06); z-index:1; }
-        .sidebar .logo { padding:16px 16px; font-size:14px; font-weight:700; border-bottom:1px solid rgba(255,255,255,0.1); display:flex; flex-direction:column; align-items:center; gap:8px; }
-        .sidebar .logo img { width:100%; height:auto; max-height:50px; object-fit:contain; }
-        .sidebar .nav { flex:1; padding:12px 0; }
-        .sidebar .nav-item { padding:10px 16px; margin:2px 10px; border-radius:10px; cursor:pointer; font-size:14px; display:flex; align-items:center; gap:10px; transition:all 0.2s ease-in-out; color:rgba(255,255,255,0.65); border-left:none; }
-        .sidebar .nav-item:hover { background:rgba(255,255,255,0.08); color:white; }
-        .sidebar .nav-item.active { background:rgba(79,70,229,0.3); color:white; }
-        .sidebar .nav-item .icon { font-size:18px; width:22px; text-align:center; }
-        .sidebar .nav-dropdown { justify-content:space-between; }
-        .sidebar .nav-dropdown .dropdown-arrow { font-size:10px; transition:transform 0.2s; }
-        .sidebar .nav-dropdown.open .dropdown-arrow { transform:rotate(180deg); }
-        .sidebar .dropdown-menu { display:none; background:rgba(0,0,0,0.2); }
-        .sidebar .dropdown-menu.show { display:block; }
-        .sidebar .dropdown-item { padding:10px 20px 10px 50px; cursor:pointer; font-size:13px; display:flex; align-items:center; gap:8px; transition:all 0.2s; color:rgba(255,255,255,0.6); }
-        .sidebar .dropdown-item:hover { background:rgba(255,255,255,0.08); color:white; }
-        .sidebar .dropdown-item.active { background:rgba(59,130,246,0.15); color:white; }
-        .sidebar .dropdown-item .icon { font-size:15px; width:18px; text-align:center; }
-        .sidebar .user-box { padding:16px 20px; border-top:1px solid rgba(255,255,255,0.1); }
-        .sidebar .user-box .name { font-size:14px; font-weight:600; }
-        .sidebar .user-box .role { font-size:11px; color:rgba(255,255,255,0.5); margin-top:2px; }
-        .sidebar .user-box .logout { margin-top:10px; width:100%; padding:8px; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); color:white; border-radius:6px; cursor:pointer; font-size:12px; }
-        .sidebar .user-box .logout:hover { background:rgba(255,255,255,0.2); }
+        /* ===== 左上角 Dock 码头导航 ===== */
+        .dock-bar { position:fixed; top:14px; left:14px; right:auto; z-index:300; display:flex; align-items:center; gap:8px; background:rgba(26,26,46,0.92); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border-radius:18px; padding:8px 12px; box-shadow:0 10px 30px rgba(0,0,0,0.24); border:1px solid rgba(255,255,255,0.09); color:#fff; max-width:calc(100vw - 28px); }
+        .dock-brand { display:flex; align-items:center; gap:8px; padding-right:10px; border-right:1px solid rgba(255,255,255,0.14); flex-shrink:0; }
+        .dock-brand img { height:26px; width:auto; object-fit:contain; }
+        .dock-brand-text { line-height:1.35; white-space:nowrap; }
+        .dock-brand-text .t1 { font-size:12px; font-weight:700; color:#fff; }
+        .dock-brand-text .t2 { font-size:10px; color:rgba(255,255,255,0.55); }
+        .dock-nav { display:flex; align-items:center; gap:2px; overflow-x:auto; scrollbar-width:none; -ms-overflow-style:none; }
+        .dock-nav::-webkit-scrollbar { display:none; }
+        .dock-item { position:relative; width:44px; height:44px; flex-shrink:0; display:flex; align-items:center; justify-content:center; border-radius:12px; cursor:pointer; font-size:20px; color:rgba(255,255,255,0.85); transition:background .15s, box-shadow .15s; transform-origin:bottom center; }
+        .dock-item .di { line-height:1; }
+        .dock-item:hover { background:rgba(255,255,255,0.14); color:#fff; }
+        .dock-item.active { background:rgba(79,70,229,0.5); box-shadow:0 0 0 2px rgba(129,140,248,0.6); color:#fff; }
+        .dock-item.active::after { content:''; position:absolute; bottom:3px; left:50%; transform:translateX(-50%); width:5px; height:5px; border-radius:50%; background:#818cf8; }
+        .dock-tip { position:absolute; bottom:calc(100% + 10px); left:50%; transform:translateX(-50%) translateY(4px); background:#1e293b; color:#fff; font-size:11px; padding:4px 10px; border-radius:6px; white-space:nowrap; opacity:0; pointer-events:none; transition:opacity .15s, transform .15s; z-index:40; box-shadow:0 4px 14px rgba(0,0,0,0.25); }
+        .dock-item:hover .dock-tip { opacity:1; transform:translateX(-50%) translateY(0); }
+        .dock-user { display:flex; align-items:center; gap:4px; padding-left:10px; border-left:1px solid rgba(255,255,255,0.14); flex-shrink:0; }
+        .dock-user .uname { font-size:12px; font-weight:600; margin-right:2px; white-space:nowrap; }
+        .dock-user .role { font-size:10px; color:rgba(255,255,255,0.55); margin-right:4px; white-space:nowrap; }
+        .dock-user .dock-item { width:34px; height:34px; font-size:15px; border-radius:10px; }
+        .dock-ver { font-size:11px; color:rgba(255,255,255,0.45); cursor:pointer; margin-left:6px; white-space:nowrap; padding:4px 6px; border-radius:6px; }
+        .dock-ver:hover { color:#fff; background:rgba(255,255,255,0.1); }
 
         /* 右侧内容 */
-        .main { flex:1; margin-left:280px; padding:24px; min-width:0; position:relative; z-index:1; }
+        .main { flex:1; margin-left:0; margin-top:88px; padding:24px; min-width:0; position:relative; z-index:1; }
         .page { display:none; }
         .page.active { display:block; }
         .page-title { font-size:20px; font-weight:700; color:#333; margin-bottom:18px; }
@@ -163,12 +162,6 @@
         .footer .version:hover { text-decoration:underline; }
 
         /* 侧边栏版本号 */
-        .sidebar-version { padding:12px 20px; border-top:1px solid rgba(255,255,255,0.1); text-align:center; cursor:pointer; }
-        .sidebar-version .ver { font-size:12px; color:rgba(255,255,255,0.5); }
-        .sidebar-version .ver:hover { color:rgba(255,255,255,0.8); }
-        .sidebar-version .changelog-tip { font-size:10px; color:rgba(255,255,255,0.3); margin-top:2px; }
-        .sidebar-version .copyright { font-size:10px; color:rgba(255,255,255,0.3); margin-top:6px; line-height:1.5; cursor:default; }
-        .sidebar-version .copyright:hover { color:rgba(255,255,255,0.3); }
 
         /* 更新日志弹窗 */
         .changelog-modal .changelog-list { max-height:60vh; overflow-y:auto; }
@@ -482,46 +475,36 @@
 </head>
 <body>
 <canvas id="sonarCanvas" aria-hidden="true"></canvas>
-    <!-- 左侧导航 -->
-    <div class="sidebar">
-        <div class="logo">
-            <img src="/static/college_logo_white.png" alt="重庆超大城市数字化治理学院" style="width:100%;height:auto;object-fit:contain;margin-bottom:10px;">
-            <div style="display:flex;align-items:center;justify-content:center;gap:8px;">
-                <img src="/static/logo.png" alt="系统logo" style="width:32px;height:32px;object-fit:contain;border-radius:6px;">
-                <span id="systemName" style="font-size:12px;color:rgba(255,255,255,0.8);font-weight:500;">城治学生会综合管理系统</span>
+    <!-- 左上角 Dock 码头导航 -->
+    <div class="dock-bar" id="dockBar">
+        <div class="dock-brand">
+            <img src="/static/logo.png" alt="系统logo">
+            <div class="dock-brand-text">
+                <div class="t1">城治学生会综合管理系统</div>
+                <div class="t2">重庆超大城市数字化治理学院</div>
             </div>
         </div>
-        <div class="nav">
-            <div class="nav-item admin-only" onclick="location.href='/dashboard'"><span class="icon">📊</span>数据大屏</div>
-            <div class="nav-item admin-only" onclick="switchPage('page-users',this)"><span class="icon">👥</span>人员管理</div>
-            <div class="nav-item" onclick="switchPage('page-attendance',this)"><span class="icon">✅</span>考勤记录</div>
-            <div class="nav-item nav-dropdown admin-only" onclick="toggleDropdown(this)">
-                <span class="icon">📦</span>物资管理 <span class="dropdown-arrow">▼</span>
-            </div>
-            <div class="dropdown-menu admin-only">
-                <div class="dropdown-item" onclick="switchPage('page-materials',this)"><span class="icon">📋</span>物资列表</div>
-                <div class="dropdown-item" onclick="switchPage('page-borrow-return',this)"><span class="icon">🔄</span>领取归还</div>
-                <div class="dropdown-item" onclick="switchPage('page-records',this)"><span class="icon">📝</span>领用记录</div>
-            </div>
-            <!-- 普通用户专属菜单 -->
-            <div class="nav-item user-only" onclick="location.href='/dashboard'"><span class="icon">📊</span>数据大屏</div>
-            <div class="nav-item user-only" onclick="switchPage('page-borrow-return',this)"><span class="icon">🔄</span>物资领取归还</div>
-            <div class="nav-item user-only" onclick="switchPage('page-materials',this)"><span class="icon">🔍</span>物资查询</div>
-            <div class="nav-item user-only" onclick="switchPage('page-records',this)"><span class="icon">📋</span>我的记录</div>
-            <div class="nav-item" onclick="switchPage('page-skills',this)"><span class="icon">📚</span>技能文档</div>
-            <div class="nav-item" onclick="switchPage('page-activity-center',this)"><span class="icon">🎭</span>活动中心</div>
-            <div class="nav-item" onclick="goMobile()"><span class="icon">📱</span>手机端</div>
+        <div class="dock-nav" id="dockNav">
+            <div class="dock-item admin-only" onclick="location.href='/dashboard'" title="数据大屏"><span class="di">📊</span><span class="dock-tip">数据大屏</span></div>
+            <div class="dock-item admin-only" onclick="switchPage('page-users',this)" title="人员管理"><span class="di">👥</span><span class="dock-tip">人员管理</span></div>
+            <div class="dock-item" onclick="switchPage('page-attendance',this)" title="考勤记录"><span class="di">✅</span><span class="dock-tip">考勤记录</span></div>
+            <div class="dock-item admin-only" onclick="switchPage('page-materials',this)" title="物资列表"><span class="di">📦</span><span class="dock-tip">物资列表</span></div>
+            <div class="dock-item admin-only" onclick="switchPage('page-borrow-return',this)" title="领取归还"><span class="di">🔄</span><span class="dock-tip">领取归还</span></div>
+            <div class="dock-item admin-only" onclick="switchPage('page-records',this)" title="领用记录"><span class="di">📝</span><span class="dock-tip">领用记录</span></div>
+            <div class="dock-item user-only" onclick="location.href='/dashboard'" title="数据大屏"><span class="di">📊</span><span class="dock-tip">数据大屏</span></div>
+            <div class="dock-item user-only" onclick="switchPage('page-borrow-return',this)" title="物资领取归还"><span class="di">🔄</span><span class="dock-tip">物资领取归还</span></div>
+            <div class="dock-item user-only" onclick="switchPage('page-materials',this)" title="物资查询"><span class="di">🔍</span><span class="dock-tip">物资查询</span></div>
+            <div class="dock-item user-only" onclick="switchPage('page-records',this)" title="我的记录"><span class="di">📋</span><span class="dock-tip">我的记录</span></div>
+            <div class="dock-item" onclick="switchPage('page-skills',this)" title="技能文档"><span class="di">📚</span><span class="dock-tip">技能文档</span></div>
+            <div class="dock-item" onclick="switchPage('page-activity-center',this)" title="活动中心"><span class="di">🎭</span><span class="dock-tip">活动中心</span></div>
+            <div class="dock-item" onclick="goMobile()" title="手机端"><span class="di">📱</span><span class="dock-tip">手机端</span></div>
         </div>
-        <div class="user-box">
-            <div class="name" id="userName">管理员</div>
-            <div class="role" id="userRole">管理员</div>
-            <button class="logout" style="margin-top:8px;background:rgba(102,126,234,0.3);border:1px solid rgba(102,126,234,0.5);" onclick="openProfile()">⚙️ 个人设置</button>
-            <button class="logout" onclick="logout()">退出登录</button>
-        </div>
-        <div class="sidebar-version" onclick="openChangelog()">
-            <div class="ver" id="sidebarVersion">v1.4.0</div>
-            <div class="changelog-tip">点击查看更新日志</div>
-            <div class="copyright" onclick="event.stopPropagation()">© 2026 重庆超大城市<br>数字化治理学院 版权所有</div>
+        <div class="dock-user">
+            <span class="uname" id="userName">管理员</span>
+            <span class="role" id="userRole">管理员</span>
+            <div class="dock-item" onclick="openProfile()" title="个人设置"><span class="di">⚙️</span><span class="dock-tip">个人设置</span></div>
+            <div class="dock-item" onclick="logout()" title="退出登录"><span class="di">🚪</span><span class="dock-tip">退出登录</span></div>
+            <div class="dock-ver" onclick="openChangelog()">v<span id="sidebarVersion">1.4.0</span></div>
         </div>
     </div>
 
@@ -802,7 +785,33 @@
                 .plan-card .p-ops .del{color:#e53935;border-color:#f5c6c6;}
                 .plan-empty{text-align:center;color:#999;padding:60px 0;font-size:14px;}
             
-    </style>
+    
+        /* ===== Dock 响应式覆盖（覆盖旧 sidebar 响应式规则，因后定义同优先级胜出） ===== */
+        @media (max-width:1439px) {
+            .dock-bar { max-width:calc(100vw - 20px); }
+            .dock-brand-text .t2 { display:none; }
+            .dock-item { width:40px; height:40px; font-size:18px; }
+            .main { margin-left:0; margin-top:88px; }
+        }
+        @media (max-width:1023px) {
+            .dock-bar { top:10px; left:10px; padding:6px 10px; gap:6px; }
+            .dock-brand-text { display:none; }
+            .dock-brand { padding-right:8px; }
+            .dock-user .uname, .dock-user .role { display:none; }
+            .dock-ver { display:none; }
+            .dock-item { width:38px; height:38px; font-size:17px; }
+            .dock-user .dock-item { width:32px; height:32px; font-size:14px; }
+            .main { margin-left:0; margin-top:74px; padding:16px; }
+        }
+        @media (max-width:767px) {
+            .dock-bar { top:0; left:0; right:0; width:100%; max-width:100%; border-radius:0 0 16px 16px; padding:8px 10px; }
+            .dock-brand { display:none; }
+            .dock-nav { flex:1; }
+            .dock-user { padding-left:8px; }
+            .dock-user .dock-item:first-child { display:none; }
+            .main { margin-left:0; margin-top:64px; padding:12px; }
+        }
+</style>
             <div class="page-title">🎭 活动中心</div>
             <div style="display:flex;gap:10px;margin-bottom:16px;border-bottom:2px solid #eef0f6;padding-bottom:10px;">
                 <div id="actTab-plan" onclick="switchActivityTab('plan')" style="padding:8px 18px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;">🗓️ 活动规划</div>
@@ -1295,10 +1304,37 @@
             }
         }
 
+        // ===== 左上角 Dock 磁吸放大（鱼眼效果） =====
+        (function(){
+            const nav = document.getElementById('dockNav');
+            if (!nav) return;
+            let timer = null;
+            function applyScale(ev){
+                const its = nav.querySelectorAll('.dock-item');
+                its.forEach(it=>{
+                    const r = it.getBoundingClientRect();
+                    const cx = r.left + r.width / 2;
+                    const d = Math.abs(ev.clientX - cx);
+                    let sc = 1;
+                    if (d < 150) sc = 1 + (150 - d) / 150 * 0.6;
+                    it.style.transform = 'scale(' + sc.toFixed(3) + ')';
+                    it.style.zIndex = sc > 1.05 ? 10 : 1;
+                });
+            }
+            function resetScale(){
+                nav.querySelectorAll('.dock-item').forEach(it=>{ it.style.transform=''; it.style.zIndex=''; });
+            }
+            nav.addEventListener('mousemove', function(ev){
+                clearTimeout(timer);
+                timer = setTimeout(function(){ applyScale(ev); }, 8);
+            });
+            nav.addEventListener('mouseleave', resetScale);
+        })();
+
         function switchPage(id, btn) {
             document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
             document.getElementById(id).classList.add('active');
-            document.querySelectorAll('.nav-item, .dropdown-item').forEach(b=>b.classList.remove('active'));
+            document.querySelectorAll('.nav-item, .dropdown-item, .dock-item').forEach(b=>b.classList.remove('active'));
             if (btn) btn.classList.add('active');
             if (id==='page-materials') loadMaterials();
             if (id==='page-borrow-return') { loadMaterialSelect('borrowMaterial'); loadBorrowedSelect(); }
