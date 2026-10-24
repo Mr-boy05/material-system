@@ -437,8 +437,9 @@
         .as-avatars { display:flex; align-items:center; }
         .as-ava { width:34px; height:34px; border-radius:50%; color:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:600; cursor:pointer; position:relative; box-shadow:0 2px 6px rgba(0,0,0,0.12); border:2px solid #fff; transition:transform .25s cubic-bezier(.22,1,.36,1), margin .3s ease-in-out, box-shadow .2s, opacity .3s; }
         .as-ava + .as-ava { margin-left:-10px; }
-        .as-avatars:hover .as-ava + .as-ava { margin-left:4px; }
-        .as-avatars:hover .as-pill { margin-left:4px; }
+        /* 悬停扇开改为容器级 .spread 类控制（JS 委托 mouseover/mouseout），避免 :hover 因布局移动丢失导致振荡 */
+        .as-avatars.spread .as-ava + .as-ava { margin-left:4px; }
+        .as-avatars.spread .as-pill { margin-left:4px; }
         /* 展开后锁定排开间距，避免 hover 扇开导致布局振荡（闪烁抽搐 bug） */
         .dept-row.as-expanded .as-ava + .as-ava { margin-left:4px; }
         .dept-row.as-expanded .as-pill { margin-left:4px; }
@@ -4441,6 +4442,21 @@ function renderContactDepts() {
 function renderContacts() {
     renderContactDepts();
 }
+
+// 头像堆叠悬停扇开：容器级事件委托（进入容器加 spread、离开容器移除），
+// 扇开时头像右移但指针仍在容器内，不会反复触发 hover 导致闪烁抽搐
+(function(){
+    function spreadOn(e){
+        var c = e.target.closest ? e.target.closest('.as-avatars') : null;
+        if (c && !c.classList.contains('spread')) c.classList.add('spread');
+    }
+    function spreadOff(e){
+        var c = e.target.closest ? e.target.closest('.as-avatars') : null;
+        if (c && (!e.relatedTarget || !c.contains(e.relatedTarget))) c.classList.remove('spread');
+    }
+    document.addEventListener('mouseover', spreadOn);
+    document.addEventListener('mouseout', spreadOff);
+})();
 </script>
 </body>
 </html>
