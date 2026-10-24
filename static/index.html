@@ -81,6 +81,29 @@
         .filter-bar input:focus, .filter-bar select:focus { outline:none; border-color:#667eea; }
         .filter-bar .filter-label { font-size:13px; color:#666; }
         .filter-bar .btn-reset { padding:8px 16px; background:#f0f0f0; border:none; border-radius:8px; cursor:pointer; font-size:13px; color:#666; }
+        .filter-bar .mat-badge { display:inline-block; font-size:12px; color:#1976d2; background:#e3f2fd; padding:4px 12px; border-radius:12px; }
+
+        /* ===== 物资表格 Excel 式列筛选 ===== */
+        .xf-btn { display:inline-block; margin-left:4px; cursor:pointer; font-size:11px; color:#9aa0a6; line-height:1; padding:2px 4px; border-radius:3px; user-select:none; vertical-align:middle; }
+        .xf-btn:hover { color:#1976d2; background:#e3f2fd; }
+        th.xf-active .xf-btn { color:#fff; background:#1976d2; }
+        .xf-panel { position:fixed; z-index:1000; width:270px; max-width:calc(100vw - 24px); background:#fff; border:1px solid #e0e0e0; border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.18); font-size:13px; color:#333; }
+        .xf-panel .xf-head { display:flex; align-items:center; gap:8px; padding:10px 12px 8px; border-bottom:1px solid #f0f0f0; }
+        .xf-panel .xf-head input { flex:1; min-width:0; border:1px solid #ddd; border-radius:6px; padding:6px 10px; font-size:13px; outline:none; }
+        .xf-panel .xf-head input:focus { border-color:#1976d2; }
+        .xf-clear { color:#1976d2; cursor:pointer; font-size:12px; white-space:nowrap; }
+        .xf-clear:hover { text-decoration:underline; }
+        .xf-tools { display:flex; gap:16px; padding:8px 14px 4px; }
+        .xf-link { color:#1976d2; cursor:pointer; font-size:12px; }
+        .xf-link:hover { text-decoration:underline; }
+        .xf-list { max-height:250px; overflow-y:auto; padding:6px 8px; }
+        .xf-list label { display:flex; align-items:center; gap:6px; padding:5px 8px; border-radius:6px; cursor:pointer; font-size:13px; }
+        .xf-list label:hover { background:#f5f7fa; }
+        .xf-list input[type=checkbox] { accent-color:#1976d2; margin:0; flex-shrink:0; }
+        .xf-list .v { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .xf-list .cnt { color:#999; font-size:11px; margin-left:auto; flex-shrink:0; }
+        .xf-list .empty { padding:18px; text-align:center; color:#999; }
+        .xf-foot { display:flex; align-items:center; gap:10px; padding:8px 12px 12px; border-top:1px solid #f0f0f0; }
 
         .toolbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
         .btn { padding:10px 20px; border-radius:14px; cursor:pointer; font-size:13px; font-weight:500; border:none; transition:all 0.3s ease-in-out; box-shadow:0 2px 8px rgba(79,70,229,0.15); }
@@ -516,16 +539,8 @@
         <div class="page active" id="page-materials">
             <div class="page-title">物资管理</div>
             <div class="filter-bar">
-                <span class="filter-label">筛选：</span>
-                <select id="filterField" onchange="loadMaterials()">
-                    <option value="all">全部字段</option>
-                    <option value="name">物资名称</option>
-                    <option value="code">编号</option>
-                    <option value="location">存放位置</option>
-                    <option value="operator">操作人</option>
-                    <option value="stock">库存状态</option>
-                </select>
-                <input type="text" id="filterKeyword" placeholder="输入关键词搜索..." oninput="loadMaterials()" style="flex:1;min-width:200px;">
+                <input type="text" id="filterKeyword" placeholder="🔍 搜索物资名称/编号/情况/位置/操作人..." oninput="loadMaterials()" style="flex:1;min-width:200px;">
+                <span class="mat-badge" id="matFilterBadge" style="display:none;">已筛选 <b id="matFilterCount">0</b> 列</span>
                 <button class="btn-reset" onclick="resetFilter()">重置</button>
             </div>
             <div class="toolbar">
@@ -541,9 +556,29 @@
                 <button class="btn btn-primary user-only" onclick="openAddModal()">+ 新增物资</button>
             </div>
             <table>
-                <thead><tr><th style="width:40px;" class="admin-only"><input type="checkbox" id="selectAllMat" onchange="toggleSelectAllMat(this)"></th><th>图片</th><th>物资名称</th><th>编号</th><th>情况</th><th>总库存</th><th>可领取</th><th>存放位置</th><th class="admin-only">操作人</th><th>操作</th></tr></thead>
+                <thead><tr><th style="width:40px;" class="admin-only"><input type="checkbox" id="selectAllMat" onchange="toggleSelectAllMat(this)"></th><th>图片</th><th>物资名称 <span class="xf-btn" data-col="name" onclick="openMatFilter(this,'name')">▾</span></th><th>编号 <span class="xf-btn" data-col="code" onclick="openMatFilter(this,'code')">▾</span></th><th>情况 <span class="xf-btn" data-col="condition" onclick="openMatFilter(this,'condition')">▾</span></th><th>总库存 <span class="xf-btn" data-col="total" onclick="openMatFilter(this,'total')">▾</span></th><th>可领取 <span class="xf-btn" data-col="available" onclick="openMatFilter(this,'available')">▾</span></th><th>存放位置 <span class="xf-btn" data-col="location" onclick="openMatFilter(this,'location')">▾</span></th><th class="admin-only">操作人 <span class="xf-btn" data-col="operator" onclick="openMatFilter(this,'operator')">▾</span></th><th>操作</th></tr></thead>
                 <tbody id="materialTable"><tr><td colspan="10" class="empty">加载中...</td></tr></tbody>
             </table>
+            <!-- Excel 式列筛选面板 -->
+            <div id="matFilterPanel" class="xf-panel" style="display:none;">
+                <div class="xf-head">
+                    <input type="text" id="xfSearch" placeholder="🔍 搜索筛选值" oninput="buildMatFilterList()">
+                    <span class="xf-clear" onclick="clearMatFilterCol()">清除筛选</span>
+                </div>
+                <div class="xf-tools">
+                    <span class="xf-link" onclick="toggleMatFilterAll()">全选</span>
+                    <span class="xf-link" onclick="invertMatFilter()">反选</span>
+                </div>
+                <div class="xf-list" id="xfList"></div>
+                <div class="xf-foot">
+                    <span class="xf-link" onclick="sortMatFilter(1)">↑ 升序</span>
+                    <span class="xf-link" onclick="sortMatFilter(-1)">↓ 降序</span>
+                    <div style="margin-left:auto;display:flex;gap:8px;">
+                        <button class="btn btn-sm" onclick="cancelMatFilter()">取消</button>
+                        <button class="btn btn-sm btn-primary" onclick="applyMatFilter()">确定</button>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- 领取归还（合并） -->
@@ -1787,13 +1822,89 @@
             .catch(()=>showToast('删除失败'));
         }
 
-        function resetFilter() {
-            document.getElementById('filterName').value='';
-            document.getElementById('filterCode').value='';
-            document.getElementById('filterLocation').value='';
-            document.getElementById('filterStock').value='';
+        // ===== 物资表格 Excel 式列筛选 =====
+        let matFilters = {};
+        let matSort = { col:null, dir:1 };
+        let matFilterCol = null;
+        let matFilterPending = [];
+
+        function matColVal(m, col){
+            if (col==='name') return [m.name];
+            if (col==='code') return [m.qr_code];
+            if (col==='condition') return [m.condition || '正常'];
+            if (col==='total') return [String(m.total_stock)];
+            if (col==='available') return [String(m.available_stock)];
+            if (col==='location') return (m.locations && m.locations.length ? m.locations.map(l=>l.location) : [m.location || '-']);
+            if (col==='operator') return [m.operator || '-'];
+            return [];
+        }
+        function matFilterOptions(col){
+            const map = {};
+            (allMaterials||[]).forEach(m=>{
+                matColVal(m,col).forEach(v=>{ map[v]=(map[v]||0)+1; });
+            });
+            return Object.keys(map).map(v=>({v:v,n:map[v]})).sort((a,b)=>String(a.v).localeCompare(String(b.v),'zh'));
+        }
+        function openMatFilter(btn, col){
+            const panel = document.getElementById('matFilterPanel');
+            if (matFilterCol === col && panel.style.display==='block'){ closeMatFilter(); return; }
+            matFilterCol = col;
+            matFilterPending = (matFilters[col]||[]).slice();
+            document.getElementById('xfSearch').value = '';
+            const r = btn.getBoundingClientRect();
+            panel.style.display = 'block';
+            panel.style.left = Math.max(8, Math.min(r.left, window.innerWidth - 286)) + 'px';
+            panel.style.top = (r.bottom + 6) + 'px';
+            buildMatFilterList();
+        }
+        function closeMatFilter(){ document.getElementById('matFilterPanel').style.display='none'; matFilterCol=null; }
+        function buildMatFilterList(){
+            if (!matFilterCol) return;
+            const kw = document.getElementById('xfSearch').value.trim().toLowerCase();
+            const opts = matFilterOptions(matFilterCol).filter(o=>!kw || String(o.v).toLowerCase().indexOf(kw)>=0);
+            const list = document.getElementById('xfList');
+            if (!opts.length){ list.innerHTML='<div class="empty">无匹配值</div>'; return; }
+            list.innerHTML = opts.map(o=>{
+                const chk = matFilterPending.indexOf(o.v)>=0;
+                return '<label><input type="checkbox" value="'+esc(o.v)+'" '+(chk?'checked':'')+' onchange="onMatFilterCheck(this)"> <span class="v">'+esc(o.v)+'</span> <span class="cnt">('+o.n+')</span></label>';
+            }).join('');
+        }
+        function onMatFilterCheck(cb){
+            if (cb.checked){ if (matFilterPending.indexOf(cb.value)<0) matFilterPending.push(cb.value); }
+            else { matFilterPending = matFilterPending.filter(v=>v!==cb.value); }
+        }
+        function toggleMatFilterAll(){
+            const cbs = [...document.querySelectorAll('#xfList input[type=checkbox]')];
+            if (!cbs.length) return;
+            const allOn = cbs.every(c=>c.checked);
+            cbs.forEach(c=>{ c.checked = !allOn; onMatFilterCheck(c); });
+        }
+        function invertMatFilter(){
+            document.querySelectorAll('#xfList input[type=checkbox]').forEach(c=>{ c.checked = !c.checked; onMatFilterCheck(c); });
+        }
+        function clearMatFilterCol(){
+            matFilterPending = [];
+            document.querySelectorAll('#xfList input[type=checkbox]').forEach(c=>{ c.checked=false; });
+        }
+        function applyMatFilter(){
+            if (!matFilterCol) return;
+            if (matFilterPending.length) matFilters[matFilterCol] = matFilterPending.slice();
+            else delete matFilters[matFilterCol];
+            closeMatFilter();
             loadMaterials();
         }
+        function cancelMatFilter(){ closeMatFilter(); }
+        function sortMatFilter(dir){
+            matSort = { col: matFilterCol, dir: dir };
+            closeMatFilter();
+            loadMaterials();
+        }
+        document.addEventListener('mousedown', function(e){
+            const panel = document.getElementById('matFilterPanel');
+            if (panel.style.display==='block' && !panel.contains(e.target) && !(e.target.classList && e.target.classList.contains('xf-btn'))){
+                closeMatFilter();
+            }
+        });
 
         function uploadImg(input, previewId) {
             const file = input.files[0];
@@ -1818,30 +1929,42 @@
             .then(res=>{ if(res.status===401){window.location.href='/login';return [];} return res.json(); })
             .then(data=>{
                 allMaterials = data;
-                // 筛选：下拉字段 + 搜索关键词
-                const field = document.getElementById('filterField').value;
+                // 筛选：Excel 式列筛选（多列 AND）+ 关键词搜索（全字段）
                 const keyword = document.getElementById('filterKeyword').value.trim().toLowerCase();
-                let filtered = data;
+                let filtered = data.filter(m=>{
+                    for (const col in matFilters) {
+                        const vals = matFilters[col];
+                        const mv = matColVal(m, col);
+                        if (!vals.some(v=>mv.indexOf(v)>=0)) return false;
+                    }
+                    return true;
+                });
                 if (keyword) {
-                    filtered = data.filter(m=>{
-                        if (field==='all') {
-                            return m.name.toLowerCase().includes(keyword)
-                                || m.qr_code.toLowerCase().includes(keyword)
-                                || (m.location||'').toLowerCase().includes(keyword)
-                                || (m.operator||'').toLowerCase().includes(keyword);
-                        }
-                        if (field==='name') return m.name.toLowerCase().includes(keyword);
-                        if (field==='code') return m.qr_code.toLowerCase().includes(keyword);
-                        if (field==='location') return (m.location||'').toLowerCase().includes(keyword);
-                        if (field==='operator') return (m.operator||'').toLowerCase().includes(keyword);
-                        if (field==='stock') {
-                            if (keyword.includes('充足')||keyword==='ok') return m.available_stock>5;
-                            if (keyword.includes('偏低')||keyword==='low') return m.available_stock>0&&m.available_stock<=5;
-                            if (keyword.includes('零')||keyword.includes('无')||keyword==='out') return m.available_stock===0;
-                            return true;
-                        }
-                        return true;
+                    filtered = filtered.filter(m=>{
+                        const hay = [m.name, m.qr_code, m.condition, m.total_stock, m.available_stock, m.operator, m.location, ...(m.locations||[]).map(l=>l.location)].join(' ').toLowerCase();
+                        return hay.indexOf(keyword) >= 0;
                     });
+                }
+                if (matSort.col) {
+                    const sc = matSort.col, sd = matSort.dir;
+                    filtered = filtered.slice().sort((a,b)=>{
+                        const va = matColVal(a, sc)[0] || '';
+                        const vb = matColVal(b, sc)[0] || '';
+                        const na = parseFloat(va), nb = parseFloat(vb);
+                        if (!isNaN(na) && !isNaN(nb)) return (na-nb)*sd;
+                        return String(va).localeCompare(String(vb), 'zh')*sd;
+                    });
+                }
+                // 更新列筛选高亮与徽标
+                const activeCols = Object.keys(matFilters);
+                document.querySelectorAll('#page-materials thead th').forEach(th=>{
+                    const btn = th.querySelector('.xf-btn');
+                    if (btn) th.classList.toggle('xf-active', activeCols.indexOf(btn.dataset.col)>=0);
+                });
+                const mBadge = document.getElementById('matFilterBadge');
+                if (mBadge) {
+                    mBadge.style.display = activeCols.length ? 'inline-block' : 'none';
+                    document.getElementById('matFilterCount').textContent = activeCols.length;
                 }
                 const tbody = document.getElementById('materialTable');
                 document.getElementById('materialCount').textContent = '共 ' + filtered.length + ' 条';
@@ -2349,7 +2472,7 @@
             localStorage.setItem('just_logged_out', '1');
             window.location.href='/login';
         }
-        function resetFilter(){ document.getElementById('filterField').value='all'; document.getElementById('filterKeyword').value=''; loadMaterials(); }
+        function resetFilter(){ document.getElementById('filterKeyword').value=''; matFilters={}; matSort={col:null,dir:1}; loadMaterials(); }
 
         function viewImage(src, name){
             document.getElementById('viewImgSrc').src = src;

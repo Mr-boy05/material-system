@@ -36,9 +36,28 @@
         .stat-card.success .num { color:#43a047; }
 
         /* 搜索栏 */
-        .search-bar { padding:12px 16px; background:white; position:sticky; top:56px; z-index:50; box-shadow:0 1px 6px rgba(0,0,0,0.04); }
-        .search-bar input { width:100%; padding:11px 16px; border:1.5px solid #e8e8e8; border-radius:22px; font-size:14px; background:#f5f7fa; }
+        .search-bar { padding:12px 16px; background:white; position:sticky; top:56px; z-index:50; box-shadow:0 1px 6px rgba(0,0,0,0.04); display:flex; gap:8px; align-items:center; }
+        .search-bar input { flex:1; min-width:0; padding:11px 16px; border:1.5px solid #e8e8e8; border-radius:22px; font-size:14px; background:#f5f7fa; }
         .search-bar input:focus { outline:none; border-color:#667eea; background:white; }
+        .mob-filter-btn { flex-shrink:0; padding:10px 16px; background:#4f46e5; color:#fff; border:none; border-radius:12px; font-size:13px; cursor:pointer; position:relative; }
+        .mob-filter-btn:active { opacity:.8; }
+        .mob-filter-btn .dot { position:absolute; top:-3px; right:-3px; width:9px; height:9px; border-radius:50%; background:#ef4444; border:2px solid #fff; }
+        #mobMatFilterBar { display:flex; align-items:center; gap:8px; padding:8px 16px; background:#e3f2fd; color:#1976d2; font-size:12px; }
+        #mobMatFilterBar .clr { margin-left:auto; color:#1976d2; cursor:pointer; }
+        .mob-mask { position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:998; }
+        .mob-sheet { position:fixed; left:0; right:0; bottom:0; background:#fff; border-radius:18px 18px 0 0; z-index:999; max-height:72vh; overflow-y:auto; padding:16px 16px calc(16px + env(safe-area-inset-bottom)); box-shadow:0 -6px 24px rgba(0,0,0,.15); }
+        .sheet-title { font-size:15px; font-weight:600; display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+        .sheet-close { font-size:18px; color:#999; cursor:pointer; padding:2px 6px; }
+        .mf-group { margin-bottom:16px; }
+        .mf-label { font-size:13px; color:#666; margin-bottom:8px; font-weight:600; }
+        .mf-opts { display:flex; flex-wrap:wrap; gap:8px; }
+        .mf-chip { padding:7px 13px; border:1.5px solid #ddd; border-radius:18px; font-size:12.5px; color:#555; cursor:pointer; background:#fff; }
+        .mf-chip span { color:#999; font-size:11px; }
+        .mf-chip.on { background:#eef2ff; border-color:#4f46e5; color:#4f46e5; }
+        .mf-chip.on span { color:#4f46e5; }
+        .mf-empty { padding:10px 0; color:#999; font-size:12px; }
+        .sheet-foot { display:flex; gap:10px; padding-top:14px; border-top:1px solid #f0f0f0; }
+        .sheet-foot .btn-sm { flex:1; padding:12px 0; }
 
         /* 物资列表 */
         .mat-list { padding:12px 16px; }
@@ -206,13 +225,27 @@
 <!-- 物资管理页面 -->
 <div class="page" id="page-materials">
     <div class="nav-bar"><div class="back" onclick="switchTabByName('dashboard')">←</div><div class="title">物资管理</div><div class="action" onclick="showAddMaterial()">+ 新增</div></div>
-    <div class="search-bar"><input type="text" id="searchInput" placeholder="搜索物资名称、编号..." oninput="loadMaterials()"></div>
+    <div class="search-bar">
+        <input type="text" id="searchInput" placeholder="搜索物资名称、编号..." oninput="loadMaterials()">
+        <button class="mob-filter-btn" id="mobFilterBtn" onclick="openMobMatFilter()">筛选<span class="dot" id="mobFilterDot" style="display:none;"></span></button>
+    </div>
+    <div id="mobMatFilterBar" style="display:none;">已筛选 <b id="mobMatFilterCount">0</b> 项 <span class="clr" onclick="clearMobMatFilter()">✕ 清除</span></div>
     <div class="batch-bar" id="matBatchBar" style="display:none;padding:10px 16px;background:#fff3e0;display:none;align-items:center;gap:10px;">
         <label style="font-size:13px;color:#e65100;display:flex;align-items:center;gap:6px;"><input type="checkbox" id="matSelectAll" onchange="toggleMatSelectAll(this)"> 全选</label>
         <span id="matSelectedCount" style="font-size:13px;color:#666;">已选 0 项</span>
         <button class="btn-sm danger" style="margin-left:auto;" onclick="batchDeleteMaterials()">批量删除</button>
     </div>
     <div class="mat-list" id="matList"></div>
+</div>
+<!-- 物资筛选抽屉 -->
+<div class="mob-mask" id="mobMatFilterMask" style="display:none;" onclick="closeMobMatFilter()"></div>
+<div class="mob-sheet" id="mobMatFilterSheet" style="display:none;">
+    <div class="sheet-title">筛选物资 <span class="sheet-close" onclick="closeMobMatFilter()">✕</span></div>
+    <div id="mobMatFilterBody"></div>
+    <div class="sheet-foot">
+        <button class="btn-sm ghost" onclick="resetMobMatFilter()">重置</button>
+        <button class="btn-sm primary" onclick="applyMobMatFilter()">确定</button>
+    </div>
 </div>
 
 <!-- 记录页面 -->
@@ -656,6 +689,77 @@ function condTag(cond) {
     return `<span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;background:${bg[c]||'#f0f0f0'};color:${map[c]||'#666'};">${c}</span>`;
 }
 
+// ===== 物资 Excel 式筛选（手机端抽屉多选） =====
+let mobMatFilters = {};
+let mobMatFilterPending = {};
+
+function mobMatColVal(m, f){
+    if (f==='condition') return [m.condition || '正常'];
+    if (f==='location') return (m.locations && m.locations.length ? m.locations.map(l=>l.location) : [m.location || '-']);
+    if (f==='operator') return [m.operator || '-'];
+    return [];
+}
+function mobMatOptions(f){
+    const map = {};
+    (allMaterialsList||[]).forEach(m=>mobMatColVal(m,f).forEach(v=>{ map[v]=(map[v]||0)+1; }));
+    return Object.keys(map).map(v=>({v:v,n:map[v]})).sort((a,b)=>String(a.v).localeCompare(String(b.v),'zh'));
+}
+function openMobMatFilter(){
+    mobMatFilterPending = JSON.parse(JSON.stringify(mobMatFilters));
+    const body = document.getElementById('mobMatFilterBody');
+    const groups = [['condition','情况'],['location','存放位置'],['operator','操作人']];
+    let html = '';
+    groups.forEach(([f,label])=>{
+        const opts = mobMatOptions(f);
+        html += '<div class="mf-group"><div class="mf-label">'+label+'</div><div class="mf-opts">';
+        if (!opts.length) html += '<div class="mf-empty">无数据</div>';
+        else html += opts.map(o=>{
+            const on = (mobMatFilterPending[f]||[]).indexOf(o.v)>=0;
+            return '<label class="mf-chip '+(on?'on':'')+'" data-f="'+f+'" data-v="'+esc(o.v)+'" onclick="toggleMobMatFilterChip(this)">'+esc(o.v)+' <span>('+o.n+')</span></label>';
+        }).join('');
+        html += '</div></div>';
+    });
+    body.innerHTML = html;
+    document.getElementById('mobMatFilterMask').style.display = 'block';
+    document.getElementById('mobMatFilterSheet').style.display = 'block';
+}
+function toggleMobMatFilterChip(el){
+    el.classList.toggle('on');
+}
+function closeMobMatFilter(){
+    document.getElementById('mobMatFilterMask').style.display = 'none';
+    document.getElementById('mobMatFilterSheet').style.display = 'none';
+}
+function applyMobMatFilter(){
+    const pending = {};
+    document.querySelectorAll('#mobMatFilterBody .mf-chip.on').forEach(ch=>{
+        const f = ch.getAttribute('data-f'), v = ch.getAttribute('data-v');
+        (pending[f] = pending[f]||[]).push(v);
+    });
+    mobMatFilters = pending;
+    closeMobMatFilter();
+    updateMobMatFilterBar();
+    loadMaterials();
+}
+function resetMobMatFilter(){
+    mobMatFilters = {};
+    closeMobMatFilter();
+    updateMobMatFilterBar();
+    loadMaterials();
+}
+function clearMobMatFilter(){
+    mobMatFilters = {};
+    updateMobMatFilterBar();
+    loadMaterials();
+}
+function updateMobMatFilterBar(){
+    const n = Object.keys(mobMatFilters).length;
+    const bar = document.getElementById('mobMatFilterBar');
+    const dot = document.getElementById('mobFilterDot');
+    if (bar) { bar.style.display = n ? 'flex' : 'none'; document.getElementById('mobMatFilterCount').textContent = n; }
+    if (dot) dot.style.display = n ? 'block' : 'none';
+}
+
 async function loadMaterials() {
     try {
         const keyword = document.getElementById('searchInput').value;
@@ -663,12 +767,24 @@ async function loadMaterials() {
         const res = await api(url);
         const mats = await res.json();
         allMaterialsList = mats;
+        // Excel 式筛选（前端多选过滤：情况/存放位置/操作人）
+        let listData = mats;
+        if (Object.keys(mobMatFilters).length) {
+            listData = mats.filter(m=>{
+                for (const f in mobMatFilters){
+                    const vals = mobMatFilters[f];
+                    const mv = mobMatColVal(m, f);
+                    if (!vals.some(v=>mv.indexOf(v)>=0)) return false;
+                }
+                return true;
+            });
+        }
         const list = document.getElementById('matList');
-        if (mats.length === 0) {
+        if (listData.length === 0) {
             list.innerHTML = '<div class="empty-tip"><div class="icon">📦</div>暂无物资</div>';
             return;
         }
-        list.innerHTML = mats.map(m => {
+        list.innerHTML = listData.map(m => {
             const stockClass = m.available_stock === 0 ? 'stock-out' : (m.available_stock <= 5 ? 'stock-low' : 'stock-ok');
             const imgHtml = m.image 
                 ? `<img src="${m.image}" class="mat-img" onclick="viewMatImage('${m.image}','${m.name}')" style="cursor:pointer;">`
