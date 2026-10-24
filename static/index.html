@@ -1511,7 +1511,7 @@
                     const sameDept = curUser.department && p.department && curUser.department === p.department;
                     const curId = curUser.id || curUser.user_id;
                     const canComplete = (curUser.role === 'admin') || sameDept;
-                    const canEdit = (curUser.role === 'admin') || (p.creator_id === curId);
+                    const canEdit = (curUser.role === 'admin') || sameDept || (p.creator_id === curId);
                     html += '<div class="plan-item ' + side + '">';
                     html += '<div class="plan-dot"></div>';
                     html += '<div class="plan-card">';
@@ -2882,6 +2882,10 @@
                 const list = document.getElementById('activityList');
                 if (!data.length) { list.innerHTML='<div class="empty" style="grid-column:1/-1;">暂无活动记录</div>'; return; }
                 list.innerHTML = data.map(a=>{
+                    const curUser = JSON.parse(localStorage.getItem('user') || '{}');
+                    const curId = curUser.id || curUser.user_id;
+                    const sameDeptAct = curUser.department && a.dept_owner && curUser.department === a.dept_owner;
+                    const canEditAct = (curUser.role === 'admin') || sameDeptAct || (a.creator_id === curId);
                     const files = a.files ? (typeof a.files === 'string' ? JSON.parse(a.files) : a.files) : [];
                     const dateStr = a.start_time ? a.start_time.slice(0,10) : '';
                     return `
@@ -2909,10 +2913,10 @@
                             </div>
                             <div style="font-size:12px;color:#667eea;cursor:pointer;padding:3px 0;user-select:none;" onclick="toggleMoreFiles('${a.id}')" id="moreBtn_${a.id}">▾ 展开全部 ${files.length} 个附件</div>` : ''}
                         </div>` : ''}
-                        <div style="margin-top:12px;display:flex;gap:8px;">
+                        ${canEditAct ? `<div style="margin-top:12px;display:flex;gap:8px;">
                             <button class="btn btn-sm" style="background:#e3f2fd;color:#1976d2;" onclick="editActivity('${a.id}')">✏️ 编辑</button>
                             <button class="btn btn-sm btn-danger" onclick="deleteActivity('${a.id}','${a.title}')">删除</button>
-                        </div>
+                        </div>` : ''}
                     </div>`;
                 }).join('');
             })

@@ -1354,6 +1354,10 @@ function loadActivitiesMobile() {
         const list = document.getElementById('activityList');
         if (!data.length) { list.innerHTML = '<div style="text-align:center;padding:40px;color:#999;">暂无活动记录</div>'; return; }
         list.innerHTML = data.map(a => {
+            const curUser = JSON.parse(localStorage.getItem('user') || '{}');
+            const curId = curUser.id || curUser.user_id;
+            const sameDeptAct = curUser.department && a.dept_owner && curUser.department === a.dept_owner;
+            const canEditAct = (curUser.role === 'admin') || sameDeptAct || (a.creator_id === curId);
             const dateStr = a.start_time ? a.start_time.slice(0,10) : '';
             const files = a.files ? (typeof a.files === 'string' ? JSON.parse(a.files) : a.files) : [];
             return `
@@ -1372,10 +1376,10 @@ function loadActivitiesMobile() {
                         <a href="${f.url}" target="_blank" download="${f.filename}" style="color:#1976d2;margin-left:8px;flex-shrink:0;">下载</a>
                     </div>`).join('')}
                 </div>` : ''}
-                <div style="margin-top:10px;display:flex;gap:8px;">
+                ${canEditAct ? `<div style="margin-top:10px;display:flex;gap:8px;">
                     <button style="flex:1;padding:8px;border:none;border-radius:8px;background:#e3f2fd;color:#1976d2;font-size:13px;cursor:pointer;" onclick="editActivityMobile('${a.id}')">编辑</button>
                     <button style="flex:1;padding:8px;border:none;border-radius:8px;background:#ffebee;color:#c62828;font-size:13px;cursor:pointer;" onclick="deleteActivityMobile('${a.id}','${a.title}')">删除</button>
-                </div>
+                </div>` : ''}
             </div>`;
         }).join('');
     }).catch(() => {

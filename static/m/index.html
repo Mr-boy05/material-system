@@ -1532,14 +1532,14 @@
                     const sameDept = curUser.department && p.department && curUser.department === p.department;
                     const curId = curUser.id || curUser.user_id;
                     const canComplete = (curUser.role === 'admin') || sameDept;
-                    const canEdit = (curUser.role === 'admin') || (p.creator_id === curId);
+                    const canEdit = (curUser.role === 'admin') || sameDept || (p.creator_id === curId);
                     let ops = '';
-                    if (canComplete || canEdit) {
-                        if (canComplete && p.status !== 'done') {
-                            ops += '<button style="background:#e8f5e9;color:#2e7d32;border-color:#c8e6c9;" onclick="openMCompletePlanModal(\'' + p.id + '\')">✅ 完成</button>';
-                        } else {
-                            ops += '<button style="background:rgba(255,255,255,0.06);color:#999;border-color:rgba(255,255,255,0.1);cursor:default;">✔ 已同步</button>';
-                        }
+                    if (canComplete && p.status !== 'done') {
+                        ops += '<button style="background:#e8f5e9;color:#2e7d32;border-color:#c8e6c9;" onclick="openMCompletePlanModal(\'' + p.id + '\')">✅ 完成</button>';
+                    } else if (p.status === 'done') {
+                        ops += '<button style="background:rgba(255,255,255,0.06);color:#999;border-color:rgba(255,255,255,0.1);cursor:default;">✔ 已同步</button>';
+                    }
+                    if (canEdit) {
                         ops += '<button onclick="editMPlan(\'' + p.id + '\')">✏️ 编辑</button><button class="del" onclick="deleteMPlan(\'' + p.id + '\',\'' + (p.title||'').replace(/'/g,"\\'") + '\')">🗑️ 删除</button>';
                     }
                     html += '<div class="mplan-item"><div class="dot"></div><div class="mplan-card">' +

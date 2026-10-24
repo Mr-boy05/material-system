@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "3.12.15"
+VERSION = "3.12.16"
 VERSION_DATE = "2026-10-23"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
@@ -2594,15 +2594,17 @@ class ActivityUpdate(BaseModel):
 def list_activities(conn=Depends(get_db), user=Depends(get_current_user)):
     cur = conn.cursor()
     cur.execute("""
-        SELECT a.*, u.real_name as creator_name
+        SELECT a.*, u.real_name as creator_name, u.department as creator_dept, p.department as plan_dept
         FROM activities a
         LEFT JOIN users u ON a.creator_id = u.id
+        LEFT JOIN activity_plans p ON p.activity_id = a.id
         ORDER BY a.start_time DESC
     """)
     result = []
     for a in cur.fetchall():
         item = dict(a)
         item["extra_fields"] = json.loads(item["extra_fields"]) if item.get("extra_fields") else {}
+        item["dept_owner"] = (item.get("plan_dept") or item.get("creator_dept") or "")
         result.append(item)
     return result
 
@@ -2610,9 +2612,10 @@ def list_activities(conn=Depends(get_db), user=Depends(get_current_user)):
 def get_activity(activity_id: str, conn=Depends(get_db), user=Depends(get_current_user)):
     cur = conn.cursor()
     cur.execute("""
-        SELECT a.*, u.real_name as creator_name
+        SELECT a.*, u.real_name as creator_name, u.department as creator_dept, p.department as plan_dept
         FROM activities a
         LEFT JOIN users u ON a.creator_id = u.id
+        LEFT JOIN activity_plans p ON p.activity_id = a.id
         WHERE a.id = ?
     """, (activity_id,))
     activity = cur.fetchone()
@@ -2620,6 +2623,7 @@ def get_activity(activity_id: str, conn=Depends(get_db), user=Depends(get_curren
         raise HTTPException(status_code=404, detail="活动不存在")
     result = dict(activity)
     result["extra_fields"] = json.loads(result["extra_fields"]) if result.get("extra_fields") else {}
+    result["dept_owner"] = (result.get("plan_dept") or result.get("creator_dept") or "")
     return result
 
 @app.post("/api/activities")
@@ -2638,9 +2642,20 @@ def create_activity(req: ActivityCreate, conn=Depends(get_db), user=Depends(get_
 @app.put("/api/activities/{activity_id}")
 def update_activity(activity_id: str, req: ActivityUpdate, conn=Depends(get_db), user=Depends(get_current_user)):
     cur = conn.cursor()
-    cur.execute("SELECT id FROM activities WHERE id=?", (activity_id,))
-    if not cur.fetchone():
+    cur.execute("""
+        SELECT a.id, a.creator_id, p.department as plan_dept, u.department as creator_dept
+        FROM activities a
+        LEFT JOIN activity_plans p ON p.activity_id = a.id
+        LEFT JOIN users u ON a.creator_id = u.id
+        WHERE a.id = ?
+    """, (activity_id,))
+    act_row = cur.fetchone()
+    if not act_row:
         raise HTTPException(status_code=404, detail="活动不存在")
+    dept_owner = (act_row["plan_dept"] or act_row["creator_dept"] or "")
+    if user["role"] != "admin" and act_row["creator_id"] != user["id"] \
+            and (not dept_owner or not user.get("department") or user["department"] != dept_owner):
+        raise HTTPException(status_code=403, detail="只有管理员或创建部门可以修改该活动")
     updates = []
     params = []
     if req.title is not None:
@@ -2669,9 +2684,21 @@ def update_activity(activity_id: str, req: ActivityUpdate, conn=Depends(get_db),
 
 @app.delete("/api/activities/{activity_id}")
 def delete_activity(activity_id: str, conn=Depends(get_db), user=Depends(get_current_user)):
-    if user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="只有管理员可以删除活动")
     cur = conn.cursor()
+    cur.execute("""
+        SELECT a.id, a.creator_id, p.department as plan_dept, u.department as creator_dept
+        FROM activities a
+        LEFT JOIN activity_plans p ON p.activity_id = a.id
+        LEFT JOIN users u ON a.creator_id = u.id
+        WHERE a.id = ?
+    """, (activity_id,))
+    act_row = cur.fetchone()
+    if not act_row:
+        raise HTTPException(status_code=404, detail="活动不存在")
+    dept_owner = (act_row["plan_dept"] or act_row["creator_dept"] or "")
+    if user["role"] != "admin" and act_row["creator_id"] != user["id"] \
+            and (not dept_owner or not user.get("department") or user["department"] != dept_owner):
+        raise HTTPException(status_code=403, detail="只有管理员或创建部门可以删除该活动")
     # 联动删除：如果该活动记录来源于某个活动规划，同步删除对应规划
     cur.execute("SELECT plan_id FROM activities WHERE id=?", (activity_id,))
     row = cur.fetchone()
@@ -2799,8 +2826,9 @@ def update_activity_plan(plan_id: str, req: ActivityPlanUpdate, conn=Depends(get
     plan = cur.fetchone()
     if not plan:
         raise HTTPException(status_code=404, detail="活动规划不存在")
-    if user["role"] != "admin" and plan["creator_id"] != user["id"]:
-        raise HTTPException(status_code=403, detail="只有管理员或创建人可以编辑该活动规划")
+    if user["role"] != "admin" and plan["creator_id"] != user["id"] \
+            and (not plan["department"] or not user.get("department") or user["department"] != plan["department"]):
+        raise HTTPException(status_code=403, detail="只有管理员或创建部门可以编辑该活动规划")
     updates = []
     params = []
     if req.title is not None:
@@ -2839,8 +2867,9 @@ def delete_activity_plan(plan_id: str, conn=Depends(get_db), user=Depends(get_cu
     plan = cur.fetchone()
     if not plan:
         raise HTTPException(status_code=404, detail="活动规划不存在")
-    if user["role"] != "admin" and plan["creator_id"] != user["id"]:
-        raise HTTPException(status_code=403, detail="只有管理员或创建人可以删除该活动规划")
+    if user["role"] != "admin" and plan["creator_id"] != user["id"] \
+            and (not plan["department"] or not user.get("department") or user["department"] != plan["department"]):
+        raise HTTPException(status_code=403, detail="只有管理员或创建部门可以删除该活动规划")
     # 联动删除：如果该规划已同步生成活动记录与考勤记录，一并同步删除
     linked_act_id = dict(plan).get("activity_id", "")
     cur.execute("DELETE FROM activity_plans WHERE id=?", (plan_id,))
