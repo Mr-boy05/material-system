@@ -439,6 +439,9 @@
         .as-ava + .as-ava { margin-left:-10px; }
         .as-avatars:hover .as-ava + .as-ava { margin-left:4px; }
         .as-avatars:hover .as-pill { margin-left:4px; }
+        /* 展开后锁定排开间距，避免 hover 扇开导致布局振荡（闪烁抽搐 bug） */
+        .dept-row.as-expanded .as-ava + .as-ava { margin-left:4px; }
+        .dept-row.as-expanded .as-pill { margin-left:4px; }
         .as-ava:hover { transform:translateY(-5px) scale(1.12); z-index:10; box-shadow:0 8px 18px rgba(0,0,0,0.22); }
         .as-ava .tip { position:absolute; bottom:calc(100% + 8px); left:50%; transform:translateX(-50%) scale(.85); opacity:0; background:#1e293b; color:#fff; font-size:11px; padding:3px 10px; border-radius:8px; white-space:nowrap; pointer-events:none; transition:all .2s; z-index:99; }
         .as-ava:hover .tip { opacity:1; transform:translateX(-50%) scale(1); }
@@ -4368,9 +4371,11 @@ function toggleAsExpand(btn, idx) {
     if (!row) return;
     var hidden = row.querySelectorAll('.as-ava.hidden-ava');
     if (hidden.length) {
+        row.classList.add('as-expanded');
         hidden.forEach(function(h, i){ h.classList.remove('hidden-ava'); h.classList.add('spawn'); h.style.animationDelay = (i * 0.03) + 's'; });
         btn.textContent = '−';
     } else {
+        row.classList.remove('as-expanded');
         var all = row.querySelectorAll('.as-ava');
         all.forEach(function(a, i){ if (i >= 5) { a.classList.add('hidden-ava'); a.classList.remove('spawn'); a.style.animationDelay = ''; } });
         btn.textContent = '+' + (all.length - 5);
