@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 # ==================== 版本信息 ====================
-VERSION = "3.12.21"
+VERSION = "3.12.22"
 VERSION_DATE = "2026-10-23"
 
 # 加载 .env 文件（纯 Python 实现，不依赖 python-dotenv）
@@ -3381,8 +3381,7 @@ class ToolLinkCreate(BaseModel):
 
 @app.post("/api/tool-links")
 def create_tool_link(req: ToolLinkCreate, conn=Depends(get_db), user=Depends(get_current_user)):
-    if user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="仅管理员可添加小工具")
+    # 所有登录用户均可添加小工具
     title = (req.title or "").strip()
     url = (req.url or "").strip()
     if not title:
@@ -3403,8 +3402,7 @@ class ToolLinkUpdate(BaseModel):
 
 @app.put("/api/tool-links/{link_id}")
 def update_tool_link(link_id: str, req: ToolLinkUpdate, conn=Depends(get_db), user=Depends(get_current_user)):
-    if user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="仅管理员可编辑小工具")
+    # 所有登录用户均可编辑小工具
     cur = conn.cursor()
     cur.execute("SELECT * FROM tool_links WHERE id=?", (link_id,))
     row = cur.fetchone()
@@ -3430,8 +3428,7 @@ def update_tool_link(link_id: str, req: ToolLinkUpdate, conn=Depends(get_db), us
 
 @app.delete("/api/tool-links/{link_id}")
 def delete_tool_link(link_id: str, conn=Depends(get_db), user=Depends(get_current_user)):
-    if user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="仅管理员可删除小工具")
+    # 所有登录用户均可删除小工具
     cur = conn.cursor()
     cur.execute("SELECT * FROM tool_links WHERE id=?", (link_id,))
     if not cur.fetchone():

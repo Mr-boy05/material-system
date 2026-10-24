@@ -35,22 +35,22 @@
         #sonarCanvas { position:fixed; inset:0; z-index:0; pointer-events:none; }
 
         /* ===== 左上角 Dock 码头导航 ===== */
-        .dock-bar { position:fixed; top:16px; left:16px; right:16px; z-index:300; display:flex; align-items:center; gap:10px; background:rgba(26,26,46,0.92); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border-radius:20px; padding:18px 16px 14px; box-shadow:0 10px 30px rgba(0,0,0,0.24); border:1px solid rgba(255,255,255,0.09); color:#fff; max-width:none; }
-        .dock-brand { display:flex; align-items:center; gap:8px; padding-right:10px; border-right:1px solid rgba(255,255,255,0.14); flex-shrink:0; }
+        .dock-bar { position:fixed; top:14px; left:14px; bottom:14px; z-index:300; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:10px; background:rgba(26,26,46,0.92); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border-radius:20px; padding:16px 12px; box-shadow:0 10px 30px rgba(0,0,0,0.24); border:1px solid rgba(255,255,255,0.09); color:#fff; }
+        .dock-brand { display:flex; flex-direction:column; align-items:center; gap:8px; padding:6px 4px 14px; border-right:none; border-bottom:1px solid rgba(255,255,255,0.14); flex-shrink:0; }
         .dock-brand img { height:26px; width:auto; object-fit:contain; }
-        .dock-brand-text { line-height:1.35; white-space:nowrap; }
+        .dock-brand-text { line-height:1.4; white-space:nowrap; text-align:center; }
         .dock-brand-text .t1 { font-size:12px; font-weight:700; color:#fff; }
         .dock-brand-text .t2 { font-size:10px; color:rgba(255,255,255,0.55); }
-        .dock-nav { display:flex; align-items:center; justify-content:center; gap:4px; flex:1; min-width:0; overflow-x:auto; scrollbar-width:none; -ms-overflow-style:none; }
+        .dock-nav { display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:6px; flex:1; min-height:0; overflow-y:auto; scrollbar-width:none; -ms-overflow-style:none; }
         .dock-nav::-webkit-scrollbar { display:none; }
-        .dock-item { position:relative; width:auto; min-width:44px; height:44px; padding:0 10px; flex-shrink:0; display:flex; align-items:center; justify-content:center; border-radius:12px; cursor:pointer; font-size:20px; color:rgba(255,255,255,0.85); transition:background .15s, box-shadow .15s; transform-origin:bottom center; }
+        .dock-item { position:relative; width:auto; min-width:56px; height:44px; padding:0 12px; gap:8px; flex-shrink:0; display:flex; align-items:center; justify-content:flex-start; border-radius:12px; cursor:pointer; font-size:20px; color:rgba(255,255,255,0.85); transition:background .15s, box-shadow .15s; transform-origin:center center; }
         .dock-item .di { line-height:1; }
         .dock-item:hover { background:rgba(255,255,255,0.14); color:#fff; }
         .dock-item.active { background:rgba(79,70,229,0.5); box-shadow:0 0 0 2px rgba(129,140,248,0.6); color:#fff; }
         .dock-item.active::after { content:''; position:absolute; bottom:3px; left:50%; transform:translateX(-50%); width:5px; height:5px; border-radius:50%; background:#818cf8; }
-        .dock-tip { position:absolute; bottom:calc(100% + 12px); left:50%; transform:translateX(-50%) translateY(4px); background:#1e293b; color:#fff; font-size:11px; padding:4px 10px; border-radius:6px; white-space:nowrap; opacity:0; pointer-events:none; transition:opacity .15s, transform .15s; z-index:40; box-shadow:0 4px 14px rgba(0,0,0,0.25); }
-        .dock-item:hover .dock-tip { opacity:1; transform:translateX(-50%) translateY(0); }
-        .dock-user { display:flex; align-items:center; gap:4px; padding-left:10px; border-left:1px solid rgba(255,255,255,0.14); flex-shrink:0; }
+        .dock-tip { position:absolute; left:calc(100% + 10px); top:50%; transform:translateY(-50%) translateX(4px); background:#1e293b; color:#fff; font-size:11px; padding:4px 10px; border-radius:6px; white-space:nowrap; opacity:0; pointer-events:none; transition:opacity .15s, transform .15s; z-index:40; box-shadow:0 4px 14px rgba(0,0,0,0.25); }
+        .dock-item:hover .dock-tip { opacity:1; transform:translateY(-50%) translateX(0); }
+        .dock-user { display:flex; flex-direction:column; align-items:center; gap:6px; padding-top:12px; border-left:none; border-top:1px solid rgba(255,255,255,0.14); flex-shrink:0; }
         .dock-user .uname { font-size:12px; font-weight:600; margin-right:2px; white-space:nowrap; }
         .dock-user .role { font-size:10px; color:rgba(255,255,255,0.55); margin-right:4px; white-space:nowrap; }
         .dock-user .dock-item { width:34px; height:34px; font-size:15px; border-radius:10px; }
@@ -58,7 +58,7 @@
         .dock-ver:hover { color:#fff; background:rgba(255,255,255,0.1); }
 
         /* 右侧内容 */
-        .main { flex:1; margin-left:0; margin-top:88px; padding:24px; min-width:0; position:relative; z-index:1; }
+        .main { flex:1; margin-left:250px; margin-top:0; padding:24px; min-width:0; position:relative; z-index:1; }
         .page { display:none; }
         .page.active { display:block; }
         .page-title { font-size:20px; font-weight:700; color:#333; margin-bottom:18px; }
@@ -748,8 +748,8 @@
         <!-- 小工具 -->
         <div class="page" id="page-tools">
             <div class="page-title">小工具</div>
-            <div class="form-card admin-only" style="margin-bottom:20px;border:1px solid #dbe4ff;">
-                <div style="font-weight:600;margin-bottom:12px;">➕ 添加工具 <span style="font-size:12px;color:#999;font-weight:400;">（管理员可维护）</span></div>
+            <div class="form-card" style="margin-bottom:20px;border:1px solid #dbe4ff;">
+                <div style="font-weight:600;margin-bottom:12px;">➕ 添加工具 <span style="font-size:12px;color:#999;font-weight:400;">（所有用户可添加）</span></div>
                 <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:10px;background:#f8f9ff;border-radius:8px;">
                     <input type="text" id="toolTitle" placeholder="工具名称，如：在线抠图" style="flex:1;min-width:140px;padding:8px 12px;border:1px solid #ddd;border-radius:6px;">
                     <input type="text" id="toolUrl" placeholder="链接地址 https://..." style="flex:2;min-width:220px;padding:8px 12px;border:1px solid #ddd;border-radius:6px;">
@@ -758,7 +758,7 @@
                 </div>
             </div>
             <div class="form-card">
-                <div style="font-weight:600;margin-bottom:12px;">🧰 工具列表 <span style="font-size:12px;color:#999;font-weight:400;">（点击即可使用，管理员可维护）</span></div>
+                <div style="font-weight:600;margin-bottom:12px;">🧰 工具列表 <span style="font-size:12px;color:#999;font-weight:400;">（点击即可使用，所有用户可编辑）</span></div>
                 <div id="toolLinkList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;"></div>
             </div>
         </div>
@@ -797,32 +797,32 @@
     
         /* ===== Dock 响应式覆盖（覆盖旧 sidebar 响应式规则，因后定义同优先级胜出） ===== */
         @media (max-width:1439px) {
-            .dock-bar { gap:8px; }
+            .dock-bar { gap:8px; padding:14px 10px; }
             .dock-brand-text .t2 { display:none; }
             .dock-item { height:40px; font-size:18px; }
-            .main { margin-left:0; margin-top:88px; }
+            .main { margin-left:230px; padding:20px; }
         }
         @media (max-width:1023px) {
-            .dock-bar { top:10px; left:10px; right:10px; padding:14px 10px 12px; gap:6px; }
+            .dock-bar { top:10px; left:10px; bottom:10px; padding:12px 8px; gap:6px; }
             .dock-brand-text { display:none; }
-            .dock-brand { padding-right:8px; }
             .dock-user .uname, .dock-user .role { display:none; }
             .dock-ver { display:none; }
             .dock-item { height:38px; font-size:17px; }
             .dock-user .dock-item { width:32px; min-width:32px; height:32px; padding:0; font-size:14px; }
-            .main { margin-left:0; margin-top:74px; padding:16px; }
+            .main { margin-left:200px; padding:16px; }
         }
         @media (max-width:767px) {
-            .dock-bar { top:0; left:0; right:0; width:100%; max-width:100%; border-radius:0 0 16px 16px; padding:8px 10px; }
-            .dock-brand { display:none; }
-            .dock-nav { flex:1; }
-            .dock-user { padding-left:8px; }
+            .dock-bar { top:8px; left:8px; bottom:8px; padding:12px 6px; gap:6px; border-radius:16px; }
+            .dock-brand-text { display:none; }
+            .dock-user .uname, .dock-user .role { display:none; }
+            .dock-ver { display:none; }
             .dock-user .dock-item:first-child { display:none; }
-            .main { margin-left:0; margin-top:64px; padding:12px; }
+            .dock-item { min-width:44px; width:44px; padding:0; }
+            .main { margin-left:64px; padding:12px; }
         }
 
         /* ===== Dock 图标文字（.dl）与自适应收起 ===== */
-        .dock-item .dl { font-size:12px; font-weight:500; margin-left:6px; white-space:nowrap; color:rgba(255,255,255,0.88); }
+        .dock-item .dl { font-size:12px; font-weight:500; white-space:nowrap; color:rgba(255,255,255,0.88); }
         .dock-item.active .dl { color:#fff; }
         .dock-bar.compact .dock-item { width:44px; min-width:44px; padding:0; }
         .dock-bar.compact .dl { display:none; }
@@ -1329,8 +1329,8 @@
                 const its = nav.querySelectorAll('.dock-item');
                 its.forEach(it=>{
                     const r = it.getBoundingClientRect();
-                    const cx = r.left + r.width / 2;
-                    const d = Math.abs(ev.clientX - cx);
+                    const cy = r.top + r.height / 2;
+                    const d = Math.abs(ev.clientY - cy);
                     let sc = 1;
                     if (d < 150) sc = 1 + (150 - d) / 150 * 0.6;
                     it.style.transform = 'scale(' + sc.toFixed(3) + ')';
@@ -1354,7 +1354,7 @@
             if (!bar || !nav) return;
             const was = bar.classList.contains('compact');
             if (was) bar.classList.remove('compact');
-            const need = nav.scrollWidth > nav.clientWidth + 4;
+            const need = nav.scrollHeight > nav.clientHeight + 4;
             if (need) bar.classList.add('compact');
         }
         window.addEventListener('resize', fitDock);
@@ -4315,10 +4315,9 @@ function loadToolLinks() {
     .then(list=>{
         if (!Array.isArray(list)) throw new Error('bad');
         if (!list.length) {
-            wrap.innerHTML = '<div style="color:#999;font-size:13px;padding:14px;text-align:center;grid-column:1/-1;">暂无分享的工具，管理员可添加常用好用的小链接</div>';
+            wrap.innerHTML = '<div style="color:#999;font-size:13px;padding:14px;text-align:center;grid-column:1/-1;">暂无分享的工具，点击上方添加常用好用的小链接</div>';
             return;
         }
-        const isAdmin = (JSON.parse(localStorage.getItem('user')||'{}').role === 'admin');
         wrap.innerHTML = list.map(t=>
             '<div style="background:#fff;border-radius:10px;padding:14px 16px;box-shadow:0 2px 10px rgba(102,126,234,.08);border:1px solid #eef0ff;transition:transform .2s,box-shadow .2s;" onmouseover="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 8px 20px rgba(102,126,234,.18)\';" onmouseout="this.style.transform=\'\';this.style.boxShadow=\'\';">' +
             '<a href="'+esc(t.url)+'" target="_blank" rel="noopener noreferrer" style="text-decoration:none;">' +
@@ -4326,7 +4325,7 @@ function loadToolLinks() {
             (t.remark?'<div style="font-size:12px;color:#888;margin-top:6px;line-height:1.6;">'+esc(t.remark)+'</div>':'') +
             '<div style="font-size:11px;color:#a5b4fc;margin-top:8px;">点击使用 →</div>' +
             '</a>' +
-            (isAdmin?'<div style="margin-top:8px;display:flex;gap:8px;"><button onclick="editToolLink(\''+t.id+'\')" style="padding:4px 12px;border:1px solid #ffb74d;border-radius:6px;background:#fff3e0;color:#e65100;font-size:12px;cursor:pointer;">编辑</button><button onclick="delToolLink(\''+t.id+'\')" style="padding:4px 12px;border:1px solid #ef9a9a;border-radius:6px;background:#ffebee;color:#c62828;font-size:12px;cursor:pointer;">删除</button></div>':'') +
+            '<div style="margin-top:8px;display:flex;gap:8px;"><button onclick="editToolLink(\''+t.id+'\')" style="padding:4px 12px;border:1px solid #ffb74d;border-radius:6px;background:#fff3e0;color:#e65100;font-size:12px;cursor:pointer;">编辑</button><button onclick="delToolLink(\''+t.id+'\')" style="padding:4px 12px;border:1px solid #ef9a9a;border-radius:6px;background:#ffebee;color:#c62828;font-size:12px;cursor:pointer;">删除</button></div>' +
             '</div>'
         ).join('');
     })

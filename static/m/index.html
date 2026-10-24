@@ -1328,7 +1328,7 @@
             .then(list=>{
                 if (!Array.isArray(list)) throw new Error('bad');
                 if (!list.length) { wrap.innerHTML=''; return; }
-                const addBtn = isAdmin ? '<div style="flex-shrink:0;width:88px;height:92px;border:1px dashed #a5b4fc;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#4f46e5;font-size:12px;cursor:pointer;" onclick="openMToolAdd()">＋<br>添加工具</div>' : '';
+                const addBtn = '<div style="flex-shrink:0;width:88px;height:92px;border:1px dashed #a5b4fc;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#4f46e5;font-size:12px;cursor:pointer;" onclick="openMToolAdd()">＋<br>添加工具</div>';
                 wrap.innerHTML = '<div style="font-size:14px;font-weight:600;color:#1a1a2e;margin-bottom:8px;">🧰 小工具分享 <span style="font-size:11px;color:#999;font-weight:400;">（点击即可使用）</span></div>' +
                     '<div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:8px;-webkit-overflow-scrolling:touch;scrollbar-width:none;">' +
                     list.map(t=>
@@ -1338,7 +1338,7 @@
                                 (t.remark?'<div style="font-size:11px;color:#888;margin-top:5px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">'+escM(t.remark)+'</div>':'<div style="height:22px;"></div>') +
                                 '<div style="font-size:10px;color:#a5b4fc;margin-top:6px;">点击使用 →</div>' +
                             '</a>' +
-                            (isAdmin ? '<div style="display:flex;gap:6px;margin-top:6px;"><button onclick="editMTool(\''+t.id+'\')" style="flex:1;padding:3px 0;border:none;border-radius:6px;background:#fff3e0;color:#e65100;font-size:11px;">编辑</button><button onclick="delMTool(\''+t.id+'\')" style="flex:1;padding:3px 0;border:none;border-radius:6px;background:#ffebee;color:#c62828;font-size:11px;">删除</button></div>' : '') +
+                            '<div style="display:flex;gap:6px;margin-top:6px;"><button onclick="editMTool(\''+t.id+'\')" style="flex:1;padding:3px 0;border:none;border-radius:6px;background:#fff3e0;color:#e65100;font-size:11px;">编辑</button><button onclick="delMTool(\''+t.id+'\')" style="flex:1;padding:3px 0;border:none;border-radius:6px;background:#ffebee;color:#c62828;font-size:11px;">删除</button>' +
                         '</div>'
                     ).join('') + addBtn + '</div>';
             })
