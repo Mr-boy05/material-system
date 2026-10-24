@@ -34,8 +34,7 @@
         /* ===== 登录后主界面背景：Sonar 点阵波纹（Soft UI 主题色） ===== */
         #sonarCanvas { position:fixed; inset:0; z-index:0; pointer-events:none; }
 
-        /* ===== 左上角 Dock 码头导航 ===== */
-                /* 左侧导航 */
+        /* 左侧导航 */
         .sidebar { width:256px; background:#1a1a2e; color:white; display:flex; flex-direction:column; position:fixed; left:12px; top:12px; bottom:12px; border-radius:12px; overflow-y:auto; overflow-x:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06); z-index:1; }
         .sidebar .logo { padding:16px 16px; font-size:14px; font-weight:700; border-bottom:1px solid rgba(255,255,255,0.1); display:flex; flex-direction:column; align-items:center; gap:8px; }
         .sidebar .logo img { width:100%; height:auto; max-height:50px; object-fit:contain; }
@@ -527,31 +526,7 @@
         </div>
     </div>
 
-        </div>
-        <div class="dock-nav" id="dockNav">
-            <div class="dock-item admin-only" onclick="location.href='/dashboard'" title="数据大屏"><span class="di">📊</span><span class="dl">数据大屏</span><span class="dock-tip">数据大屏</span></div>
-            <div class="dock-item admin-only" onclick="switchPage('page-users',this)" title="人员管理"><span class="di">👥</span><span class="dl">人员管理</span><span class="dock-tip">人员管理</span></div>
-            <div class="dock-item" onclick="switchPage('page-attendance',this)" title="考勤记录"><span class="di">✅</span><span class="dl">考勤记录</span><span class="dock-tip">考勤记录</span></div>
-            <div class="dock-item admin-only" onclick="switchPage('page-materials',this)" title="物资列表"><span class="di">📦</span><span class="dl">物资列表</span><span class="dock-tip">物资列表</span></div>
-            <div class="dock-item admin-only" onclick="switchPage('page-borrow-return',this)" title="领取归还"><span class="di">🔄</span><span class="dl">领取归还</span><span class="dock-tip">领取归还</span></div>
-            <div class="dock-item admin-only" onclick="switchPage('page-records',this)" title="领用记录"><span class="di">📝</span><span class="dl">领用记录</span><span class="dock-tip">领用记录</span></div>
-            <div class="dock-item user-only" onclick="location.href='/dashboard'" title="数据大屏"><span class="di">📊</span><span class="dl">数据大屏</span><span class="dock-tip">数据大屏</span></div>
-            <div class="dock-item user-only" onclick="switchPage('page-borrow-return',this)" title="物资领取归还"><span class="di">🔄</span><span class="dl">物资领取归还</span><span class="dock-tip">物资领取归还</span></div>
-            <div class="dock-item user-only" onclick="switchPage('page-materials',this)" title="物资查询"><span class="di">🔍</span><span class="dl">物资查询</span><span class="dock-tip">物资查询</span></div>
-            <div class="dock-item user-only" onclick="switchPage('page-records',this)" title="我的记录"><span class="di">📋</span><span class="dl">我的记录</span><span class="dock-tip">我的记录</span></div>
-            <div class="dock-item" onclick="switchPage('page-skills',this)" title="技能文档"><span class="di">📚</span><span class="dl">技能文档</span><span class="dock-tip">技能文档</span></div>
-            <div class="dock-item" onclick="switchPage('page-tools',this)" title="小工具"><span class="di">🔧</span><span class="dl">小工具</span><span class="dock-tip">小工具</span></div>
-            <div class="dock-item" onclick="switchPage('page-activity-center',this)" title="活动中心"><span class="di">🎭</span><span class="dl">活动中心</span><span class="dock-tip">活动中心</span></div>
-            <div class="dock-item" onclick="goMobile()" title="手机端"><span class="di">📱</span><span class="dl">手机端</span><span class="dock-tip">手机端</span></div>
-        </div>
-        <div class="dock-user">
-            <span class="uname" id="userName">管理员</span>
-            <span class="role" id="userRole">管理员</span>
-            <div class="dock-item" onclick="openProfile()" title="个人设置"><span class="di">⚙️</span><span class="dock-tip">个人设置</span></div>
-            <div class="dock-item" onclick="logout()" title="退出登录"><span class="di">🚪</span><span class="dock-tip">退出登录</span></div>
-            <div class="dock-ver" onclick="openChangelog()">v<span id="sidebarVersion">1.4.0</span></div>
-        </div>
-    </div>
+
 
     <!-- 右侧内容 -->
     <div class="main">
