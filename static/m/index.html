@@ -1438,6 +1438,15 @@
                 </div>`;
             }).join('');
         }
+        function downloadMSkill(id) {
+            if (!token) { alert('请先登录'); return; }
+            const a = document.createElement('a');
+            a.href = '/api/skills/' + id + '/download?token=' + encodeURIComponent(token);
+            a.download = '';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
         function deleteMSkill(id, name) {
             if (!confirm('确定删除「' + name + '」吗？')) return;
             fetch('/api/skills/' + id, { method:'DELETE', headers:{'Authorization':'Bearer '+token} })
